@@ -39,11 +39,13 @@ export default defineConfig({
       dependencies: ["clerk-setup"],
     },
   ],
-  webServer: {
-    command: "mise run e2e-dev",
-    url: "http://localhost:8787/health",
-    reuseExistingServer: false,
-    gracefulShutdown: { signal: "SIGINT", timeout: 5_000 },
-    timeout: 180_000,
-  },
+  webServer: process.env.CI
+    ? undefined
+    : {
+        command: "mise run e2e-dev",
+        url: "http://localhost:8787/health",
+        reuseExistingServer: false,
+        gracefulShutdown: { signal: "SIGINT", timeout: 5_000 },
+        timeout: 180_000,
+      },
 });

@@ -103,3 +103,49 @@ jobs:
       - name: Dry-run Wrangler bundle
         working-directory: frontend
         run: wrangler deploy --config ${{ matrix.config }} --dry-run --outdir ${{ matrix.outdir }}
+
+  e2e:
+    name: Run E2E tests
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      E2E_CLERK_USER_EMAIL: go-tickets-e2e+clerk_test@example.com
+    steps:
+      - *checkout
+      - *setup-go
+      - *setup-node
+      - *setup-pnpm
+      - *install-frontend
+      - run: npm install --global wrangler@4.145.0
+      - run: pnpm --filter @go-tickets/e2e exec playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Prepare isolated local D1
+        run: |
+          printf 'CLERK_SECRET_KEY=%s\n' "$CLERK_SECRET_KEY" > .dev.vars
+          rm -rf .wrangler/e2e
+          wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/e2e
+          wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/e2e --file backend/scripts/seed-local.sql
+      - name: Build Public and Admin Workers
+        run: |
+          query='SELECT e.id AS id, e.name AS name, t.id AS ticket_type_id, t.name AS ticket_type_name FROM events e LEFT JOIN ticket_types t ON t.event_id = e.id ORDER BY e.id, t.id'
+          PUBLIC_EVENTS_JSON="$(wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/e2e --command "$query" --json)" pnpm --dir frontend --filter @go-tickets/public build
+          pnpm --dir frontend --filter @go-tickets/admin build
+          cd backend
+          go tool workers-assets-gen -mode=go -o build/public
+          mv build/public/worker.mjs build/public/worker-runtime.mjs
+          GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/public/app.wasm ./cmd/public
+          go tool workers-assets-gen -mode=go -o build/admin
+          mv build/admin/worker.mjs build/admin/worker-runtime.mjs
+          GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/admin/app.wasm ./cmd/admin
+      - name: Start Workers and run E2E tests
+        run: |
+          wrangler dev --config wrangler.admin.jsonc --local --port 8788 --inspector-port 9230 --persist-to .wrangler/e2e > "$RUNNER_TEMP/admin-worker.log" 2>&1 &
+          admin_pid=$!
+          wrangler dev --config wrangler.public.jsonc --local --port 8787 --persist-to .wrangler/e2e > "$RUNNER_TEMP/public-worker.log" 2>&1 &
+          public_pid=$!
+          trap 'kill "$public_pid" "$admin_pid" 2>/dev/null || true' EXIT
+          curl --retry 30 --retry-connrefused --retry-delay 1 --fail http://localhost:8787/health
+          pnpm --dir frontend --filter @go-tickets/e2e test

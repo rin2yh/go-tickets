@@ -60,7 +60,7 @@ pnpm --filter @go-tickets/e2e test
 mise run e2e
 ```
 
-Playwrightの失敗traceとレポートは`frontend/e2e/test-results`および`frontend/e2e/playwright-report`に出力され、Git管理対象外である。E2Eは`mise run test`とCIには含めていない。
+Playwrightの失敗traceとレポートは`frontend/e2e/test-results`および`frontend/e2e/playwright-report`に出力され、Git管理対象外である。GitHub Actionsでは`CLERK_SECRET_KEY` repository secretを使ってE2Eを実行し、forkからのpull requestではsecretを利用できないためE2E jobをskipする。E2Eは`mise run test`には含めない。
 
 ## チェック
 
