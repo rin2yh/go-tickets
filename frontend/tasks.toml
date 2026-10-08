@@ -1,0 +1,19 @@
+[test-frontend]
+description = "Run Clerk authentication tests"
+dir = "frontend"
+run = "pnpm test"
+
+[build-frontend]
+description = "Build browser assets with Vite"
+dir = "frontend"
+run = "pnpm run build"
+
+[dry-public-bundle]
+description = "Run Wrangler dry-run for the Public Worker"
+dir = "frontend"
+run = "pnpm run dry:public"
+
+[dry-admin-bundle]
+description = "Run Wrangler dry-run for the Admin Worker"
+dir = "frontend"
+run = "pnpm run dry:admin"
