@@ -56,7 +56,7 @@ mise run dry-admin
 
 `mise run test`はGoの単体テストとVitestによるClerk JWT検証テストを実行する。テスト鍵は外部アカウントへ接続せず、期限切れ・許可Origin不一致・偽装ヘッダー置換も確認する。Build taskは`backend/cmd/{public,admin}`のGo Wasmと`workers-go`起動資産を生成する。Viteは画面資産を`backend/build/web`へ出力し、WranglerはWorker wrapperとClerk SDKをbundleする。画面資産はWasmへ含めない。
 
-`test`は`test-go`と`test-frontend`をまとめる。`build-public`はbackend内の`generate-public-runtime`と`build-public-wasm`、frontendのVite buildを順に実行する。`build-admin`もruntime生成とWasm compileを分けている。各`dry-*`は対応するbuildの後にfrontend packageのWrangler dry-run scriptを呼ぶ。miseの`dir`はGoコマンドを`backend/`、pnpmコマンドを`frontend/`で動かすために指定する。
+`test`は`test-go`と`test-frontend`をまとめる。`build-public`はbackend内の`generate-public-runtime`と`build-public-wasm`、frontendのVite buildを順に実行する。`build-admin`もruntime生成とWasm compileを分けている。`workers-assets-gen`は`backend/go.mod`のtool directiveで管理し、`go tool workers-assets-gen`で実行する。各`dry-*`は対応するbuildの後にfrontend packageのWrangler dry-run scriptを呼ぶ。miseの`dir`はGoコマンドを`backend/`、pnpmコマンドを`frontend/`で動かすために指定する。
 
 ## 構成上の注意
 

@@ -22,7 +22,7 @@ run = [{ task = "test-go" }, { task = "test-frontend" }]
 description = "Generate the Public workers-go runtime wrapper"
 dir = "backend"
 run = [
-  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/public",
+  "go tool workers-assets-gen -mode=go -o build/public",
   "mv build/public/worker.mjs build/public/worker-runtime.mjs",
 ]
 
@@ -43,7 +43,7 @@ run = [
 description = "Generate the Admin workers-go runtime wrapper"
 dir = "backend"
 run = [
-  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/admin",
+  "go tool workers-assets-gen -mode=go -o build/admin",
   "mv build/admin/worker.mjs build/admin/worker-runtime.mjs",
 ]
 
