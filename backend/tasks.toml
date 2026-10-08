@@ -50,7 +50,7 @@ run = "wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local 
 [wrangler-dev-admin]
 description = "Run the Admin Worker locally"
 dir = "backend"
-run = "wrangler dev --config ../wrangler.admin.jsonc --local --port 8788 --persist-to ${E2E_D1_PERSIST:-../.wrangler/state}"
+run = "wrangler dev --config ../wrangler.admin.jsonc --local --port 8788 --inspector-port 9230 --persist-to ${E2E_D1_PERSIST:-../.wrangler/state}"
 
 [admin-add]
 description = "Grant D1 administrator access to a Clerk user ID"

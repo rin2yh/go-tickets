@@ -9,9 +9,12 @@ const wranglerConfig: {
   vars?: { CLERK_PUBLISHABLE_KEY?: string };
 } = JSON.parse(readFileSync(new URL("../../wrangler.public.jsonc", import.meta.url), "utf8"));
 process.env.CLERK_PUBLISHABLE_KEY ??= wranglerConfig.vars?.CLERK_PUBLISHABLE_KEY ?? "";
+process.env.E2E_CLERK_USER_EMAIL ??= "go-tickets-e2e+clerk_test@example.com";
 
-for (const name of ["CLERK_SECRET_KEY", "E2E_CLERK_USER_EMAIL"]) {
-  if (!process.env[name]) throw new Error(`Set ${name} before running the E2E suite.`);
+if (!process.env.CLERK_SECRET_KEY) {
+  throw new Error(
+    "Set CLERK_SECRET_KEY in .dev.vars or the process environment before running E2E.",
+  );
 }
 
 export default defineConfig({
@@ -40,6 +43,7 @@ export default defineConfig({
     command: "mise run e2e-dev",
     url: "http://localhost:8787/health",
     reuseExistingServer: false,
+    gracefulShutdown: { signal: "SIGINT", timeout: 5_000 },
     timeout: 180_000,
   },
 });

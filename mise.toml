@@ -31,7 +31,7 @@ mise run dev-public &
 public_pid=$!
 mise run dev-admin &
 admin_pid=$!
-trap 'kill "$public_pid" "$admin_pid" 2>/dev/null' INT TERM EXIT
+trap 'trap - INT TERM EXIT; kill -TERM -- -$$ 2>/dev/null || true' INT TERM EXIT
 wait
 '''
 
@@ -47,10 +47,13 @@ mise run d1-local-init
 [tasks.e2e-dev]
 description = "Prepare isolated E2E data and run the local Workers"
 run = '''
-node -e 'const net = require("node:net"); const server = net.createServer(); server.once("error", () => { console.error("E2E requires port 8787 to be free; stop the existing listener and retry."); process.exit(1); }); server.listen(8787, "127.0.0.1", () => server.close());'
+node -e 'const net = require("node:net"); for (const port of [8787, 8788]) { const server = net.createServer(); server.once("error", () => { console.error(`E2E requires port ${port} to be free; stop the existing listener and retry.`); process.exit(1); }); server.listen(port, "127.0.0.1", () => server.close()); }'
 export E2E_D1_PERSIST="../.wrangler/e2e"
 mise run e2e-prepare
-mise run dev
+mise run dev &
+dev_pid=$!
+trap 'trap - INT TERM EXIT; kill -TERM -- -$dev_pid 2>/dev/null || true; wait "$dev_pid" 2>/dev/null || true' INT TERM EXIT
+wait "$dev_pid"
 '''
 
 [tasks.test-e2e]
