@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  verify:
+  test:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -17,7 +17,23 @@ jobs:
       - run: mise exec -- pnpm --dir frontend install --frozen-lockfile
       - run: mise exec -- pnpm --dir frontend audit --audit-level=high
       - run: mise run test
-      - run: mise run build-public
-      - run: mise run build-admin
-      - run: mise run dry-public
-      - run: mise run dry-admin
+
+  worker:
+    name: ${{ matrix.name }} Worker
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - name: Public
+            task: dry-public
+          - name: Admin
+            task: dry-admin
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.3
+      - uses: jdx/mise-action@v5.0.0
+        with:
+          version: 2026.6.0
+      - run: mise exec -- pnpm --dir frontend install --frozen-lockfile
+      - run: mise run "${{ matrix.task }}"
