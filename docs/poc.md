@@ -8,28 +8,28 @@ Goカンファレンス向け600〜700人規模の無料チケット申込を想
 
 ## サイズと実行制限
 
-| 指標 | 認証なしPoC (Go 1.26.7) | Clerk版 (Go 1.26.7) | Clerk版 (Go 1.27.1) | Free上限・補足 |
-| --- | ---: | ---: | ---: | --- |
-| Public Wasm | 6,366,361 bytes | 6,367,870 bytes | 7,456,035 bytes (+1,088,165 / +17.08%) | Worker bundleに同梱 |
-| Admin Wasm | 6,207,639 bytes | 6,213,354 bytes | 7,542,541 bytes (+1,329,187 / +21.39%) | Worker bundleに同梱 |
-| Public Wrangler dry-run upload | 6,243.15 KiB | 6,295.09 KiB | 7,747.88 KiB (+1,452.79 KiB / +23.08%) | 64 MiB未満 |
-| Admin Wrangler dry-run upload | 6,088.14 KiB | 6,143.60 KiB | 7,831.77 KiB (+1,688.17 KiB / +27.48%) | 64 MiB未満 |
-| Public dry-run gzip表示 | 1,758.90 KiB | 1,772.79 KiB | 2,116.80 KiB | 制限判定は非圧縮upload値 |
-| Admin dry-run gzip表示 | 1,715.49 KiB | 1,729.93 KiB | 2,143.26 KiB | 制限判定は非圧縮upload値 |
+| 指標 | 認証なしPoC (Go 1.26.7) | Clerk JS版 (Go 1.26.7) | Clerk JS版 (Go 1.27.1) | Clerk Go SDK版 (Go 1.27.1) | Free上限・補足 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Public Wasm | 6,366,361 bytes | 6,367,870 bytes | 7,456,035 bytes | 13,790,659 bytes (+6,334,624 / +84.96%) | Worker bundleに同梱 |
+| Admin Wasm | 6,207,639 bytes | 6,213,354 bytes | 7,542,541 bytes | 13,825,341 bytes (+6,282,800 / +83.30%) | Worker bundleに同梱 |
+| Public Wrangler dry-run upload | 6,243.15 KiB | 6,295.09 KiB | 7,747.88 KiB | 13,490.39 KiB (+5,742.51 KiB / +74.12%) | 64 MiB未満 |
+| Admin Wrangler dry-run upload | 6,088.14 KiB | 6,143.60 KiB | 7,831.77 KiB | 13,524.02 KiB (+5,692.25 KiB / +72.68%) | 64 MiB未満 |
+| Public dry-run gzip表示 | 1,758.90 KiB | 1,772.79 KiB | 2,116.80 KiB | 3,506.62 KiB | 制限判定は非圧縮upload値 |
+| Admin dry-run gzip表示 | 1,715.49 KiB | 1,729.93 KiB | 2,143.26 KiB | 3,517.89 KiB | 制限判定は非圧縮upload値 |
 | 静的フロント資産 | 未導入 | `app.js` 1.8 MiB、Worker bundle外 | Vite React JS 350.98 kB (gzip 103.02 kB)、Worker bundle外 | 2026-10-08のローカルVite build値。Static Assetsで別配信 |
 | Cloudflare Worker起動時間 | 9 ms | Public 9 ms / Admin 7 ms | 未測定 | Free上限1秒。Go 1.27.1版は未deploy |
 | Cloudflare API CPU時間 | 未測定 | 未測定 | 未測定 | Free上限10 ms/要求 |
 | Workerメモリ | 未測定 | 未測定 | 未測定 | Free上限128 MB |
 
-Go 1.26.7のWasm値は同じGo版、`GOOS=js GOARCH=wasm`、`-trimpath -buildvcs=false -ldflags='-s -w'`で測定した履歴値である。Go 1.27.1のWasmとWrangler値は同じビルド設定で今回各1回計測した値である。現行dry-runはWrangler `4.145.0`でソースWorkerを直接bundleしており、旧列は別の手動bundle経路による履歴値である。Wranglerはmiseで固定する。FrontendのClerk標準UIはWasmへ含めていない。
+Go 1.26.7とGo 1.27.1は同じ`GOOS=js GOARCH=wasm`、`-trimpath -buildvcs=false -ldflags='-s -w'`で測定した。Clerk Go SDK版も同じ設定で各1回計測した。dry-runはWrangler `4.145.0`で実行した。過去のdry-run値は別のbundle経路による履歴値である。WasmとWrangler値は実測、括弧内の増加率は計算値である。FrontendのClerk標準UIはWasmへ含めていない。
 
-Cloudflare上の認証なしPoCのStartup Timeは9 ms、認証導入版はPublic 9 ms、Admin 7 msである。いずれもGo 1.26.7版のdeploy出力値である。ローカルWrangler 4.145.0で一度ずつ観測した経過時間は`GET /health` 53 ms、Public経由Admin health 39 ms、未認証申込401が3 msだった。これらは単発のローカルHTTP経過時間で、CPU時間やCloudflare実測値ではない。
+Cloudflare上の認証なしPoCのStartup Timeは9 ms、Clerk JS版はPublic 9 ms / Admin 7 msであり、Go 1.26.7版のdeploy出力値である。Clerk Go SDK版のCloudflare起動時間は未測定である。旧ローカルWranglerの単発値は`GET /health` 53 ms、Public経由Admin health 39 ms、未認証申込401が3 msである。Go SDK版の単発値はPublic health 76 ms、未認証申込401が8 ms、Admin health 62 ms、未認証管理API 6 msである。別の一時Workerでテスト署名鍵によるJWTを検証した経過時間は86 msだった。これらはローカルHTTP経過時間であり、CPU時間やCloudflare実測値ではない。
 
 ## 認証・API確認
 
-Clerk Backend SDKのJWT検証はテスト用RSA鍵を使ったNode単体テストで確認した。正常token、期限切れtoken、許可Origin不一致、クライアント偽装identity headerの置換をテストした。Go単体テストは未認証401、管理者以外403、本文`user_id`を無視して検証済みIDを保存へ渡す処理を確認した。
+Clerk Go SDK v2.7.0をGo Wasmへ組み込み、Public/Adminともビルドに成功した。Go単体テストではテスト用RSA鍵とローカルJWKS endpointを使い、正常token、署名不正、期限切れ、許可Origin不一致、`azp`欠落、無効なUser IDを検証した。管理者以外403、未認証401、リクエスト本文の`user_id`を無視する既存ロジックもGo単体テストで確認した。
 
-ローカルWranglerではPublic/AdminのGo Wasmが起動し、`GET /health`とPublic経由のAdmin healthが200、未認証申込が401、静的ログイン画面の配信を確認した。Clerk Development Instanceへの実ログインとWorkerへの実token送信は未確認である。認証導入版はCloudflareへdeploy済みである。両Workerに`CLERK_SECRET_KEY` Secret名があることは確認したが、URLが無効なためCloudflare上の認証・認可は未検証である。
+ローカルWrangler 4.145.0でGo Wasmを起動し、Public/Adminそれぞれのhealthが200、偽装User ID header付きの未認証申込と未認証管理APIが401を返すことを確認した。署名不正tokenも401となった。別の一時WorkerではローカルJWKS endpointが返す署名鍵をGo Wasmが取得し、テスト用署名JWTを204で受理した。Clerk Development Instanceの実tokenをGo Wasmへ送る検証、Cloudflare上の認証検証は未実施である。
 
 ## D1整合性
 
@@ -44,7 +44,10 @@ Cloudflare D1へは試験用の容量1 ticket typeへ直接SQLを実行し、異
 - workers-go D1 driverでは`database/sql.BeginTx`が未実装である。申込triggerは単一INSERT内で残席更新と登録を処理する。
 - ローカルD1を別々のWranglerプロセスから同時利用すると`SQLITE_BUSY_RECOVERY`が起きることがある。単一`mise run dev`で起動する。
 - Wrangler 4.145.0付属のworkerdが対応する最新compatibility dateは`2026-10-07`であったため、Worker設定をその日に固定した。
-- Clerk認証導入版はFreeのサイズ上限に対して十分小さい。一方、10 ms CPU上限の実測、実Clerk tokenのWorker検証、Cloudflare上のD1競合試験、メモリ測定は未実施である。
+- Clerk Go SDKのWasm化で各WorkerのWasmは約83〜85%増えた。Wrangler uploadは約13.2 MiBでFree上限64 MiBを下回る。
+- `workers-go`はrequestごとにGo Wasm runtimeを起動するため、Clerk Go SDKのプロセス内JWKS cacheはrequest間で共有されない。認証requestごとにClerk Backend APIからJWKSを取得する構成である。ClerkはJWKS endpointにendpoint-specific rate limitを設けていないが、認証時に外部ネットワーク往復が増える。Clerkの[API制限](https://clerk.com/docs/guides/how-clerk-works/system-limits)とWorkers上のCPU・起動時間を本番負荷で再確認する必要がある。
+- Clerk Go SDK版はFreeのサイズ上限に対して十分小さい。一方、10 ms CPU上限の実測、実Clerk tokenのWorker検証、Cloudflare上のD1競合試験、メモリ測定は未実施である。
+- Admin WorkerはPublicからのService Bindingを削除し、routeも無効のままである。Cloudflare上では外部から到達できない。利用時はAdmin専用routeとアクセス制御が必要である。
 - GitHub、Google、メールOTPのDashboard provider設定はソースから判定できない。Clerk Dashboardで有効化とOAuth設定を確認する。
 - Admin公開routeはなく、認証済みの管理者登録に使う運用手順だけを用意した。Secret名は登録済みだが値の検証、Clerk provider設定、Cloudflare上の認証試験が完了するまで非公開設定を保つ。
 

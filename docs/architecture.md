@@ -2,24 +2,24 @@
 
 ## ディレクトリと実行単位
 
-`backend/`にGo module、HTTP・D1処理、migrationをまとめる。Go Wasmのentry pointとWorker起動wrapperは`backend/cmd/public`と`backend/cmd/admin`で対にする。Clerk token検証は`backend/internal/auth`に置く。Wrangler設定はルートに置き、miseで管理するWranglerが両Workerをbuild・deployする。`frontend/`はブラウザー画面とVite/Vitestの依存を管理する。
+`backend/`にGo module、HTTP・D1処理、migrationをまとめる。Go Wasmのentry pointとWorker起動wrapperは`backend/cmd/public`と`backend/cmd/admin`で対にする。Clerk token検証は`backend/internal/auth`に置く。Wrangler設定はルートに置き、miseで管理するWranglerが両Workerをbuild・deployする。`frontend/`はブラウザー画面とViteの依存を管理する。
 
-- `backend/cmd/public`: Public Go WasmとClerk認証wrapper
-- `backend/cmd/admin`: Admin Go Wasmと独立したClerk認証wrapper
+- `backend/cmd/public`: Public Go WasmとWorker起動wrapper
+- `backend/cmd/admin`: Admin Go WasmとWorker起動wrapper
 - `backend/internal/tickets`: 共通`net/http` handlerとD1 SQLStore
-- `backend/internal/auth`: Worker境界でClerk JWTを検証するJavaScript実装。Goアプリケーション内部の認証済みidentity処理とは分離する。
+- `backend/internal/auth`: Clerk公式Go SDKによるJWT検証と認証済みUser IDのrequest context管理
 - `backend/migrations`: D1 schema
 - `frontend/index.html`、`frontend/app.tsx`: Clerk React SDKの標準UIと認証済みPublic APIを呼ぶ小さな画面
-- `frontend/package.json`: Clerk React SDK、React、TypeScript、Vite、Vitest、Oxlint、Oxfmtの依存管理。WranglerはGo側の作業でも使うためmiseで管理する。
+- `frontend/package.json`: Clerk React SDK、React、TypeScript、Vite、Oxlint、Oxfmtの依存管理。WranglerはGo側の作業でも使うためmiseで管理する。
 - frontendで共通部品が必要になった場合は`frontend/packages/`へ追加する。現時点では共通部品はない。
 
 ## 認証・認可
 
 ブラウザーでは`@clerk/react`の`ClerkProvider`、`SignIn`、`UserButton`を使う。ログイン状態、セッション更新、ログアウトはClerk React SDKに任せ、API呼び出し時に`useAuth()`からBearer tokenを取得する。ユーザー名は`useUser()`から表示し、メールアドレスは表示しない。ブラウザーの`localStorage`へ独自にtokenを保存しない。HTTPS上でAuthorization headerを使い、Cookie認証に伴うCSRFを避ける。OWASP Session Managementの要点であるセッションIDの保護、TLS、サーバー側検証、ログアウトのセッション失効と整合する。ただしClerk側のセッション運用と本番domain設定はClerk Dashboard上で別途確認する。
 
-Worker wrapperは公式`@clerk/backend`の`verifyToken()`で署名、期限、許可Origin (`azp`) を検証する。失敗時はfail closedで401を返す。成功後に外部の`X-Go-Tickets-Authenticated-User`値を削除し、JWTの`sub`を設定してGoへ渡す。Go handlerはこのヘッダーからUser IDを得るため、本文中の`user_id`は受け付けない。
+Goの`net/http` middlewareがClerk公式Go SDKでBearer tokenを検証する。SDKはClerk JWKS endpointから鍵を取得し、Workers GoのFetch API transportを通じて要求する。署名、発行者、期限、有効化時刻、許可Origin (`azp`) を検証し、失敗時は401を返す。User IDは検証済みJWTの`sub`からrequest contextに保存する。クライアント指定のUser ID headerやbodyは認証に使わない。JavaScript Worker層はPublic/Adminのroute振り分けとBindings連携を担当する。
 
-Public Workerは申込・キャンセルを認証必須とする。Admin WorkerはJWT検証に加え、D1の`administrators` tableを照会して管理者のみ状況APIを許可する。一般ユーザーは403、未認証は401である。Admin Workerは`workers_dev:false`かつroute未設定で、Public WorkerのService Binding経由でのみ到達できる設定とする。認証をCloudflare上で検証するまではPublicの公開routeも有効にしない。
+Public Workerは申込・キャンセルを認証必須とする。Admin WorkerはJWT検証に加え、D1の`administrators` tableを照会して管理者のみ状況APIを許可する。一般ユーザーは403、未認証は401である。PublicからAdminへのService Bindingは持たせない。Admin Workerは`workers_dev:false`かつroute未設定のため、Cloudflare上では外部から到達できない。利用時は認証を確認したうえでAdmin用routeとアクセス制御を別途設定する。
 
 管理者を追加する公開APIは提供しない。運用者がCloudflare D1からClerk User IDを直接登録する。一般のユーザーIDと管理者IDの2権限だけを持つ。
 
@@ -32,6 +32,6 @@ Public Workerは申込・キャンセルを認証必須とする。Admin Worker�
 ## 技術上の制約
 
 - 標準Go 1.27.1と`GOOS=js GOARCH=wasm`を使い、TinyGoへは切り替えていない。
-- WranglerがClerk Backend SDKとWorker wrapperをbundleし、Go Wasmは認証済みID以降の認可とビジネスロジックを担当する。
+- Clerk公式Go SDKがGo Wasm内でJWT検証を行う。JavaScript Worker層は起動とCloudflare Bindings連携に使う。
 - `frontend/`はTypeScript、Vite、React Compilerでビルドする。画面資産は`backend/build/web`として別配信し、Wasmへ含めない。
 - D1 triggerはSQLite互換の原子処理を利用する。Workers上での高負荷並行アクセス時の実挙動はCloudflare上の統合試験で再確認する。

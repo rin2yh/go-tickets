@@ -32,15 +32,22 @@ mise run d1-local-init
 mise run dev
 ```
 
-`d1-local-init`は`backend/migrations/`のmigrationを適用し、定員1のローカル用イベントをseedする。`dev`はGo WasmとViteのfrontend資産をビルドし、WranglerがWorker wrapperをbundleする。Publicを主Worker、Adminをservice binding先として1つのWranglerプロセスで起動する。ブラウザーで`http://localhost:8787`を開いてClerk UIを試す。Clerkの実セッションがない状態では、申込・キャンセルAPIは401を返す。
+`d1-local-init`は`backend/migrations/`のmigrationを適用し、定員1のローカル用イベントをseedする。`dev`はGo WasmとViteのfrontend資産をビルドし、Public Workerを起動する。ブラウザーで`http://localhost:8787`を開いてClerk UIを試す。Clerkの実セッションがない状態では、申込・キャンセルAPIは401を返す。
+
+Admin Workerは別ターミナルで起動する。ローカルでは`http://localhost:8788`から直接APIを試せる。
+
+```sh
+mise run dev-admin
+```
 
 ```sh
 curl http://localhost:8787/health
 curl -i -X POST http://localhost:8787/registrations -H 'Content-Type: application/json' -d '{"ticket_type_id":1,"user_id":"ignored"}'
-curl http://127.0.0.1:8787/admin/health
+curl http://127.0.0.1:8788/health
+curl -i http://127.0.0.1:8788/ticket-types/1/status
 ```
 
-Public Workerが通常の入口であり、Admin WorkerはPublicのservice binding経由で到達する。PublicのAdmin状況APIも同じservice bindingを使う。ローカルD1を複数Wranglerプロセスから同時に開くと`SQLITE_BUSY`系エラーが起きる場合があるため、単一`mise run dev`を使う。
+Public Workerは申込・キャンセルを扱い、Admin Workerは管理APIを扱う。PublicからAdminへのService Bindingは設定しない。両Workerを同時に起動した場合、ローカルD1への同時書き込みで`SQLITE_BUSY`系エラーが起きる場合がある。
 
 テスト用レコードを削除する場合はWranglerを停止後、次を実行する。これはローカルD1のみを対象とする。
 
@@ -63,14 +70,14 @@ mise run dry-public
 mise run dry-admin
 ```
 
-`mise run lint-go`はgolangci-lintでGo packageを検査する。frontendの`lint`はOxlint、`typecheck`はTypeScript、`format:check`はOxfmtを実行する。React CompilerはViteのReact pluginとBabel presetを通じてTSXを最適化する。`mise run test`はGoの単体テストとVitestによるClerk JWT検証テストを実行する。テスト鍵は外部アカウントへ接続せず、期限切れ・許可Origin不一致・偽装ヘッダー置換も確認する。Build taskは`backend/cmd/{public,admin}`のGo Wasmと`workers-go`起動資産を生成する。Viteは画面資産を`backend/build/web`へ出力し、WranglerはWorker wrapperとClerk SDKをbundleする。画面資産はWasmへ含めない。
+`mise run lint-go`はgolangci-lintでGo packageを検査する。frontendの`lint`はOxlint、`typecheck`はTypeScript、`format:check`はOxfmtを実行する。React CompilerはViteのReact pluginとBabel presetを通じてTSXを最適化する。`mise run test`はGo単体テストを実行する。Clerk認証テストはテスト用RSA鍵とローカルJWKS endpointを使い、正常token、期限切れ、署名不正、許可Origin不一致、`azp`欠落を検証する。Clerkや外部ネットワークには接続しない。Build taskは`backend/cmd/{public,admin}`のGo Wasmと`workers-go`起動資産を生成する。Viteは画面資産を`backend/build/web`へ出力し、WranglerはWorker wrapperをbundleする。画面資産はWasmへ含めない。
 
-`test`は`test-go`と`test-frontend`をまとめる。`build-public`はbackend内の`generate-public-runtime`と`build-public-wasm`、frontendのVite buildを順に実行する。`build-admin`もruntime生成とWasm compileを分けている。`workers-assets-gen`は`backend/go.mod`のtool directiveで管理し、`go tool workers-assets-gen`で実行する。各`dry-*`は対応するbuildの後にfrontend packageのWrangler dry-run taskを呼ぶ。mise taskの`dir`はGoコマンドを`backend/`、pnpmコマンドを`frontend/`で動かすために指定する。
+`test`は`test-go`を実行する。`build-public`はbackend内の`generate-public-runtime`と`build-public-wasm`、frontendのVite buildを順に実行する。`build-admin`もruntime生成とWasm compileを分けている。`workers-assets-gen`は`backend/go.mod`のtool directiveで管理し、`go tool workers-assets-gen`で実行する。各`dry-*`は対応するbuildの後にfrontend packageのWrangler dry-run taskを呼ぶ。mise taskの`dir`はGoコマンドを`backend/`、pnpmコマンドを`frontend/`で動かすために指定する。
 
 ## 構成上の注意
 
 - GoとCloudflareの実装・関連taskは`backend/`、ブラウザー画面・TypeScript依存・関連taskは`frontend/`で管理する。全体のツール固定とtask orchestrationはルートの`mise.toml`に置く。
-- `backend/internal/auth`のJWT検証は公式`@clerk/backend`の`verifyToken()`を使い、WranglerがWorker bundleへ含める。Go実装の共通ロジックは`backend/internal/tickets`に置く。
+- Clerk JWTの検証は`backend/internal/auth`のGo middlewareが行う。認証テストは`mise run test-go`で実行する。
 - Clerk Secret Keyは`.dev.vars`またはCloudflare Worker Secretへ登録する。`vars`、ソース、lockfileへ保存しない。
 - Admin権限を付ける公開APIはない。Cloudflareへ適用するときは運用者がD1へClerk User IDを直接登録する。
 - D1の書き込み競合はSQLite triggerと単一INSERT/UPDATEで処理する。workers-goのD1 connectorは標準Go実行環境では動かないため、Cloudflare Binding連携と並行申込のローカル・リモート試験は別途扱う。

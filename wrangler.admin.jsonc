@@ -8,7 +8,6 @@
     "CLERK_PUBLISHABLE_KEY": "pk_test_cGxlYXNpbmctc3F1aWQtNzE4OS5jbGVyay5hY2NvdW50cy5kZXYk",
     "CLERK_AUTHORIZED_PARTIES": "http://localhost:8787"
   },
-  "alias": { "@clerk/backend": "./frontend/node_modules/@clerk/backend" },
   "d1_databases": [{
     "binding": "DB",
     "database_name": "go-tickets",

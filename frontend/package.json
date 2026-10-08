@@ -8,7 +8,6 @@
     "typecheck": "tsc --noEmit",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "test": "vitest run ../backend/internal/auth/auth.test.mjs",
     "dry:public": "wrangler deploy --config ../wrangler.public.jsonc --dry-run --outdir ../backend/build/dry-public",
     "dry:admin": "wrangler deploy --config ../wrangler.admin.jsonc --dry-run --outdir ../backend/build/dry-admin"
   },
@@ -18,7 +17,6 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@clerk/backend": "3.21.1",
     "@rolldown/plugin-babel": "0.2.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -27,8 +25,7 @@
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0",
     "typescript": "7.0.2",
-    "vite": "8.3.1",
-    "vitest": "5.0.3"
+    "vite": "8.3.1"
   },
   "packageManager": "pnpm@11.5.1"
 }

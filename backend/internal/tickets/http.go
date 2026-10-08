@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 )
 
 func Health(mux *http.ServeMux) {
@@ -14,7 +13,7 @@ func Health(mux *http.ServeMux) {
 	})
 }
 
-func PublicHandler(store Store) http.Handler {
+func PublicHandler(store Store, authenticatedUserID func(*http.Request) string) http.Handler {
 	mux := http.NewServeMux()
 	Health(mux)
 	mux.HandleFunc("POST /registrations", func(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +65,7 @@ func PublicHandler(store Store) http.Handler {
 	return mux
 }
 
-func AdminHandler(store Store) http.Handler {
+func AdminHandler(store Store, authenticatedUserID func(*http.Request) string) http.Handler {
 	mux := http.NewServeMux()
 	Health(mux)
 	mux.HandleFunc("GET /ticket-types/{id}/status", func(w http.ResponseWriter, r *http.Request) {
@@ -99,23 +98,6 @@ func AdminHandler(store Store) http.Handler {
 		}
 	})
 	return mux
-}
-
-const authenticatedUserHeader = "X-Go-Tickets-Authenticated-User"
-
-// This header is trusted only behind the JavaScript Worker wrapper, which removes
-// client-supplied values and sets it after verifying the Clerk session token.
-func authenticatedUserID(r *http.Request) string {
-	userID := strings.TrimSpace(r.Header.Get(authenticatedUserHeader))
-	if len(userID) < 6 || len(userID) > 128 || !strings.HasPrefix(userID, "user_") {
-		return ""
-	}
-	for _, ch := range userID[5:] {
-		if (ch < 'a' || ch > 'z') && (ch < 'A' || ch > 'Z') && (ch < '0' || ch > '9') {
-			return ""
-		}
-	}
-	return userID
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

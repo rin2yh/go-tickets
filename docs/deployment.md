@@ -52,9 +52,9 @@ mise exec -- wrangler deploy --config wrangler.public.jsonc
 
 ## 公開範囲
 
-Adminは`workers_dev:false`、`preview_urls:false`、route未設定のままにする。Public設定にもrouteはない。PublicからAdminへのService Bindingのみを構成しているため、Admin APIに外部URLを持たせない。Clerk token検証と管理者D1照会をCloudflare上で確認できるまでは公開routeや`workers_dev`を有効にしない。
+Adminは`workers_dev:false`、`preview_urls:false`、route未設定のままにする。Public設定にもrouteはなく、PublicからAdminへのService Bindingも設定しない。そのためCloudflare上ではAdmin APIに外部から到達できない。Admin APIを使う前に、Clerk認証・D1管理者照会を確認し、Admin専用routeとアクセス制御を用意する。
 
-公開前に、Cloudflare上で正常・期限切れ・不正token、一般ユーザー403、D1管理者成功、Public経由Admin要求、申込競合を確認する。その後Publicの公開Originだけを有効化し、`CLERK_AUTHORIZED_PARTIES`をそのOriginに固定する。公開OriginはClerk Dashboardのprovider設定、実ログイン、認証済みWorker requestが未確認のため有効化していない。Secret名の存在だけではSecret値の正しさを保証しない。
+公開前に、Cloudflare上で正常・期限切れ・不正token、一般ユーザー403、D1管理者成功、申込競合を確認する。その後Publicの公開Originだけを有効化し、`CLERK_AUTHORIZED_PARTIES`をそのOriginに固定する。Adminを公開する場合は別の専用routeとアクセス制御が必要である。Clerk Dashboardのprovider設定、実ログイン、認証済みWorker requestが未確認のため、公開routeは有効にしていない。Secret名の存在だけではSecret値の正しさを保証しない。
 
 ## 管理者登録
 

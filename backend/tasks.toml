@@ -47,6 +47,11 @@ description = "Remove local D1 test registrations"
 dir = "backend"
 run = "wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to ../.wrangler/state --file scripts/cleanup-local.sql"
 
+[wrangler-dev-admin]
+description = "Run the Admin Worker locally"
+dir = "backend"
+run = "wrangler dev --config ../wrangler.admin.jsonc --local --port 8788 --persist-to ../.wrangler/state"
+
 [admin-add]
 description = "Grant D1 administrator access to a Clerk user ID"
 dir = "backend"

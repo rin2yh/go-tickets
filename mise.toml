@@ -12,8 +12,8 @@ includes = [
 ]
 
 [tasks.test]
-description = "Run Go and frontend tests"
-run = [{ task = "test-go" }, { task = "test-frontend" }]
+description = "Run Go tests"
+run = [{ task = "test-go" }]
 
 [tasks.build-public]
 description = "Build Public Worker and frontend assets"
@@ -28,15 +28,18 @@ description = "Build the Admin Worker"
 run = [{ task = "generate-admin-runtime" }, { task = "build-admin-wasm" }]
 
 [tasks.dev]
-description = "Run Public and Admin Workers locally through one Wrangler process"
+description = "Run the Public Worker locally"
 run = [
   { task = "build-public" },
-  { task = "build-admin" },
   { task = "wrangler-dev" },
 ]
 
+[tasks.dev-admin]
+description = "Run the Admin Worker locally"
+run = [{ task = "build-admin" }, { task = "wrangler-dev-admin" }]
+
 [tasks.wrangler-dev]
-run = "wrangler dev -c wrangler.public.jsonc -c wrangler.admin.jsonc --local --port 8787 --persist-to .wrangler/state"
+run = "wrangler dev -c wrangler.public.jsonc --local --port 8787 --persist-to .wrangler/state"
 
 [tasks.dry-public]
 description = "Build and validate the Public Worker bundle"
