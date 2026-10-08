@@ -20,7 +20,7 @@ Goのカンファレンス（600〜700人規模）の無料チケット申込を
 ```sh
 mise install
 mise exec -- npm ci
-mise exec -- npx wrangler d1 migrations apply go-tickets-poc --config wrangler.public.jsonc --local --persist-to .wrangler/state
+mise exec -- npx wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/state
 mise exec -- npm run dev:both
 ```
 
@@ -56,18 +56,18 @@ Wranglerの間接依存 `sharp` は、監査で報告された脆弱性を避け
 
 ## D1作成・マイグレーション・デプロイ
 
-Cloudflareへデプロイする場合だけ、**新しいPoC専用D1**を作成します。両設定ファイル内のダミーID `00000000-0000-0000-0000-000000000001` を、新DBの同じ実IDに置き換えます。既存DBは使用しません。
+このリポジトリのCloudflareリソースは、将来の本番環境のベースとして使います。既存リソースをPoC用に複製せず、`go-tickets` D1を1つ作成し、`go-tickets-public` / `go-tickets-admin` が共有します。両設定ファイル内のダミーID `00000000-0000-0000-0000-000000000001` を作成したD1の実IDに置き換えます。
 
 ```sh
-mise exec -- npx wrangler d1 create go-tickets-poc
-mise exec -- npx wrangler d1 migrations apply go-tickets-poc --config wrangler.public.jsonc --remote
+mise exec -- npx wrangler d1 create go-tickets
+mise exec -- npx wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --remote
 mise exec -- npm run build:public
 mise exec -- npm run build:admin
 mise exec -- npx wrangler deploy --config wrangler.public.jsonc
 mise exec -- npx wrangler deploy --config wrangler.admin.jsonc
 ```
 
-現設定は両Workerとも `workers_dev: false` で、公開ルートを指定していません。認証のないAdmin APIをインターネットへ公開しないためです。Publicも本PoC段階では公開しません。実際のデプロイと公開前に、Cloudflareアカウント、対象DB、公開ルート、認証方針を確認してください。
+現設定は両Workerとも `workers_dev: false`、`preview_urls: false` で、公開ルートを指定していません。workers.dev本番URLとVersion/Preview URLの両方を無効にし、認証のないAdmin APIを公開しない構成です。Publicも同様に外部公開しません。外部検証が必要になった段階で、Cloudflare Accessなどの認証を先に構成してから到達経路を追加してください。
 
 ## 定員の整合性
 
