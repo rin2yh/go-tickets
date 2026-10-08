@@ -43,9 +43,21 @@
     ],
     "no-restricted-properties": [
       "error",
-      { "object": "React", "property": "memo", "message": "React Compiler handles memoization automatically. Remove this manual memoization." },
-      { "object": "React", "property": "useCallback", "message": "React Compiler handles memoization automatically. Remove this manual memoization." },
-      { "object": "React", "property": "useMemo", "message": "React Compiler handles memoization automatically. Remove this manual memoization." }
+      {
+        "object": "React",
+        "property": "memo",
+        "message": "React Compiler handles memoization automatically. Remove this manual memoization."
+      },
+      {
+        "object": "React",
+        "property": "useCallback",
+        "message": "React Compiler handles memoization automatically. Remove this manual memoization."
+      },
+      {
+        "object": "React",
+        "property": "useMemo",
+        "message": "React Compiler handles memoization automatically. Remove this manual memoization."
+      }
     ],
     "complexity": ["error", 10],
     "eqeqeq": ["error", "always", { "null": "ignore" }],
