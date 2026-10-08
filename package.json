@@ -19,5 +19,8 @@
   "type": "commonjs",
   "devDependencies": {
     "wrangler": "4.148.0"
+  },
+  "overrides": {
+    "sharp": "0.35.5"
   }
 }

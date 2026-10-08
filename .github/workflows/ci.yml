@@ -15,6 +15,7 @@ jobs:
         with:
           version: 2026.6.0
       - run: mise exec -- npm ci
+      - run: mise exec -- npm audit --audit-level=high
       - run: mise exec -- go test ./...
       - run: mise exec -- npm run build:public
       - run: mise exec -- npm run build:admin
