@@ -1,17 +1,35 @@
 ---
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { EventDetails } from "../../components/ClerkIsland";
+import { ClerkIsland, TicketAvailability } from "../../components/ClerkIsland";
+import { getEvents } from "../../data/events";
 
 export function getStaticPaths() {
-  const configuredIds = (import.meta.env.PUBLIC_EVENT_IDS ?? "")
-    .split(",")
-    .map((id: string) => id.trim())
-    .filter((id: string) => /^\d+$/.test(id));
-  return configuredIds.map((eventId: string) => ({ params: { eventId } }));
+  return getEvents().map((event) => ({ params: { eventId: String(event.id) }, props: { event } }));
 }
-const { eventId = "" } = Astro.params;
+
+const { event } = Astro.props;
 ---
-<SiteLayout title="イベント詳細">
-  <h1>イベント詳細</h1>
-  <EventDetails client:load eventId={eventId} />
+<SiteLayout title={event.name}>
+  <h1>{event.name}</h1>
+  <h2>チケット</h2>
+  {event.ticket_types.length === 0 ? (
+    <p>申込可能なチケットはありません。</p>
+  ) : (
+    <ul>
+      {event.ticket_types.map((ticket) => (
+        <li>
+          <strong>{ticket.name}</strong>
+          <TicketAvailability client:load eventId={event.id} ticketTypeId={ticket.id} />
+        </li>
+      ))}
+    </ul>
+  )}
+  {event.ticket_types.length > 0 && (
+    <ClerkIsland
+      client:load
+      mode="event"
+      eventId={event.id}
+      ticketTypes={event.ticket_types.map(({ id, name }) => ({ id, name }))}
+    />
+  )}
 </SiteLayout>

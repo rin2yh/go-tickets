@@ -1,7 +1,20 @@
 [build-public-assets]
 description = "Build the Public Astro static site"
 dir = "frontend"
-run = "pnpm run build:public"
+run = '''
+set -eu
+query='SELECT e.id AS id, e.name AS name, t.id AS ticket_type_id, t.name AS ticket_type_name FROM events e LEFT JOIN ticket_types t ON t.event_id = e.id ORDER BY e.id, t.id'
+case "${PUBLIC_EVENTS_SOURCE:-local}" in
+  local)
+    events_json="$(wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to "${PUBLIC_D1_PERSIST:-../.wrangler/state}" --command "$query" --json)"
+    ;;
+  remote)
+    events_json="$(wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --remote --command "$query" --json)"
+    ;;
+  *) echo "PUBLIC_EVENTS_SOURCE must be local or remote" >&2; exit 2 ;;
+esac
+PUBLIC_EVENTS_JSON="$events_json" pnpm run build:public
+'''
 
 [build-admin-assets]
 description = "Build the Admin React SPA"
@@ -32,3 +45,14 @@ run = "wrangler deploy --config ../wrangler.public.jsonc --dry-run --outdir ../b
 description = "Run Wrangler dry-run for the Admin Worker"
 dir = "frontend"
 run = "wrangler deploy --config ../wrangler.admin.jsonc --dry-run --outdir ../backend/build/dry-admin"
+
+[verify-public-ssg]
+description = "Verify D1 event data is rendered into generated Public HTML"
+dir = "."
+run = '''
+set -eu
+grep -q 'Go Conference Local Test' backend/build/public-assets/index.html
+grep -q 'Go Conference Local Test' backend/build/public-assets/events/1/index.html
+grep -q 'Free Local Test' backend/build/public-assets/events/1/index.html
+test ! -e backend/build/public-assets/events/999/index.html
+'''

@@ -65,3 +65,8 @@ wrangler d1 execute go-tickets --remote --config ../wrangler.admin.jsonc --comma
 description = "Run the Public Worker locally"
 dir = "backend"
 run = "wrangler dev --config ../wrangler.public.jsonc --local --port 8787 --persist-to ../.wrangler/state"
+
+[test-public-routing]
+description = "Test Public Worker routing for generated and missing event pages"
+dir = "backend"
+run = "mise run generate-public-runtime && node --test cmd/public/worker.test.mjs"

@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { ClerkProvider, SignIn, UserButton, useAuth, useUser } from "@clerk/react";
 
-interface EventSummary {
+interface TicketType {
   id: number;
   name: string;
-  ticket_types: { id: number; name: string; capacity: number; reserved: number }[];
 }
 interface MyRegistration {
   ticket_type_id: number;
@@ -23,9 +22,11 @@ async function clerkKey(): Promise<string> {
 export function ClerkIsland({
   mode,
   eventId = 0,
+  ticketTypes = [],
 }: {
   mode: "tickets" | "event";
   eventId?: number;
+  ticketTypes?: TicketType[];
 }) {
   const [key, setKey] = useState("");
   const [error, setError] = useState("");
@@ -43,19 +44,35 @@ export function ClerkIsland({
   if (!key) return <p aria-live="polite">認証を読み込んでいます</p>;
   return (
     <ClerkProvider publishableKey={key}>
-      <AuthenticatedContent mode={mode} eventId={eventId} />
+      <AuthenticatedContent mode={mode} eventId={eventId} ticketTypes={ticketTypes} />
     </ClerkProvider>
   );
 }
 
-function AuthenticatedContent({ mode, eventId }: { mode: "tickets" | "event"; eventId: number }) {
+function AuthenticatedContent({
+  mode,
+  eventId,
+  ticketTypes,
+}: {
+  mode: "tickets" | "event";
+  eventId: number;
+  ticketTypes: TicketType[];
+}) {
   const { isLoaded, isSignedIn } = useAuth();
   if (!isLoaded) return <p aria-live="polite">ログイン状態を確認しています</p>;
   if (!isSignedIn) return <SignIn routing="hash" />;
-  return <TicketActions mode={mode} eventId={eventId} />;
+  return <TicketActions mode={mode} eventId={eventId} ticketTypes={ticketTypes} />;
 }
 
-function TicketActions({ mode, eventId }: { mode: "tickets" | "event"; eventId: number }) {
+function TicketActions({
+  mode,
+  eventId,
+  ticketTypes,
+}: {
+  mode: "tickets" | "event";
+  eventId: number;
+  ticketTypes: TicketType[];
+}) {
   const { getToken } = useAuth();
   const { user } = useUser();
   const [items, setItems] = useState<MyRegistration[]>([]);
@@ -107,11 +124,16 @@ function TicketActions({ mode, eventId }: { mode: "tickets" | "event"; eventId: 
     <section>
       <p>ログイン中: {userName}</p>
       <UserButton />
-      {mode === "event" && eventId > 0 && (
-        <button disabled={busy} onClick={() => void register("register")}>
-          申込
-        </button>
-      )}
+      {mode === "event" &&
+        ticketTypes.map((ticket) => (
+          <button
+            key={ticket.id}
+            disabled={busy}
+            onClick={() => void register("register", ticket.id)}
+          >
+            {ticket.name}に申込
+          </button>
+        ))}
       {mode === "tickets" && (
         <ul>
           {items.map((item) => (
@@ -146,60 +168,30 @@ async function refreshTickets(
   if (response.ok) setItems(await response.json());
 }
 
-export function EventList() {
-  const [events, setEvents] = useState<EventSummary[]>([]);
+export function TicketAvailability({
+  eventId,
+  ticketTypeId,
+}: {
+  eventId: number;
+  ticketTypeId: number;
+}) {
+  const [availability, setAvailability] = useState<{ capacity: number; reserved: number } | null>(
+    null,
+  );
   const [error, setError] = useState("");
   useEffect(() => {
-    void fetch("/api/events")
+    void fetch(`/api/events/${eventId}`)
       .then(async (response) => {
-        if (!response.ok) throw new Error(`イベント情報を取得できません (${response.status})`);
-        setEvents(await response.json());
+        if (!response.ok) throw new Error(`残席を取得できません (${response.status})`);
+        const event: { ticket_types: { id: number; capacity: number; reserved: number }[] } =
+          await response.json();
+        const ticket = event.ticket_types.find((item) => item.id === ticketTypeId);
+        if (!ticket) throw new Error("チケット情報が見つかりません。");
+        setAvailability({ capacity: ticket.capacity, reserved: ticket.reserved });
       })
       .catch((cause: Error) => setError(cause.message));
-  }, []);
-  if (error) return <p role="alert">{error}</p>;
-  if (events.length === 0) return <p>現在、公開中のイベントはありません。</p>;
-  return (
-    <ul>
-      {events.map((event) => (
-        <li key={event.id}>
-          <a href={`/events/${event.id}`}>{event.name}</a>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-export function EventDetails({ eventId }: { eventId: string }) {
-  const [event, setEvent] = useState<EventSummary | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const requestedId = eventId || window.location.pathname.split("/").filter(Boolean).at(-1) || "";
-    void fetch(`/api/events/${encodeURIComponent(requestedId)}`)
-      .then(async (response) => {
-        if (!response.ok)
-          throw new Error(
-            response.status === 404
-              ? "イベントが見つかりません。"
-              : `イベント情報を取得できません (${response.status})`,
-          );
-        setEvent(await response.json());
-      })
-      .catch((cause: Error) => setError(cause.message));
-  }, [eventId]);
-  if (error) return <p role="alert">{error}</p>;
-  if (!event) return <p aria-live="polite">イベント情報を読み込んでいます</p>;
-  return (
-    <>
-      <h2>{event.name}</h2>
-      <ul>
-        {event.ticket_types.map((ticket) => (
-          <li key={ticket.id}>
-            {ticket.name}: 残席 {ticket.capacity - ticket.reserved}
-          </li>
-        ))}
-      </ul>
-      {event.ticket_types[0] && <ClerkIsland mode="event" eventId={event.ticket_types[0].id} />}
-    </>
-  );
+  }, [eventId, ticketTypeId]);
+  if (error) return <span role="alert">{error}</span>;
+  if (!availability) return <span aria-live="polite">残席を確認中</span>;
+  return <span>残席 {Math.max(0, availability.capacity - availability.reserved)}</span>;
 }

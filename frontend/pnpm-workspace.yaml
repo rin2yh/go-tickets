@@ -11,3 +11,9 @@ allowBuilds:
   browser-tabs-lock: false
   core-js: false
   sharp: false
+
+minimumReleaseAgeExclude:
+  - http-cache-semantics@4.3.0
+
+overrides:
+  http-cache-semantics@<=4.2.0: 4.3.0

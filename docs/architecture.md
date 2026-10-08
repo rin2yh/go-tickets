@@ -9,9 +9,11 @@
 
 ## Public SSGとD1
 
-Astroは`output: "static"`でビルドし、リモートD1には接続しない。ページのHTMLシェルを静的生成し、Clerk標準UIはReact Island内でブラウザーから起動する。イベント名、チケット種別、残席数は公開Go APIの`GET /api/events`と`GET /api/events/{eventId}`からD1を読み、一覧・詳細のReact Islandsで表示する。HTMLの`/events/{eventId}`とはパスを分けてある。`GET /registrations`は認証済み利用者本人の申込だけを返す。
+Astroは`output: "static"`でビルドする。ビルドタスクはWrangler CLIでPublic Workerに設定したD1 databaseからイベント名とチケット種別を一度取得し、同じ結果をAstro一覧と`getStaticPaths()`へ渡す。ローカルビルドはlocal D1、デプロイ用ビルドは`PUBLIC_EVENTS_SOURCE=remote`でremote D1を使う。APIサーバー起動、Clerk認証、直接のD1 REST APIは不要であり、D1を別のデータファイルに複製しない。
 
-Astroの動的詳細ページは`PUBLIC_EVENT_IDS`に指定されたIDだけSSGする。環境変数が空の場合は共通イベント詳細シェルをWorkerが返し、IslandがURLのIDを使ってAPIから実データを取得する。WorkerはStatic AssetsのHTML自動redirectを無効にし、`/`、`/tickets`、`/events/{eventId}`、`/admin/*`を対応する`index.html`へ明示的に書き換える。イベントはDBの値だけを表示し、存在しないイベントをサンプル表示しない。
+イベント名とチケット種別はAstroがHTMLへ出力するため、JavaScriptなしでも読める。残席数は変動情報のため、イベント詳細のReact Islandが公開Go APIの`GET /api/events/{eventId}`から取得する。Clerk標準UI、申込・キャンセル、`GET /registrations`によるマイチケット表示もReact Islandsに置く。SSGはビルド時点の公開情報を固定するため、イベントの作成・変更後はPublicを再ビルド・再デプロイする。
+
+詳細ページはビルド時にD1に存在したIDだけ生成する。存在しないIDに汎用の詳細シェルを返さず404とする。WorkerはStatic AssetsのHTML自動redirectを無効にし、`/`、`/tickets`、`/events/{eventId}`、`/admin/*`を対応する`index.html`へ明示的に書き換える。
 
 ## Clerk認証
 

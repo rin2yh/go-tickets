@@ -1,9 +1,0 @@
----
-import SiteLayout from "../../layouts/SiteLayout.astro";
-import { EventDetails } from "../../components/ClerkIsland";
-const eventId = "";
----
-<SiteLayout title="イベント詳細">
-  <h1>イベント詳細</h1>
-  <EventDetails client:load eventId={eventId} />
-</SiteLayout>

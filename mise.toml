@@ -13,7 +13,7 @@ includes = [
 
 [tasks.test]
 description = "Run Go tests"
-run = [{ task = "test-go" }]
+run = [{ task = "test-go" }, { task = "test-public-routing" }]
 
 [tasks.build-public]
 description = "Build Public Worker and Astro assets"

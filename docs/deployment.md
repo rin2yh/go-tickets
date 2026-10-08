@@ -14,7 +14,7 @@ Admin WorkerはGo APIとD1 Bindingだけを持ち、`workers_dev:false`、`previ
 mise exec -- wrangler d1 migrations apply go-tickets --remote --config wrangler.public.jsonc
 ```
 
-新しいmigrationがある場合だけ適用する。今回の画面/API追加ではスキーマ変更はない。デプロイ前に`mise run dry-public`と`mise run dry-admin`を実行する。
+新しいmigrationがある場合だけ適用する。今回の画面/API追加ではスキーマ変更はない。デプロイ前に`PUBLIC_EVENTS_SOURCE=remote mise run dry-public`と`mise run dry-admin`を実行する。Publicのビルドはremote D1から公開情報を取得するためWrangler認証が必要である。CIではlocal D1にmigrationとseedを適用してビルドする。
 
 ## Clerk設定とSecrets
 
@@ -30,9 +30,9 @@ Clerk DashboardでGitHub、Google、メールOTPを有効にする。許可Origi
 ## Build・Deploy
 
 ```sh
-mise run build-public
+PUBLIC_EVENTS_SOURCE=remote mise run build-public
 mise run build-admin
-mise run dry-public
+PUBLIC_EVENTS_SOURCE=remote mise run dry-public
 mise run dry-admin
 mise exec -- wrangler deploy --config wrangler.admin.jsonc
 mise exec -- wrangler deploy --config wrangler.public.jsonc

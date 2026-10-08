@@ -57,9 +57,9 @@ Go Wasm・D1・Clerk wrapperの組み合わせはローカル起動し、Wasmと
 
 ## Public Astro / Admin SPAの移行
 
-2026-10-08にフロントエンドを`frontend/public` (Astro static + React Islands) と`frontend/admin` (React + Vite + TanStack Router) へ分割した。AstroはPublicのHTMLシェルをSSGし、イベント名や残席などDBの値はPublic Go APIから取得する。既存スキーマにイベント名・チケット名以上の情報はないため、架空の説明文は加えていない。
+2026-10-08にフロントエンドを`frontend/public` (Astro static + React Islands) と`frontend/admin` (React + Vite + TanStack Router) へ分割した。初回実装ではイベント情報もReact内で取得していたため、後述の追補でイベント名とチケット名をAstroの生成HTMLへ移した。既存スキーマにイベント名・チケット名以上の情報はないため、架空の説明文は加えていない。
 
-イベントAPI `GET /api/events`、`GET /api/events/{eventId}` と本人申込API `GET /registrations` をGoへ追加した。イベントHTMLとはURLを分けた。各種ビルド・ローカル画面/API確認の結果は次節に記録する。実Clerkログイン・ログアウト、申込・キャンセル、Cloudflare上のremote Worker/D1動作は未検証である。
+イベントAPI `GET /api/events`、`GET /api/events/{eventId}` と本人申込API `GET /registrations` をGoへ追加した。残席数は引き続き公開イベントAPIから取得する。実Clerkログイン・ログアウト、申込・キャンセル、Cloudflare上のremote Worker/D1動作は未検証である。
 
 ## Public Astro / Admin SPAのローカル確認結果
 
@@ -77,7 +77,15 @@ WranglerローカルでPublic/Adminを別portで起動し、Public `/`、`/event
 
 ChromeではClerk標準SignIn UIにGitHub、Google、メールアドレスの選択肢が表示され、Clerkのスクリプトと画面が読み込まれることを確認した。未認証の状態が安定して表示された。実Clerkアカウントによる認証は行っていないため、有効なtokenでの申込・キャンセル、ログアウト後の状態、管理者の403/成功は未検証である。401/403の区別はGo単体テストの範囲で確認した。
 
-依存監査ではAstro 7.2.8への更新によりAstro自身の重大な指摘は解消したが、Astroの推移依存`http-cache-semantics@4.2.0`にHighが1件残る。監査DBは修正版を4.2.1以降としている一方、npm registryに4.2.1はなく、4.3.0は公開から7日未満である。pnpmの`minimumReleaseAge: 10080`は維持し、CI監査ではこのGHSAだけを一時的に除外する。他のHigh/Critical指摘は引き続きCIを失敗させる。Astroはビルド時のみ使い、Workerには静的生成物を配信する。4.3.0の公開から7日経過後にlockfileを更新し、CIの例外を削除する。
+## PublicイベントSSGの追補
+
+2026-10-08、Astroのビルド前にWrangler CLIでD1の`events`と`ticket_types`をJOINし、そのJSON結果をAstroの一覧と`getStaticPaths()`へ渡す方式に変更した。ローカルではWrangler local D1、デプロイ用ビルドでは`PUBLIC_EVENTS_SOURCE=remote`により同じBindingのremote D1を読む。APIサーバーの事前起動や別のイベントデータファイルは不要である。remoteビルドにはWrangler認証が必要である。
+
+ローカルD1のseed `Go Conference Local Test`、`Free Local Test`で生成HTMLを確認した。`index.html`にイベント名、`events/1/index.html`にイベント名とチケット種別名が含まれ、JavaScriptを実行しないHTMLにも情報が出力される。`events/999/index.html`は生成されず、Workerの静的ルーティング単体テストで未生成IDと非数値IDが404になることを確認した。残席数は詳細画面のReact Islandが`GET /api/events/{eventId}`から取得する。
+
+seedしたデータを用いた`PUBLIC_D1_PERSIST=../.wrangler/frontend-test mise run dry-public`は成功した。Wrangler 4.145.0のdry-run uploadは13,613.97 KiB、gzip表示は3,537.21 KiBである。`mise run test`（Go全テストとPublic routingの2テスト）、Public dry-run、Admin dry-run、frontend lint/typecheck/format checkは成功した。イベント追加・変更後はremote D1を読み直してPublicを再ビルド・再デプロイする必要がある。Cloudflareの認証済みremote D1を使った本番相当ビルドとデプロイは未実施である。
+
+依存監査ではAstro 7.2.8の推移依存`http-cache-semantics@4.2.0`にHighが1件見つかった。pnpm 11.5.1の`pnpm audit --fix=update`は修正版の最小値4.2.1を`minimumReleaseAgeExclude`へ登録したが、npm registryに4.2.1がなく修正できなかった。`pnpm audit --fix`は同バージョンでは無効な指定であったため、pnpm標準の`pnpm audit --fix=override`を使い、生成された対象範囲限定overrideを実在する修正版4.3.0へ合わせた。`minimumReleaseAge: 10080`を維持し、例外も`http-cache-semantics@4.3.0`だけに限定した。解決版は4.3.0であり、`pnpm audit --audit-level=high`は脆弱性なしとなった。CIでは監査を除外なしで実行する。
 
 ## 採用・デプロイ判断の補足
 

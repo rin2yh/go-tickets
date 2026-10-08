@@ -49,8 +49,7 @@ jobs:
           version: 2026.6.0
       - run: pnpm install --frozen-lockfile
         working-directory: frontend
-      # Temporary exception until the patched transitive release passes the 7-day age gate.
-      - run: pnpm audit --audit-level=high --ignore GHSA-ch52-4w7c-c8xp
+      - run: pnpm audit --audit-level=high
         working-directory: frontend
 
   worker:
@@ -72,4 +71,8 @@ jobs:
           version: 2026.6.0
       - run: pnpm install --frozen-lockfile
         working-directory: frontend
+      - if: matrix.name == 'Public'
+        run: mise run d1-local-init
       - run: mise run "${{ matrix.task }}"
+      - if: matrix.name == 'Public'
+        run: mise run verify-public-ssg

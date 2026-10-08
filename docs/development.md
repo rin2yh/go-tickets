@@ -30,7 +30,9 @@ mise run dev
 
 `dev`はGo Wasm、Astro、Admin SPAをビルドし、Public Workerを8787、Admin Workerを8788で起動する。PublicからAdminへのService Bindingは、ローカルで同じWorker名のWrangler dev sessionが起動している場合に接続される。画面URLは`http://localhost:8787/`、`/tickets`、`/admin`である。
 
-`frontend/public`を単独ビルドするときは`cd frontend && pnpm run build:public`、Admin SPAは`pnpm run build:admin`を使う。ルートの`mise run build-public`は両フロント資産をまとめ、Public Workerへ含める。イベントIDをSSGする場合はビルド時に`PUBLIC_EVENT_IDS=1,2`のように指定する。これはルート`.dev.vars`ではなくビルド環境変数である。未指定時も詳細URLは静的シェルを返し、D1の実データをAPIから取得する。
+`mise run build-public`はビルド前にWrangler経由でD1から公開イベント名とチケット種別を取得する。ローカルはlocal D1を読み、`PUBLIC_D1_PERSIST`で保存先を変えられる。リモートのD1からビルドする場合は`PUBLIC_EVENTS_SOURCE=remote mise run build-public`を使う。remoteモードにはWranglerのCloudflare認証が必要である。ビルド成果物にはイベント情報がHTMLとして含まれ、イベントが0件なら空の一覧を生成する。詳細ページも実在するD1イベントだけ生成し、不明なIDは404となる。残席数は閲覧時にGo APIから取得する。
+
+イベントを追加・変更した後は、内容を確認してPublic Workerを再ビルド・再デプロイする。D1更新だけでは生成済みHTMLは変わらない。CIとローカルのseedイベントを使ってSSG HTMLを検証するには`mise run d1-local-init`の後に`mise run verify-public-ssg`を実行する。
 
 ## 手動確認
 
@@ -65,4 +67,4 @@ pnpm run format:check
 
 - Clerk Secret KeyがないとGo Worker middlewareが起動できない。`.dev.vars`を設定してからWranglerを起動する。
 - ローカルService Bindingを使うにはAdmin WorkerのWrangler dev sessionも起動する必要がある。Publicだけを起動したとき`/admin-api/*`は502になる。
-- 本番相当のイベント詳細パスはAstroの静的ルート生成上、ビルド時に`PUBLIC_EVENT_IDS`を渡す運用ができる。IDを列挙しないビルドは共通詳細シェルを返す。
+- Astroの単独`pnpm run build:public`はD1データ取得を行わない。SSGデータを取得してからAstroを実行するルートの`mise run build-public-assets`または`mise run build-public`を使う。

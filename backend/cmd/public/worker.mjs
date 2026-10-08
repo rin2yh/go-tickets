@@ -1,4 +1,5 @@
 import runtime from "../../build/public/worker-runtime.mjs";
+import { fetchStaticAsset } from "./assets.mjs";
 
 function isPublicAPI(path, method) {
   return (path === "/health" && method === "GET")
@@ -19,25 +20,6 @@ export default {
       return env.ADMIN.fetch(new Request(url, request));
     }
     if (isPublicAPI(url.pathname, request.method)) return runtime.fetch(request, env, ctx);
-    if (!env.ASSETS) return new Response("Not found", { status: 404 });
-    if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
-      if (url.pathname.startsWith("/admin/assets/")) return env.ASSETS.fetch(request);
-      url.pathname = "/admin/index.html";
-      return env.ASSETS.fetch(new Request(url, request));
-    }
-    if (url.pathname.startsWith("/events/") && !url.pathname.split("/").at(-1)?.includes(".")) {
-      const eventId = url.pathname.split("/").filter(Boolean).at(-1) ?? "";
-      if (/^\d+$/.test(eventId)) {
-        url.pathname = `/events/${eventId}/index.html`;
-        const staticPage = await env.ASSETS.fetch(new Request(url, request));
-        if (staticPage.status !== 404) return staticPage;
-      }
-      url.pathname = "/events/index.html";
-      return env.ASSETS.fetch(new Request(url, request));
-    }
-    if (url.pathname === "/") url.pathname = "/index.html";
-    else if (url.pathname === "/tickets" || url.pathname === "/tickets/") url.pathname = "/tickets/index.html";
-    else if (url.pathname === "/events" || url.pathname === "/events/") url.pathname = "/events/index.html";
-    return env.ASSETS.fetch(new Request(url, request));
+    return fetchStaticAsset(request, env);
   },
 };
