@@ -96,10 +96,12 @@ jobs:
         run: pnpm --filter @go-tickets/${{ matrix.app }} build
       - name: Build ${{ matrix.name }} Worker
         working-directory: backend
-        run: |
-          go tool workers-assets-gen -mode=go -o build/${{ matrix.app }}
-          mv build/${{ matrix.app }}/worker.mjs build/${{ matrix.app }}/worker-runtime.mjs
-          GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/${{ matrix.app }}/app.wasm ./cmd/${{ matrix.app }}
+        env:
+          WORKER_APP: ${{ matrix.app }}
+        run: &build-worker |
+          go tool workers-assets-gen -mode=go -o build/$WORKER_APP
+          mv build/$WORKER_APP/worker.mjs build/$WORKER_APP/worker-runtime.mjs
+          GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/$WORKER_APP/app.wasm ./cmd/$WORKER_APP
       - name: Dry-run Wrangler bundle
         working-directory: frontend
         run: wrangler deploy --config ${{ matrix.config }} --dry-run --outdir ${{ matrix.outdir }}
@@ -128,17 +130,17 @@ jobs:
           rm -rf .wrangler/e2e
           wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/e2e
           wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/e2e --file backend/scripts/seed-local.sql
+      - name: Build Public frontend assets
+        working-directory: frontend
+        run: PUBLIC_EVENTS_JSON="$(cat e2e/fixtures/public-events.json)" pnpm --filter @go-tickets/public build
       - name: Build Public Worker
-        run: |
-          PUBLIC_EVENTS_JSON="$(cat frontend/e2e/fixtures/public-events.json)" pnpm --dir frontend --filter @go-tickets/public build
-          cd backend
-          go tool workers-assets-gen -mode=go -o build/public
-          mv build/public/worker.mjs build/public/worker-runtime.mjs
-          GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/public/app.wasm ./cmd/public
+        working-directory: backend
+        env:
+          WORKER_APP: public
+        run: *build-worker
       - name: Start Public Worker and run E2E tests
+        working-directory: frontend
         run: |
-          wrangler dev --config wrangler.public.jsonc --local --port 8787 --persist-to .wrangler/e2e > "$RUNNER_TEMP/public-worker.log" 2>&1 &
-          public_pid=$!
-          trap 'kill "$public_pid" 2>/dev/null || true' EXIT
+          wrangler dev --config ../wrangler.public.jsonc --local --port 8787 --persist-to ../.wrangler/e2e > "$RUNNER_TEMP/public-worker.log" 2>&1 &
           curl --retry 30 --retry-connrefused --retry-delay 1 --fail http://localhost:8787/health
-          pnpm --dir frontend --filter @go-tickets/e2e test
+          pnpm --filter @go-tickets/e2e test
