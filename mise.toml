@@ -1,4 +1,86 @@
 [tools]
 go = "1.26.7"
 node = "26.7.0"
-python = "3.13.7"
+pnpm = "11.5.1"
+
+[tasks.test]
+description = "Run Go and Clerk authentication unit tests"
+run = ["go -C backend test ./...", { task = "auth-test" }]
+
+[tasks.auth-test]
+description = "Run Clerk token verification tests"
+dir = "frontend"
+run = [
+  "mkdir -p ../backend/build/test",
+  "NODE_PATH=public/node_modules pnpm exec esbuild ../backend/internal/auth/auth.mjs --bundle --format=esm --platform=node --outfile=../backend/build/test/auth.mjs",
+  "node --test ../backend/internal/auth/auth.test.mjs",
+]
+
+[tasks.build-public]
+description = "Build Public Go Wasm and Worker bundle"
+dir = "backend"
+run = '''
+go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/public
+GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/public/app.wasm ./cmd/public
+mv build/public/worker.mjs build/public/worker-runtime.mjs
+NODE_PATH="$PWD/../frontend/public/node_modules" pnpm --dir ../frontend exec esbuild "$PWD/cmd/public/worker.mjs" --bundle --format=esm --platform=browser --target=es2022 --external:cloudflare:sockets --external:*.wasm --outfile="$PWD/build/public/worker.mjs"
+mkdir -p build/web
+cp ../frontend/index.html build/web/index.html
+pnpm --dir ../frontend exec esbuild ../frontend/app.js --bundle --format=esm --platform=browser --target=es2022 --outfile="$PWD/build/web/app.js"
+'''
+
+[tasks.build-admin]
+description = "Build Admin Go Wasm and Worker bundle"
+dir = "backend"
+run = '''
+go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/admin
+GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/admin/app.wasm ./cmd/admin
+mv build/admin/worker.mjs build/admin/worker-runtime.mjs
+NODE_PATH="$PWD/../frontend/admin/node_modules" pnpm --dir ../frontend exec esbuild "$PWD/cmd/admin/worker.mjs" --bundle --format=esm --platform=browser --target=es2022 --external:cloudflare:sockets --external:*.wasm --outfile="$PWD/build/admin/worker.mjs"
+'''
+
+[tasks.dev]
+description = "Run Public and Admin Workers locally through one Wrangler process"
+run = [
+  { task = "build-public" },
+  { task = "build-admin" },
+  { task = "wrangler-dev" },
+]
+
+[tasks.wrangler-dev]
+dir = "backend"
+run = "../frontend/node_modules/.bin/wrangler dev -c wrangler.public.jsonc -c wrangler.admin.jsonc --local --port 8787 --persist-to ../.wrangler/state"
+
+[tasks.dry-public]
+description = "Build and validate the Public Worker bundle"
+depends = ["build-public"]
+dir = "backend"
+run = "../frontend/node_modules/.bin/wrangler deploy --config wrangler.public.jsonc --dry-run --outdir build/dry-public"
+
+[tasks.dry-admin]
+description = "Build and validate the Admin Worker bundle"
+depends = ["build-admin"]
+dir = "backend"
+run = "../frontend/node_modules/.bin/wrangler deploy --config wrangler.admin.jsonc --dry-run --outdir build/dry-admin"
+
+[tasks.d1-local-init]
+description = "Apply local D1 migrations and insert the test event"
+dir = "backend"
+run = [
+  "../frontend/node_modules/.bin/wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --local --persist-to ../.wrangler/state",
+  "../frontend/node_modules/.bin/wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to ../.wrangler/state --file scripts/seed-local.sql",
+]
+
+[tasks.d1-local-cleanup]
+description = "Remove local D1 test registrations"
+dir = "backend"
+run = "../frontend/node_modules/.bin/wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to ../.wrangler/state --file scripts/cleanup-local.sql"
+
+[tasks.admin-add]
+description = "Grant D1 administrator access to a Clerk user ID"
+dir = "backend"
+run = '''
+case "$CLERK_USER_ID" in user_[A-Za-z0-9]*) ;; *) echo "set CLERK_USER_ID to a Clerk user ID" >&2; exit 2;; esac
+case "$CLERK_USER_ID" in *[!A-Za-z0-9_]*) echo "invalid Clerk user ID" >&2; exit 2;; esac
+../frontend/node_modules/.bin/wrangler d1 execute go-tickets --remote --config wrangler.admin.jsonc --command "INSERT INTO administrators(clerk_user_id) VALUES ('$CLERK_USER_ID') ON CONFLICT(clerk_user_id) DO NOTHING"
+'''

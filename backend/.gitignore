@@ -1,0 +1,15 @@
+# Go test and profiling output
+*.test
+*.out
+coverage.txt
+*.prof
+
+# Local Go build output
+/bin/
+/tmp/
+
+# Local Wrangler secrets and generated assets
+/.dev.vars
+/.dev.vars.*
+/build/
+/.wrangler/

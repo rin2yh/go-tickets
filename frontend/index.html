@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Go Tickets 認証検証</title>
+  <style>body{font:16px system-ui,sans-serif;max-width:48rem;margin:3rem auto;padding:0 1rem;color:#15202b}button{padding:.65rem 1rem}#result{white-space:pre-wrap}</style>
+</head>
+<body>
+  <h1>Go Tickets 認証検証</h1>
+  <p>Clerk標準UIでログイン後、認証付きPublic APIを試せます。</p>
+  <div id="sign-in"></div><div id="user-button"></div>
+  <p id="session">未ログイン</p>
+  <button id="register" disabled>チケット種別1へ申込</button>
+  <button id="cancel" disabled>申込をキャンセル</button>
+  <pre id="result" aria-live="polite"></pre>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,4 +1,15 @@
+# macOS
+.DS_Store
+
+# Local secrets and runtime state
+.env
+.env.*
+!.env.example
+**/.dev.vars
+
+# Wrangler state shared by local commands
+.wrangler/
+
+# Dependency directories and generated build output
 node_modules/
 build/
-.wrangler/
-.dev.vars

@@ -1,0 +1,12 @@
+{
+  "name": "go-tickets-frontend",
+  "private": true,
+  "packageManager": "pnpm@11.5.1",
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "wrangler": "4.145.0"
+  },
+  "dependencies": {
+    "@clerk/clerk-js": "6.36.0"
+  }
+}

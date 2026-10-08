@@ -1,0 +1,16 @@
+# Node.js dependencies and package manager logs
+node_modules/
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Generated frontend build output
+dist/
+build/
+coverage/
+
+# Local Wrangler state and secrets
+.wrangler/
+.dev.vars
+.dev.vars.*

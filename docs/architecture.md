@@ -1,30 +1,37 @@
 # アーキテクチャ
 
-## Workerの構成
+## ディレクトリと実行単位
 
-PublicとAdminは別々のGo Wasm Workerであり、`cmd/public`と`cmd/admin`がそれぞれのエントリーポイントである。共通のHTTP処理とSQLアクセスは`internal/tickets`に置く。Workerごとに独立してビルド・デプロイするが、同じCloudflare D1データベースを参照する。
+`backend/`にGo module、HTTP・D1処理、migration、Wrangler設定をまとめる。Go Wasmのentry pointとWorker起動wrapperは`backend/cmd/public`と`backend/cmd/admin`で対にする。共有Clerk token検証は`backend/internal/auth`に置く。`frontend/`はpnpm workspaceで、標準ログインUIとWorker向けJavaScript依存を管理する。ビルド・開発操作はルートの`mise.toml`で管理する。
 
-`scripts/build.sh`が`workers-go`のWasm起動資産を生成し、その後GoコンパイラでWorkerのWasmをビルドする。Cloudflare Bindingを使うJavaScriptは起動資産内に限られ、アプリケーションのAPIとビジネスロジックはGoの`net/http`で実装する。
+- `backend/cmd/public`: Public Go WasmとClerk認証wrapper
+- `backend/cmd/admin`: Admin Go Wasmと独立したClerk認証wrapper
+- `backend/internal/tickets`: 共通`net/http` handlerとD1 SQLStore
+- `backend/internal/auth`: Worker境界でClerk JWTを検証するJavaScript実装。Goアプリケーション内部の認証済みidentity処理とは分離する。
+- `backend/migrations`: D1 schema
+- `frontend/index.html`、`frontend/app.js`: Clerk標準UIと認証済みPublic APIを呼ぶ小さな画面
+- `frontend/public`、`frontend/admin`: Worker単位のpnpm workspace project
+- `frontend/packages/*`: frontend workspace間で共有するUI部品・コンポーネントの配置先。現時点で共通化対象はないためpackageは置いていない。
 
-## D1と申込処理
+## 認証・認可
 
-D1 Bindingには`workers-go/cloudflare/d1`を通じて`database/sql`から接続する。通常のDBアクセスにD1管理REST APIは使わない。スキーマは`migrations/0001_init.sql`で管理する。
+ブラウザーでは`@clerk/clerk-js`の標準Sign inとUser Buttonを使う。ログイン状態・セッション更新・ログアウトはClerkに任せ、API呼び出し時にClerk SessionからBearer tokenを取得する。ブラウザーの`localStorage`へ独自にtokenを保存しない。HTTPS上でAuthorization headerを使い、Cookie認証に伴うCSRFを避ける。OWASP Session Managementの要点であるセッションIDの保護、TLS、サーバー側検証、ログアウトのセッション失効と整合する。ただしClerk側のセッション運用と本番domain設定はClerk Dashboard上で別途確認する。
 
-申込は`registrations`への単一INSERTで行う。`registration_reserve` triggerが残席数を条件付きで更新し、定員到達時は同じ文をロールバックする。`(ticket_type_id, user_id)`のUNIQUE制約で重複申込を拒否する。キャンセルは有効申込のstatusを更新し、`registration_cancel` triggerが残席を回復する。
+Worker wrapperは公式`@clerk/backend`の`verifyToken()`で署名、期限、許可Origin (`azp`) を検証する。失敗時はfail closedで401を返す。成功後に外部の`X-Go-Tickets-Authenticated-User`値を削除し、JWTの`sub`を設定してGoへ渡す。Go handlerはこのヘッダーからUser IDを得るため、本文中の`user_id`は受け付けない。
 
-`workers-go`のD1ドライバーは`database/sql`の`BeginTx`を実装していない。そのため複数文のトランザクションではなく、単一文とSQLite triggerで定員更新と申込記録の整合性を保つ。
+Public Workerは申込・キャンセルを認証必須とする。Admin WorkerはJWT検証に加え、D1の`administrators` tableを照会して管理者のみ状況APIを許可する。一般ユーザーは403、未認証は401である。Admin Workerは`workers_dev:false`かつroute未設定で、Public WorkerのService Binding経由でのみ到達できる設定とする。認証をCloudflare上で検証するまではPublicの公開routeも有効にしない。
 
-## APIと現在の認証状態
+管理者を追加する公開APIは提供しない。運用者がCloudflare D1からClerk User IDを直接登録する。一般のユーザーIDと管理者IDの2権限だけを持つ。
 
-Publicは`GET /health`、`POST /registrations`、`POST /registrations/cancel`を提供する。申込とキャンセルは`ticket_type_id`と`user_id`を本文に求め、形式不正は400、定員到達と重複は409、キャンセル対象なしは404、DBエラーは500を返す。Adminは`GET /health`とPoCでticket type ID 1に限定した`GET /ticket-types/1/status`を提供する。現行コードにはClerk認証・管理者認可はまだ実装されていない。申込・キャンセルAPIはリクエスト本文の`user_id`を使い、Adminの状況APIもアプリケーション層では認証しない。
+## Go WasmとD1
 
-Cloudflare設定ではPublicとAdminの両方で`workers_dev`と`preview_urls`を無効にし、ルートも設定していない。このためWorkerはアップロード済みだが、外部からAPIを呼び出せる公開経路はない。この設定は認証の代替ではない。公開ルートを設定する前にClerkによるトークン検証とAdmin認可を実装する必要がある。
+標準Go `net/http`を第一候補にし、`github.com/syumai/workers-go`のD1 Binding connectorを通じて`database/sql`を利用する。アプリケーションの通常のDBアクセスにD1管理REST APIは使わない。PublicとAdminは同一D1を使う。
 
-## 技術選定上の制約
+`backend/migrations/0001_init.sql`で`events`、`ticket_types`、`registrations`を作り、`0002_administrators.sql`で管理者一覧を追加する。申込は単一INSERTがtriggerを起動し、残席の条件付き更新が0件なら同じ文をrollbackする。`(ticket_type_id,user_id)` unique制約で重複を拒否する。キャンセルは単一UPDATEとtriggerで残席を回復する。`workers-go`のD1 connectorは`BeginTx`が未実装のため、複数SQL文のトランザクションではなく単一SQL statement内で整合性を保つ。
 
-- 標準Go 1.26.7を利用する。ローカルでGo Wasmが動作し、WasmサイズもWorkersのサイズ制限内であるため、TinyGoとの比較は行っていない。
-- 元の`github.com/syumai/workers`は移行先として`github.com/syumai/workers-go`を案内しているため、現行モジュールを使用する。
-- `workers-go`のD1対応はalphaである。特に`BeginTx`が未実装で、D1ドライバーは`js/wasm`向けである。Workerエントリーポイントはビルドタグで分け、通常の`go test ./...`を可能にしている。
-- ローカル統合時は`wrangler.local.jsonc`と`scripts/router.mjs`を使い、2 Workerを1つのWrangler開発プロセス内で動かす。別プロセスから同じローカルD1を同時使用すると`SQLITE_BUSY_RECOVERY`が発生した。
-- Clerk認証・管理者情報テーブル・Clerk対応フロントエンドは現状未実装である。
-- キャンセル済み申込もUNIQUE制約の対象として残るため、同じユーザーの同一チケット種別への再申込は現行PoCではできない。
+## 技術上の制約
+
+- 標準Go 1.26.7と`GOOS=js GOARCH=wasm`を使い、TinyGoへは切り替えていない。
+- Clerk Backend SDKはCloudflare Worker wrapperへbundleし、Go Wasmは認証済みID以降の認可とビジネスロジックを担当する。
+- `frontend/`の画面資産は`backend/build/web`として別配信し、Wasmへ含めない。
+- D1 triggerはSQLite互換の原子処理を利用する。Workers上での高負荷並行アクセス時の実挙動はCloudflare上の統合試験で再確認する。

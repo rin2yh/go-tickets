@@ -1,0 +1,8 @@
+{
+  "name": "@go-tickets/public",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@clerk/backend": "3.21.1"
+  }
+}

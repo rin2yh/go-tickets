@@ -1,9 +1,0 @@
-{
-  "name": "go-tickets-local-router",
-  "main": "./scripts/router.mjs",
-  "compatibility_date": "2026-10-08",
-  "services": [
-    { "binding": "PUBLIC", "service": "go-tickets-public" },
-    { "binding": "ADMIN", "service": "go-tickets-admin" }
-  ]
-}

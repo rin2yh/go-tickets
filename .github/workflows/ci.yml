@@ -14,10 +14,10 @@ jobs:
       - uses: jdx/mise-action@v5.0.0
         with:
           version: 2026.6.0
-      - run: mise exec -- npm ci
-      - run: mise exec -- npm audit --audit-level=high
-      - run: mise exec -- go test ./...
-      - run: mise exec -- npm run build:public
-      - run: mise exec -- npm run build:admin
-      - run: mise exec -- npm run dry:public
-      - run: mise exec -- npm run dry:admin
+      - run: mise exec -- pnpm --dir frontend install --frozen-lockfile
+      - run: mise exec -- pnpm --dir frontend audit --audit-level=high
+      - run: mise run test
+      - run: mise run build-public
+      - run: mise run build-admin
+      - run: mise run dry-public
+      - run: mise run dry-admin

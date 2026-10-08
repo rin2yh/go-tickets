@@ -1,43 +1,40 @@
 # go-tickets
 
-Go言語のカンファレンス向け無料チケット申込を、Go Wasm、Cloudflare Workers、D1で検証するプロジェクトである。
+Goカンファレンス向け無料チケット申込の検証プロジェクトである。バックエンドはGo Wasm、Cloudflare Workers、D1、フロントエンドはClerk標準UIで構成する。
 
-## 必要なツール
+## 必要なツールとセットアップ
 
-Go 1.26.7、Node.js 26.7.0、Python 3.13.7は[mise.toml](mise.toml)、Wrangler 4.148.0は`package-lock.json`で固定している。
+Go、Node.js、pnpmは[mise.toml](mise.toml)で固定している。pnpm workspaceと依存ロックは[frontend/](frontend/)内で管理し、依存の公開から7日間はインストール対象にしない。
 
 ```sh
 mise install
-mise exec -- npm ci
+mise exec -- pnpm --dir frontend install --frozen-lockfile
 ```
 
 ## ローカル開発
 
+`backend/.dev.vars`にClerk Development InstanceのSecret Keyを設定し、ローカルD1を初期化してWorkerを起動する。変数名やClerk Dashboardの設定は[開発手順](docs/development.md)を参照する。
+
 ```sh
-mise exec -- npx wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/state
-mise exec -- npx wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/state --file scripts/seed-local.sql
-mise exec -- npm run dev:both
+mise run d1-local-init
+mise run dev
 ```
 
-別ターミナルで`mise exec -- python scripts/integration.py`を実行する。ローカル用テストデータの削除は、Wranglerを停止した後に次を実行する。
+ブラウザーで`http://localhost:8787`を開く。
+
+## テスト・ビルド
 
 ```sh
-mise exec -- npx wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/state --file scripts/cleanup-local.sql
-```
-
-## テストとビルド
-
-```sh
-mise exec -- go test ./...
-mise exec -- npm run build:public
-mise exec -- npm run build:admin
-mise exec -- npm run dry:public
-mise exec -- npm run dry:admin
+mise run test
+mise run build-public
+mise run build-admin
+mise run dry-public
+mise run dry-admin
 ```
 
 ## 詳細ドキュメント
 
-- [アーキテクチャ・技術選定](docs/architecture.md)
-- [ローカル開発・統合テスト](docs/development.md)
-- [Cloudflareデプロイ・設定](docs/deployment.md)
+- [アーキテクチャ・認証設計](docs/architecture.md)
+- [開発・ローカル検証](docs/development.md)
+- [Cloudflareデプロイ・Secrets管理](docs/deployment.md)
 - [PoCの計測結果・課題](docs/poc.md)

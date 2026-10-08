@@ -1,74 +1,65 @@
-# ローカル開発
+# 開発手順
 
-## ツールとセットアップ
+## ツールと依存関係
 
-Go `1.26.7`、Node.js `26.7.0`、Python `3.13.7`は`mise.toml`、Wrangler `4.148.0`は`package-lock.json`で固定する。
+Go `1.26.7`、Node.js `26.7.0`、pnpm `11.5.1`はルートの`mise.toml`で固定する。Go moduleとWorkersの設定・ソースは`backend/`に置く。pnpm workspace、`pnpm-lock.yaml`、Clerk Frontend SDK、Wrangler、esbuildは`frontend/`に閉じ込める。workspaceの`minimumReleaseAge: 10080`と`minimumReleaseAgeStrict: true`で、公開から7日未満のnpm依存を拒否する。
 
 ```sh
 mise install
-mise exec -- npm ci
+mise exec -- pnpm --dir frontend install --frozen-lockfile
 ```
 
-## ローカルD1
+共通の開発・ビルド・テスト操作はルートの`mise.toml`に集約する。`mise tasks ls`でtask一覧を確認できる。
 
-初回はマイグレーションを適用し、ローカルテスト用のイベントと定員1のチケット種別をseedする。
+## Clerkローカル設定
+
+`backend/.dev.vars`を作成し、Clerk Development InstanceのSecret Keyを設定する。このファイルはGit管理外である。
+
+```dotenv
+CLERK_SECRET_KEY=sk_test_...
+```
+
+Publishable Keyは`backend/wrangler.public.jsonc`と`backend/wrangler.admin.jsonc`の`vars.CLERK_PUBLISHABLE_KEY`に設定済みである。Clerk DashboardでGitHub、Google、メールOTPを有効にし、GitHubとGoogleの開発用OAuth連携を設定する。ローカルの許可OriginはWrangler設定の`http://localhost:8787`である。
+
+## ローカルD1とWorker起動
 
 ```sh
-mise exec -- npx wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/state
-mise exec -- npx wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/state --file scripts/seed-local.sql
+mise run d1-local-init
+mise run dev
 ```
 
-`migrations/0001_init.sql`はスキーマだけを作成する。ローカル用レコードは`seed-local.sql`で投入し、`cleanup-local.sql`で削除する。本番D1にこれらのseed/cleanupコマンドを実行してはならない。
-
-## Worker起動と統合テスト
+`d1-local-init`は`backend/migrations/`のmigrationを適用し、定員1のローカル用イベントをseedする。`dev`はGo WasmとWorker wrapperをビルドし、Publicを主Worker、Adminをservice binding先として1つのWranglerプロセスで起動する。ブラウザーで`http://localhost:8787`を開いてClerk UIを試す。Clerkの実セッションがない状態では、申込・キャンセルAPIは401を返す。
 
 ```sh
-mise exec -- npm run dev:both
+curl http://localhost:8787/health
+curl -i -X POST http://localhost:8787/registrations -H 'Content-Type: application/json' -d '{"ticket_type_id":1,"user_id":"ignored"}'
+curl http://127.0.0.1:8787/admin/health
 ```
 
-別ターミナルから統合テストを実行する。
+Public Workerが通常の入口であり、Admin WorkerはPublicのservice binding経由で到達する。PublicのAdmin状況APIも同じservice bindingを使う。ローカルD1を複数Wranglerプロセスから同時に開くと`SQLITE_BUSY`系エラーが起きる場合があるため、単一`mise run dev`を使う。
+
+テスト用レコードを削除する場合はWranglerを停止後、次を実行する。これはローカルD1のみを対象とする。
 
 ```sh
-mise exec -- python scripts/integration.py
+mise run d1-local-cleanup
 ```
 
-統合テストはPublic/Admin双方のhealth、申込・キャンセル、定員1への100並行申込、同一ユーザーの重複要求、キャンセルと申込の競合を確認する。実行前にseed済みローカルD1の`reserved`が0である必要がある。テストユーザーIDは各実行で変わる。
-
-Wranglerを停止した後に、ローカルテストデータを完全に削除する場合は次を実行する。
+## テスト・ビルド・dry-run
 
 ```sh
-mise exec -- npx wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/state --file scripts/cleanup-local.sql
+mise run test
+mise run build-public
+mise run build-admin
+mise run dry-public
+mise run dry-admin
 ```
 
-単独起動には`mise exec -- npm run dev:public`または`mise exec -- npm run dev:admin`を使う。2つの独立したWranglerプロセスで同一のローカルD1を同時に開くと`SQLITE_BUSY`または`SQLITE_BUSY_RECOVERY`で停止することがある。両Workerを同時に動かす場合は`dev:both`を使う。
+`mise run test`はGoの単体テストと、ローカルRSA署名鍵を使うClerk JWT検証テストを実行する。テスト鍵は外部アカウントへ接続せず、期限切れ・許可Origin不一致・偽装ヘッダー置換も確認する。Build taskは各`backend/cmd/{public,admin}`のGo Wasm、`workers-go`起動資産、JavaScript wrapperを生成する。フロントエンドは別の`backend/build/web`へ出力し、Wasmへ含めない。
 
-ローカルルーターは`Host: public.local`と`Host: admin.local`で振り分ける。例：
+## 構成上の注意
 
-```sh
-curl -H 'Host: public.local' http://127.0.0.1:8787/health
-curl -H 'Host: admin.local' http://127.0.0.1:8787/ticket-types/1/status
-curl -H 'Host: public.local' -H 'Content-Type: application/json' \
-  -d '{"ticket_type_id":1,"user_id":"example"}' http://127.0.0.1:8787/registrations
-curl -H 'Host: public.local' -H 'Content-Type: application/json' \
-  -d '{"ticket_type_id":1,"user_id":"example"}' http://127.0.0.1:8787/registrations/cancel
-```
-
-現行PoCは認証未実装である。これらのローカル例の`user_id`は本番で信頼できる認証情報ではない。
-
-## テストとビルド
-
-```sh
-mise exec -- go test ./...
-mise exec -- npm run build:public
-mise exec -- npm run build:admin
-mise exec -- npm run dry:public
-mise exec -- npm run dry:admin
-```
-
-`scripts/build.sh`は各Workerの起動資産とWasmを生成する。CIは依存関係監査、Goテスト、両WorkerのWasmビルド、Wrangler dry-runを実行する。CIからCloudflareへはデプロイしない。
-
-## 既知の問題
-
-- 共有のローカルD1はWranglerの複数プロセスから同時利用するとSQLite busyエラーになることがある。単一`dev:both`セッションを使う。
-- Wranglerの間接依存`sharp`は監査上の問題を避けるため`package.json`の`overrides`で`0.35.5`に固定している。
-- `workers-go`のD1ドライバーは`js/wasm`専用であり、通常のGoテストではCloudflare D1 Bindingは利用しない。SQLStoreのWorker統合確認はWranglerローカルD1で行う。
+- GoとCloudflareの実装は`backend/`、pnpm workspaceは`frontend/`、開発コマンドは`mise.toml`で管理する。
+- `backend/internal/auth`のJWT検証は公式`@clerk/backend`の`verifyToken()`を使い、Cloudflare Workers用のesbuild bundleに含める。Go実装の共通ロジックは`backend/internal/tickets`に置く。
+- Clerk Secret Keyは`.dev.vars`またはCloudflare Worker Secretへ登録する。`vars`、ソース、lockfileへ保存しない。
+- Admin権限を付ける公開APIはない。Cloudflareへ適用するときは運用者がD1へClerk User IDを直接登録する。
+- D1の書き込み競合はSQLite triggerと単一INSERT/UPDATEで処理する。workers-goのD1 connectorは標準Go実行環境では動かないため、Cloudflare Binding連携と並行申込のローカル・リモート試験は別途扱う。

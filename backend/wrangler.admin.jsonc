@@ -1,9 +1,13 @@
 {
   "name": "go-tickets-admin",
   "main": "./build/admin/worker.mjs",
-  "compatibility_date": "2026-10-08",
+  "compatibility_date": "2026-10-07",
   "workers_dev": false,
   "preview_urls": false,
+  "vars": {
+    "CLERK_PUBLISHABLE_KEY": "pk_test_cGxlYXNpbmctc3F1aWQtNzE4OS5jbGVyay5hY2NvdW50cy5kZXYk",
+    "CLERK_AUTHORIZED_PARTIES": "http://localhost:8787"
+  },
   "d1_databases": [{
     "binding": "DB",
     "database_name": "go-tickets",
