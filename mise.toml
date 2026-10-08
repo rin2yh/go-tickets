@@ -32,7 +32,7 @@ run = [{ task = "lint-go" }, { task = "lint-frontend" }, { task = "format-fronte
 
 [tasks.build]
 description = "Build the Public and Admin Workers"
-run = [{ task = "build-public" }, { task = "build-admin" }, { task = "assemble-web-assets" }]
+run = [{ task = "build-public" }, { task = "build-admin" }]
 
 [tasks.dry]
 description = "Build and run Wrangler dry-runs for Public and Admin"
@@ -100,11 +100,6 @@ mise run wrangler-dev-admin &
 trap 'trap - INT TERM EXIT; kill -TERM -- -$$ 2>/dev/null || true' INT TERM EXIT
 wait
 '''
-
-[tasks.assemble-web-assets]
-description = "Combine the independently built Public and Admin frontends"
-hide = true
-run = "rm -rf backend/build/web && mkdir -p backend/build/web/admin && cp -R backend/build/public-assets/. backend/build/web/ && cp -R backend/build/admin-assets/. backend/build/web/admin/"
 
 [tasks.e2e-prepare]
 description = "Recreate only the isolated local D1 used by E2E tests"

@@ -11,7 +11,7 @@
   },
   "services": [{ "binding": "ADMIN", "service": "go-tickets-admin" }],
   "assets": {
-    "directory": "./backend/build/web",
+    "directory": "./backend/build/public-assets",
     "binding": "ASSETS",
     "run_worker_first": true,
     "html_handling": "none"

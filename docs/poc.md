@@ -47,9 +47,9 @@ Cloudflare D1へは試験用の容量1 ticket typeへ直接SQLを実行し、異
 - Clerk Go SDKのWasm化で各WorkerのWasmは約83〜85%増えた。Wrangler uploadは約13.2 MiBでFree上限64 MiBを下回る。
 - `workers-go`はrequestごとにGo Wasm runtimeを起動するため、Clerk Go SDKのプロセス内JWKS cacheはrequest間で共有されない。認証requestごとにClerk Backend APIからJWKSを取得する構成である。ClerkはJWKS endpointにendpoint-specific rate limitを設けていないが、認証時に外部ネットワーク往復が増える。Clerkの[API制限](https://clerk.com/docs/guides/how-clerk-works/system-limits)とWorkers上のCPU・起動時間を本番負荷で再確認する必要がある。
 - Clerk Go SDK版はFreeのサイズ上限に対して十分小さい。一方、10 ms CPU上限の実測、実Clerk tokenのWorker検証、Cloudflare上のD1競合試験、メモリ測定は未実施である。
-- Admin Workerは独自routeと`workers.dev` URLを持たない。Public Workerの`/admin-api/*`だけがService Bindingで転送し、Admin Go middlewareがClerk認証とD1管理者認可を行う。
+- Admin Workerは独自routeと`workers.dev` URLを持たない。Public Workerの`/admin/*`と`/admin-api/*`をService Bindingで転送し、Admin Go middlewareがAPI要求のClerk認証とD1管理者認可を行う。
 - GitHub、Google、メールOTPのDashboard provider設定はソースから判定できない。Clerk Dashboardで有効化とOAuth設定を確認する。
-- Admin Workerの直接公開routeはなく、Admin画面の静的資産はPublic Workerが配信する。認証済みAdmin APIのCloudflare上の検証は未実施である。
+- Admin Workerの直接公開routeはなく、Admin画面の静的資産はAdmin Worker自身が配信する。認証済みAdmin APIのCloudflare上の検証は未実施である。
 
 ## 採用判断
 
@@ -89,4 +89,4 @@ seedしたデータを用いた`PUBLIC_D1_PERSIST=../.wrangler/frontend-test mis
 
 ## 採用・デプロイ判断の補足
 
-フロントエンド分離後もWorker uploadは64 MiB上限未満である。Admin Workerは外部routeを持たず、Public Workerは`/admin-api/*`だけをService Bindingで転送する構成をdry-runで確認した。今回はCloudflareへdeployしていないため、remote URLでの認証・D1共有・実行時間は測定していない。Clerk実アカウントでの認証と権限試験、High依存の修正版適用、Cloudflare上のCPU測定が残る。
+フロントエンド分離後もWorker uploadは64 MiB上限未満である。Admin Workerは外部routeを持たず、Public Workerは`/admin/*`と`/admin-api/*`をService Bindingで転送する構成をdry-runで確認した。今回はCloudflareへdeployしていないため、remote URLでの認証・D1共有・実行時間は測定していない。Clerk実アカウントでの認証と権限試験、Cloudflare上のCPU測定が残る。

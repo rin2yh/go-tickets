@@ -13,5 +13,11 @@
     "database_name": "go-tickets",
     "database_id": "5af5f125-7b2b-4f3e-8879-829a0f4e9369",
     "migrations_dir": "backend/migrations"
-  }]
+  }],
+  "assets": {
+    "directory": "./backend/build/admin-assets",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none"
+  }
 }

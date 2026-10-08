@@ -2,9 +2,9 @@
 
 ## 配信構成
 
-Public WorkerはGo APIと`backend/build/web`内のAstroページ、Admin SPAを配信する。Worker wrapperがAPIを先に処理し、Publicの静的URLと`/admin/*`をStatic Assetsへ渡す。AdminのHTML、JS、CSSはPublic Workerから配信する。
+Public WorkerはGo APIと`backend/build/public-assets`内のAstroページを配信する。Worker wrapperがAPIを先に処理し、Publicの静的URLをStatic Assetsへ渡す。`/admin/*`と`/admin-api/*`はAdmin WorkerへのService Bindingで処理する。
 
-Admin WorkerはGo APIとD1 Bindingだけを持ち、`workers_dev:false`、`preview_urls:false`、route未設定を維持する。Public WorkerだけがAdminへのService Binding (`ADMIN`) を持つ。`/admin-api/*`以外のrequestはAdminへ転送しない。Public WorkerのAdmin用proxyもClerk/Admin認可を迂回できず、Admin Go middlewareが必ず検証する。
+Admin WorkerはGo API、D1 Binding、`backend/build/admin-assets`内のSPAを持ち、`workers_dev:false`、`preview_urls:false`、route未設定を維持する。Public WorkerだけがAdminへのService Binding (`ADMIN`) を持つ。Public `/admin/*`はAdmin SPAへ、`/admin-api/*`はAdmin APIへ転送する。Admin Go middlewareがAPI要求を認証・認可する。
 
 ## D1
 
@@ -36,7 +36,7 @@ mise exec -- wrangler deploy --config wrangler.admin.jsonc
 mise exec -- wrangler deploy --config wrangler.public.jsonc
 ```
 
-Cloudflare上でもAdmin Workerへ公開routeや`workers.dev` URLを追加しない。Admin APIのインターネット側入口はPublic Workerの`/admin-api/*`だけであり、認証・管理者認可を通過した要求だけをD1へ到達させる。Public Workerの公開routeを有効にする場合、`CLERK_AUTHORIZED_PARTIES`をそのoriginへ合わせ、ログイン・ログアウト・一般ユーザー403・管理者成功を確認してから行う。
+Cloudflare上でもAdmin Workerへ公開routeや`workers.dev` URLを追加しない。Admin Workerの公開入口はPublic WorkerのService Binding経由に限る。API要求は認証・管理者認可を通過したものだけがD1へ到達する。Public Workerの公開routeを有効にする場合、`CLERK_AUTHORIZED_PARTIES`をそのoriginへ合わせ、ログイン・ログアウト・一般ユーザー403・管理者成功を確認してから行う。
 
 ## 未完了の公開前確認
 
