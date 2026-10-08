@@ -78,16 +78,10 @@ jobs:
         include:
           - name: Public
             app: public
-            prepare: |
-              wrangler d1 migrations apply go-tickets --config ../wrangler.public.jsonc --local --persist-to ../.wrangler/ci
-              query='SELECT e.id AS id, e.name AS name, t.id AS ticket_type_id, t.name AS ticket_type_name FROM events e LEFT JOIN ticket_types t ON t.event_id = e.id ORDER BY e.id, t.id'
-              events=$(wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to ../.wrangler/ci --command "$query" --json | jq -c .)
-              echo "events=$events" >> "$GITHUB_OUTPUT"
             config: ../wrangler.public.jsonc
             outdir: ../backend/build/dry-public
           - name: Admin
             app: admin
-            prepare: true
             config: ../wrangler.admin.jsonc
             outdir: ../backend/build/dry-admin
     permissions:
@@ -106,14 +100,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
         working-directory: frontend
       - run: npm install --global wrangler@4.145.0
-      - name: Prepare Public SSG data
-        id: public-data
-        working-directory: frontend
-        run: ${{ matrix.prepare }}
       - name: Build ${{ matrix.name }} frontend
         working-directory: frontend
         env:
-          PUBLIC_EVENTS_JSON: ${{ steps.public-data.outputs.events }}
+          PUBLIC_EVENTS_JSON: '[]'
         run: pnpm --filter @go-tickets/${{ matrix.app }} build
       - name: Build ${{ matrix.name }} Worker
         working-directory: backend

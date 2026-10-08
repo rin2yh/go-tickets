@@ -21,6 +21,7 @@ export function getEvents(): PublicEvent[] {
   const query = import.meta.env.PUBLIC_EVENTS_JSON;
   if (!query) throw new Error("PUBLIC_EVENTS_JSON was not provided by the Public build task");
   const results: D1Result[] = JSON.parse(query);
+  if (results.length === 0) return [];
   const result = results[0];
   if (!result?.success) throw new Error(result?.error ?? "Wrangler D1 event query failed");
 
