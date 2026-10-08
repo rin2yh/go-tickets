@@ -4,7 +4,7 @@ Goカンファレンス向け無料チケット申込の検証プロジェクト
 
 ## 必要なツールとセットアップ
 
-Go、Node.js、pnpm、Wranglerは[mise.toml](mise.toml)で固定している。frontendの依存関係とロックファイルは[frontend/](frontend/)で管理し、公開から7日間経過していないnpm依存をインストールしない。
+Go、golangci-lint、Node.js、pnpm、Wranglerは[mise.toml](mise.toml)で固定している。frontendの依存関係とロックファイルは[frontend/](frontend/)で管理し、公開から7日間経過していないnpm依存をインストールしない。
 
 ```sh
 mise install
@@ -25,6 +25,7 @@ mise run dev
 ## テスト・ビルド
 
 ```sh
+mise run lint-go
 mise run test
 mise run build-public
 mise run build-admin

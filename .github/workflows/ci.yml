@@ -6,6 +6,7 @@ on:
 
 jobs:
   test:
+    name: Run lint, tests, and dependency audit
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -16,10 +17,11 @@ jobs:
           version: 2026.6.0
       - run: mise exec -- pnpm --dir frontend install --frozen-lockfile
       - run: mise exec -- pnpm --dir frontend audit --audit-level=high
+      - run: mise run lint-go
       - run: mise run test
 
   worker:
-    name: ${{ matrix.name }} Worker
+    name: Build and dry-run ${{ matrix.name }} Worker
     runs-on: ubuntu-24.04
     strategy:
       matrix:

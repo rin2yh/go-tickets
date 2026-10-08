@@ -3,6 +3,11 @@ description = "Run Go tests"
 dir = "backend"
 run = "go test ./..."
 
+[lint-go]
+description = "Lint Go packages with golangci-lint"
+dir = "backend"
+run = "golangci-lint run ./..."
+
 [generate-public-runtime]
 description = "Generate the Public workers-go runtime wrapper"
 dir = "backend"

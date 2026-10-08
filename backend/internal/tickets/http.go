@@ -111,7 +111,7 @@ func authenticatedUserID(r *http.Request) string {
 		return ""
 	}
 	for _, ch := range userID[5:] {
-		if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9') {
+		if (ch < 'a' || ch > 'z') && (ch < 'A' || ch > 'Z') && (ch < '0' || ch > '9') {
 			return ""
 		}
 	}

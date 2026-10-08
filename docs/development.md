@@ -2,7 +2,7 @@
 
 ## ツールと依存関係
 
-Go `1.27.1`、Node.js `26.7.0`、pnpm `11.5.1`、Wrangler `4.145.0`はルートの`mise.toml`で固定する。Go moduleとWorkerソースは`backend/`、Wrangler設定はrepository rootに置く。miseのGoタスクは`backend/tasks.toml`、pnpmタスクは`frontend/tasks.toml`に置き、ルート設定からincludeする。frontendの依存関係と`pnpm-lock.yaml`は`frontend/`に置き、`minimumReleaseAge: 10080`と`minimumReleaseAgeStrict: true`で公開から7日未満のnpm依存を拒否する。
+Go `1.27.1`、golangci-lint `2.14.0`、Node.js `26.7.0`、pnpm `11.5.1`、Wrangler `4.145.0`はルートの`mise.toml`で固定する。Go moduleとWorkerソースは`backend/`、Wrangler設定はrepository rootに置く。miseのGoタスクは`backend/tasks.toml`、pnpmタスクは`frontend/tasks.toml`に置き、ルート設定からincludeする。frontendの依存関係と`pnpm-lock.yaml`は`frontend/`に置き、`minimumReleaseAge: 10080`と`minimumReleaseAgeStrict: true`で公開から7日未満のnpm依存を拒否する。
 
 ```sh
 mise install
@@ -47,6 +47,7 @@ mise run d1-local-cleanup
 ## テスト・ビルド・dry-run
 
 ```sh
+mise run lint-go
 mise run test
 mise run build-public
 mise run build-admin
@@ -54,7 +55,7 @@ mise run dry-public
 mise run dry-admin
 ```
 
-`mise run test`はGoの単体テストとVitestによるClerk JWT検証テストを実行する。テスト鍵は外部アカウントへ接続せず、期限切れ・許可Origin不一致・偽装ヘッダー置換も確認する。Build taskは`backend/cmd/{public,admin}`のGo Wasmと`workers-go`起動資産を生成する。Viteは画面資産を`backend/build/web`へ出力し、WranglerはWorker wrapperとClerk SDKをbundleする。画面資産はWasmへ含めない。
+`mise run lint-go`はgolangci-lintでGo packageを検査する。`mise run test`はGoの単体テストとVitestによるClerk JWT検証テストを実行する。テスト鍵は外部アカウントへ接続せず、期限切れ・許可Origin不一致・偽装ヘッダー置換も確認する。Build taskは`backend/cmd/{public,admin}`のGo Wasmと`workers-go`起動資産を生成する。Viteは画面資産を`backend/build/web`へ出力し、WranglerはWorker wrapperとClerk SDKをbundleする。画面資産はWasmへ含めない。
 
 `test`は`test-go`と`test-frontend`をまとめる。`build-public`はbackend内の`generate-public-runtime`と`build-public-wasm`、frontendのVite buildを順に実行する。`build-admin`もruntime生成とWasm compileを分けている。`workers-assets-gen`は`backend/go.mod`のtool directiveで管理し、`go tool workers-assets-gen`で実行する。各`dry-*`は対応するbuildの後にfrontend packageのWrangler dry-run taskを呼ぶ。mise taskの`dir`はGoコマンドを`backend/`、pnpmコマンドを`frontend/`で動かすために指定する。
 
