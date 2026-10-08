@@ -126,7 +126,6 @@ jobs:
       - *setup-wrangler
       - name: Prepare isolated local D1
         run: |
-          umask 077
           cat > .dev.vars <<EOF
           CLERK_SECRET_KEY=$CLERK_SECRET_KEY
           EOF
