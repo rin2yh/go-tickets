@@ -1,10 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 import { config as loadEnv } from "dotenv";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 loadEnv({ path: fileURLToPath(new URL("../../.dev.vars", import.meta.url)), quiet: true });
 
-for (const name of ["CLERK_SECRET_KEY", "CLERK_PUBLISHABLE_KEY", "E2E_CLERK_USER_EMAIL"]) {
+const wranglerConfig: {
+  vars?: { CLERK_PUBLISHABLE_KEY?: string };
+} = JSON.parse(readFileSync(new URL("../../wrangler.public.jsonc", import.meta.url), "utf8"));
+process.env.CLERK_PUBLISHABLE_KEY ??= wranglerConfig.vars?.CLERK_PUBLISHABLE_KEY ?? "";
+
+for (const name of ["CLERK_SECRET_KEY", "E2E_CLERK_USER_EMAIL"]) {
   if (!process.env[name]) throw new Error(`Set ${name} before running the E2E suite.`);
 }
 
