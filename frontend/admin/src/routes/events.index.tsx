@@ -1,33 +1,27 @@
 import { useAuth } from "@clerk/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-
-/* oxlint-disable react/set-state-in-effect, react-hooks/exhaustive-deps */
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { useState } from "react";
 interface Event {
   id: number;
   name: string;
   ticket_types: { id: number; name: string; capacity: number; reserved: number }[];
 }
-export const Route = createFileRoute("/events/")({ component: Events });
+export const Route = createFileRoute("/events/")({
+  loader: async () => {
+    const response = await fetch("/api/events");
+    if (!response.ok) throw new Error("イベントを読み込めません");
+    const events: Event[] = await response.json();
+    return events;
+  },
+  component: Events,
+});
 function Events() {
   const { getToken } = useAuth();
-  const [events, setEvents] = useState<Event[]>([]);
+  const events = Route.useLoaderData();
+  const router = useRouter();
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  async function load() {
-    try {
-      const r = await fetch("/api/events");
-      if (!r.ok) throw new Error("イベントを読み込めません");
-      const result: Event[] = await r.json();
-      setEvents(result);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "読み込みに失敗しました");
-    }
-  }
-  useEffect(() => {
-    void load();
-  }, [load]);
   async function create(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -45,7 +39,7 @@ function Events() {
           body.error === "forbidden" ? "管理者権限がありません" : "イベントを作成できません",
         );
       setName("");
-      await load();
+      await router.invalidate();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "作成に失敗しました");
     } finally {

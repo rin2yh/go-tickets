@@ -1,8 +1,6 @@
 import { useAuth } from "@clerk/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-
-/* oxlint-disable react/set-state-in-effect, react-hooks/exhaustive-deps */
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { useState } from "react";
 interface TicketType {
   id: number;
   name: string;
@@ -14,38 +12,25 @@ interface Event {
   name: string;
   ticket_types: TicketType[];
 }
-export const Route = createFileRoute("/events/$eventId")({ component: EventPage });
+export const Route = createFileRoute("/events/$eventId")({
+  loader: async ({ params }) => {
+    const response = await fetch("/api/events");
+    if (!response.ok) throw new Error("イベントを読み込めません");
+    const events: Event[] = await response.json();
+    return events.find((event) => event.id === Number(params.eventId)) ?? null;
+  },
+  component: EventPage,
+});
 function EventPage() {
-  const { eventId } = Route.useParams();
+  const event = Route.useLoaderData();
   const { getToken } = useAuth();
-  const [event, setEvent] = useState<Event | null>(null);
-  const [eventName, setEventName] = useState("");
+  const router = useRouter();
+  const [eventName, setEventName] = useState(event?.name ?? "");
   const [newName, setNewName] = useState("");
   const [capacity, setCapacity] = useState("0");
   const [editing, setEditing] = useState<Record<number, { name: string; capacity: string }>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  async function load() {
-    try {
-      const r = await fetch("/api/events");
-      if (!r.ok) throw new Error();
-      const all: Event[] = await r.json();
-      const found = all.find((item) => item.id === Number(eventId));
-      if (!found) throw new Error();
-      setEvent(found);
-      setEventName(found.name);
-      setEditing(
-        Object.fromEntries(
-          found.ticket_types.map((t) => [t.id, { name: t.name, capacity: String(t.capacity) }]),
-        ),
-      );
-    } catch {
-      setError("イベントを読み込めません");
-    }
-  }
-  useEffect(() => {
-    void load();
-  }, [eventId]);
   async function save(path: string, method: string, body: Record<string, string | number>) {
     setBusy(true);
     setError("");
@@ -65,7 +50,7 @@ function EventPage() {
               ? "申込済み数を下回る定員には変更できません"
               : "保存できませんでした",
         );
-      await load();
+      await router.invalidate();
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "保存に失敗しました");
@@ -78,7 +63,7 @@ function EventPage() {
     return (
       <main>
         <h2>イベント</h2>
-        {error ? <p role="alert">{error}</p> : <p aria-live="polite">読み込み中</p>}
+        <p role="alert">イベントが見つかりません。</p>
         <Link to="/events">イベント一覧へ</Link>
       </main>
     );
