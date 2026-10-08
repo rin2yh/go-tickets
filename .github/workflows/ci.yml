@@ -47,9 +47,9 @@ jobs:
     steps:
       - *checkout
       - *setup-go
-      - *setup-node
       - run: go test ./...
         working-directory: backend
+      - *setup-node
       - run: node --test cmd/public/worker.test.mjs
         working-directory: backend
 
@@ -84,16 +84,15 @@ jobs:
       contents: read
     steps:
       - *checkout
-      - *setup-go
       - *setup-node
       - *setup-pnpm
       - *install-frontend
-      - run: npm install --global wrangler@4.145.0
       - name: Build ${{ matrix.name }} frontend
         working-directory: frontend
         env:
           PUBLIC_EVENTS_JSON: '[]'
         run: pnpm --filter @go-tickets/${{ matrix.app }} build
+      - *setup-go
       - name: Build ${{ matrix.name }} Worker
         working-directory: backend
         env:
@@ -102,6 +101,8 @@ jobs:
           go tool workers-assets-gen -mode=go -o build/$WORKER_APP
           mv build/$WORKER_APP/worker.mjs build/$WORKER_APP/worker-runtime.mjs
           GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/$WORKER_APP/app.wasm ./cmd/$WORKER_APP
+      - &setup-wrangler
+        run: npm install --global wrangler@4.145.0
       - name: Dry-run Wrangler bundle
         working-directory: frontend
         run: wrangler deploy --config ${{ matrix.config }} --dry-run --outdir ${{ matrix.outdir }}
@@ -117,13 +118,12 @@ jobs:
       E2E_CLERK_USER_EMAIL: go-tickets-e2e+clerk_test@example.com
     steps:
       - *checkout
-      - *setup-go
       - *setup-node
       - *setup-pnpm
       - *install-frontend
-      - run: npm install --global wrangler@4.145.0
       - run: pnpm --filter @go-tickets/e2e exec playwright install --with-deps chromium
         working-directory: frontend
+      - *setup-wrangler
       - name: Prepare isolated local D1
         run: |
           node -e 'require("node:fs").writeFileSync(".dev.vars", `CLERK_SECRET_KEY=${process.env.CLERK_SECRET_KEY}\n`, { mode: 0o600 })'
@@ -133,6 +133,7 @@ jobs:
       - name: Build Public frontend assets
         working-directory: frontend
         run: PUBLIC_EVENTS_JSON="$(cat e2e/fixtures/public-events.json)" pnpm --filter @go-tickets/public build
+      - *setup-go
       - name: Build Public Worker
         working-directory: backend
         env:
