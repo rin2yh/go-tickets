@@ -44,6 +44,12 @@ func (f *fakeStore) Registrations(_ context.Context, user string) ([]Registratio
 	f.registeredUser = user
 	return []Registration{{TicketTypeID: 1, EventName: "event", TicketName: "ticket", Status: "active"}}, nil
 }
+func (f *fakeStore) CreateEvent(context.Context, string) (int64, error) { return 2, nil }
+func (f *fakeStore) UpdateEvent(context.Context, int64, string) error   { return nil }
+func (f *fakeStore) CreateTicketType(context.Context, int64, string, int64) (int64, error) {
+	return 2, nil
+}
+func (f *fakeStore) UpdateTicketType(context.Context, int64, string, int64) error { return nil }
 
 func TestPublicHandler(t *testing.T) {
 	tests := []struct {
@@ -130,6 +136,42 @@ func TestAdminHandler(t *testing.T) {
 		}
 		if store.adminUser != "" {
 			t.Fatal("admin lookup ran for unauthenticated request")
+		}
+	})
+}
+
+func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
+	tests := []struct {
+		name, method, path, body string
+		want                     int
+	}{
+		{"create event", http.MethodPost, "/api/events", `{"name":" GoConf "}`, http.StatusCreated},
+		{"reject blank event name", http.MethodPost, "/api/events", `{"name":"  "}`, http.StatusBadRequest},
+		{"edit event", http.MethodPut, "/api/events/1", `{"name":"GoConf 2027"}`, http.StatusOK},
+		{"create ticket type", http.MethodPost, "/api/events/1/ticket-types", `{"name":"General","capacity":20}`, http.StatusCreated},
+		{"reject negative capacity", http.MethodPost, "/api/events/1/ticket-types", `{"name":"General","capacity":-1}`, http.StatusBadRequest},
+		{"edit ticket type", http.MethodPut, "/api/ticket-types/1", `{"name":"General","capacity":20}`, http.StatusOK},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &fakeStore{admin: true}
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			req.Header.Set("X-Test-Authenticated-User", "user_admin")
+			w := httptest.NewRecorder()
+			AdminHandler(store, testAuthenticatedUserID).ServeHTTP(w, req)
+			if w.Code != tc.want {
+				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
+			}
+		})
+	}
+	t.Run("management requires administrator", func(t *testing.T) {
+		store := &fakeStore{}
+		req := httptest.NewRequest(http.MethodPost, "/api/events", strings.NewReader(`{"name":"GoConf"}`))
+		req.Header.Set("X-Test-Authenticated-User", "user_regular")
+		w := httptest.NewRecorder()
+		AdminHandler(store, testAuthenticatedUserID).ServeHTTP(w, req)
+		if w.Code != http.StatusForbidden {
+			t.Fatalf("status=%d, want 403", w.Code)
 		}
 	})
 }

@@ -48,9 +48,59 @@ type Store interface {
 	Events(context.Context) ([]Event, error)
 	Event(context.Context, int64) (Event, error)
 	Registrations(context.Context, string) ([]Registration, error)
+	CreateEvent(context.Context, string) (int64, error)
+	UpdateEvent(context.Context, int64, string) error
+	CreateTicketType(context.Context, int64, string, int64) (int64, error)
+	UpdateTicketType(context.Context, int64, string, int64) error
 }
 
 type SQLStore struct{ DB *sql.DB }
+
+func (s SQLStore) CreateEvent(ctx context.Context, name string) (int64, error) {
+	result, err := s.DB.ExecContext(ctx, `INSERT INTO events(name) VALUES (?)`, name)
+	if err != nil {
+		return 0, fmt.Errorf("create event: %w", err)
+	}
+	return result.LastInsertId()
+}
+
+func (s SQLStore) UpdateEvent(ctx context.Context, id int64, name string) error {
+	result, err := s.DB.ExecContext(ctx, `UPDATE events SET name = ? WHERE id = ?`, name, id)
+	if err != nil {
+		return fmt.Errorf("update event: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s SQLStore) CreateTicketType(ctx context.Context, eventID int64, name string, capacity int64) (int64, error) {
+	result, err := s.DB.ExecContext(ctx, `INSERT INTO ticket_types(event_id, name, capacity) VALUES (?, ?, ?)`, eventID, name, capacity)
+	if err != nil {
+		return 0, fmt.Errorf("create ticket type: %w", err)
+	}
+	return result.LastInsertId()
+}
+
+func (s SQLStore) UpdateTicketType(ctx context.Context, id int64, name string, capacity int64) error {
+	result, err := s.DB.ExecContext(ctx, `UPDATE ticket_types SET name = ?, capacity = ? WHERE id = ?`, name, capacity, id)
+	if err != nil {
+		return fmt.Errorf("update ticket type: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
 
 func (s SQLStore) Register(ctx context.Context, typeID int64, userID string) error {
 	// The trigger performs the conditional counter update in the same SQLite statement.
