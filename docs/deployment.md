@@ -2,7 +2,7 @@
 
 ## 既存リソース
 
-今回も既存のWorkers FreeアカウントとD1 `go-tickets`を使う。新しいCloudflare環境やD1を作らず、`trend-diary-db`と他Workerには触れない。設定は`backend/wrangler.public.jsonc`と`backend/wrangler.admin.jsonc`にある。
+今回も既存のWorkers FreeアカウントとD1 `go-tickets`を使う。新しいCloudflare環境やD1を作らず、`trend-diary-db`と他Workerには触れない。設定はrepository rootの`wrangler.public.jsonc`と`wrangler.admin.jsonc`にある。
 
 | リソース | 値 |
 | --- | --- |
@@ -15,12 +15,11 @@
 
 Clerk Development InstanceでGitHub、Google、メールOTPを有効にする。GitHub・Googleの開発OAuth設定はClerkの標準接続を使う。アカウント連携とセッション運用をClerkへ委譲する。
 
-`CLERK_PUBLISHABLE_KEY`は両WorkerのWrangler `vars`に設定済みである。Clerk Secret Keyは`backend/.dev.vars`（ローカル）とCloudflare Worker Secrets（リモート）にだけ登録する。リポジトリへ記載しない。Cloudflareでは両Workerの`CLERK_SECRET_KEY` Secret名が登録済みであるが、値そのものは表示・検証していない。
+`CLERK_PUBLISHABLE_KEY`は両WorkerのWrangler `vars`に設定済みである。Clerk Secret Keyはルートの`.dev.vars`（ローカル）とCloudflare Worker Secrets（リモート）にだけ登録する。リポジトリへ記載しない。Cloudflareでは両Workerの`CLERK_SECRET_KEY` Secret名が登録済みであるが、値そのものは表示・検証していない。
 
 ```sh
-cd backend
-../frontend/node_modules/.bin/wrangler secret put CLERK_SECRET_KEY --config wrangler.public.jsonc
-../frontend/node_modules/.bin/wrangler secret put CLERK_SECRET_KEY --config wrangler.admin.jsonc
+mise exec -- wrangler secret put CLERK_SECRET_KEY --config wrangler.public.jsonc
+mise exec -- wrangler secret put CLERK_SECRET_KEY --config wrangler.admin.jsonc
 ```
 
 各コマンドは対話入力を使い、Secret Keyをシェル引数やログへ出さない。Clerk Session tokenの`azp`と一致する許可Originを、両Workerの`CLERK_AUTHORIZED_PARTIES`へ設定する。Wrangler設定の初期値`http://localhost:8787`はローカル専用であり、本番Originへ置き換えてから認証を確認する。
@@ -32,8 +31,7 @@ ClerkのBearer tokenはTLS経由のAuthorization headerでWorkerへ送る。Cler
 `0002_administrators.sql`で管理者一覧を追加済みである。既存の`0001`を再作成しない。新規環境では次を実行する。
 
 ```sh
-cd backend
-../frontend/node_modules/.bin/wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --remote
+mise exec -- wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --remote
 ```
 
 ## ビルドとデプロイ
@@ -48,9 +46,8 @@ mise run dry-admin
 認証対応版は既存Public/Admin Workerへデプロイ済みである。両方とも`No targets deployed`となり、route、workers.dev URL、preview URLは存在しない。現在のソースを再デプロイする場合は次を個別に実行する。
 
 ```sh
-cd backend
-../frontend/node_modules/.bin/wrangler deploy --config wrangler.admin.jsonc
-../frontend/node_modules/.bin/wrangler deploy --config wrangler.public.jsonc
+mise exec -- wrangler deploy --config wrangler.admin.jsonc
+mise exec -- wrangler deploy --config wrangler.public.jsonc
 ```
 
 ## 公開範囲

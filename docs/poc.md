@@ -8,22 +8,22 @@ Goカンファレンス向け600〜700人規模の無料チケット申込を想
 
 ## サイズと実行制限
 
-| 指標 | 認証なしPoC | Clerkコード追加後 | Free上限・補足 |
-| --- | ---: | ---: | --- |
-| Public Wasm | 6,366,361 bytes | 6,367,870 bytes (+1,509 / +0.024%) | Worker bundleに同梱 |
-| Admin Wasm | 6,207,639 bytes | 6,213,354 bytes (+5,715 / +0.092%) | Worker bundleに同梱 |
-| Public Wrangler dry-run upload | 6,243.15 KiB | 6,295.09 KiB (+51.94 KiB / +0.83%) | 64 MiB未満 |
-| Admin Wrangler dry-run upload | 6,088.14 KiB | 6,143.60 KiB (+55.46 KiB / +0.91%) | 64 MiB未満 |
-| Public dry-run gzip表示 | 1,758.90 KiB | 1,772.79 KiB | 制限判定は非圧縮upload値 |
-| Admin dry-run gzip表示 | 1,715.49 KiB | 1,729.93 KiB | 制限判定は非圧縮upload値 |
-| 静的フロント資産 | 未導入 | `app.js` 1.8 MiB、Worker bundle外 | Static Assetsで別配信 |
-| Cloudflare Worker起動時間 | 9 ms | Public 9 ms / Admin 7 ms | Free上限1秒。認証導入版のdeploy出力値 |
-| Cloudflare API CPU時間 | 未測定 | 未測定 | Free上限10 ms/要求 |
-| Workerメモリ | 未測定 | 未測定 | Free上限128 MB |
+| 指標 | 認証なしPoC (Go 1.26.7) | Clerk版 (Go 1.26.7) | Clerk版 (Go 1.27.1) | Free上限・補足 |
+| --- | ---: | ---: | ---: | --- |
+| Public Wasm | 6,366,361 bytes | 6,367,870 bytes | 7,456,035 bytes (+1,088,165 / +17.08%) | Worker bundleに同梱 |
+| Admin Wasm | 6,207,639 bytes | 6,213,354 bytes | 7,542,541 bytes (+1,329,187 / +21.39%) | Worker bundleに同梱 |
+| Public Wrangler dry-run upload | 6,243.15 KiB | 6,295.09 KiB | 7,747.88 KiB (+1,452.79 KiB / +23.08%) | 64 MiB未満 |
+| Admin Wrangler dry-run upload | 6,088.14 KiB | 6,143.60 KiB | 7,831.77 KiB (+1,688.17 KiB / +27.48%) | 64 MiB未満 |
+| Public dry-run gzip表示 | 1,758.90 KiB | 1,772.79 KiB | 2,116.80 KiB | 制限判定は非圧縮upload値 |
+| Admin dry-run gzip表示 | 1,715.49 KiB | 1,729.93 KiB | 2,143.26 KiB | 制限判定は非圧縮upload値 |
+| 静的フロント資産 | 未導入 | `app.js` 1.8 MiB、Worker bundle外 | Vite JS 1,527.97 KiB (gzip 570.74 KiB)、Worker bundle外 | Static Assetsで別配信 |
+| Cloudflare Worker起動時間 | 9 ms | Public 9 ms / Admin 7 ms | 未測定 | Free上限1秒。Go 1.27.1版は未deploy |
+| Cloudflare API CPU時間 | 未測定 | 未測定 | 未測定 | Free上限10 ms/要求 |
+| Workerメモリ | 未測定 | 未測定 | 未測定 | Free上限128 MB |
 
-認証前Wasm値は同一Goバージョン・`GOOS=js GOARCH=wasm`・`-trimpath -buildvcs=false -ldflags='-s -w'`で3回ビルドした値である。認証導入後はmise taskで同じGoとbuild flagsを使って測定した。Wranglerはpnpm lockfileの`4.145.0`でdry-runした。FrontendのClerk標準UIはWasmへ含めていない。
+Go 1.26.7のWasm値は同じGo版、`GOOS=js GOARCH=wasm`、`-trimpath -buildvcs=false -ldflags='-s -w'`で測定した履歴値である。Go 1.27.1のWasmとWrangler値は同じビルド設定で今回各1回計測した値である。現行dry-runはWrangler `4.145.0`でソースWorkerを直接bundleしており、旧列は別の手動bundle経路による履歴値である。Wranglerはmiseで固定する。FrontendのClerk標準UIはWasmへ含めていない。
 
-Cloudflare上の認証なしPoCのStartup Timeは9 ms、認証導入版はPublic 9 ms、Admin 7 msである。いずれもdeploy出力値である。ローカルWrangler 4.145.0で一度ずつ観測した経過時間は`GET /health` 53 ms、Public経由Admin health 39 ms、未認証申込401が3 msだった。これらは単発のローカルHTTP経過時間で、CPU時間やCloudflare実測値ではない。
+Cloudflare上の認証なしPoCのStartup Timeは9 ms、認証導入版はPublic 9 ms、Admin 7 msである。いずれもGo 1.26.7版のdeploy出力値である。ローカルWrangler 4.145.0で一度ずつ観測した経過時間は`GET /health` 53 ms、Public経由Admin health 39 ms、未認証申込401が3 msだった。これらは単発のローカルHTTP経過時間で、CPU時間やCloudflare実測値ではない。
 
 ## 認証・API確認
 

@@ -4,7 +4,7 @@ Goカンファレンス向け無料チケット申込の検証プロジェクト
 
 ## 必要なツールとセットアップ
 
-Go、Node.js、pnpmは[mise.toml](mise.toml)で固定している。frontendの依存関係とロックファイルは[frontend/](frontend/)で管理し、公開から7日間経過していないnpm依存をインストールしない。
+Go、Node.js、pnpm、Wranglerは[mise.toml](mise.toml)で固定している。frontendの依存関係とロックファイルは[frontend/](frontend/)で管理し、公開から7日間経過していないnpm依存をインストールしない。
 
 ```sh
 mise install
@@ -13,7 +13,7 @@ mise exec -- pnpm --dir frontend install --frozen-lockfile
 
 ## ローカル開発
 
-`backend/.dev.vars`にClerk Development InstanceのSecret Keyを設定し、ローカルD1を初期化してWorkerを起動する。変数名やClerk Dashboardの設定は[開発手順](docs/development.md)を参照する。
+ルートの`.dev.vars`にClerk Development InstanceのSecret Keyを設定し、ローカルD1を初期化してWorkerを起動する。変数名やClerk Dashboardの設定は[開発手順](docs/development.md)を参照する。
 
 ```sh
 mise run d1-local-init

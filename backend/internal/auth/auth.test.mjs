@@ -1,7 +1,6 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
+import { describe, expect, it } from "vitest";
 import { generateKeyPairSync, sign } from "node:crypto";
-import { requestAsUser, verifyRequest } from "../../build/test/auth.mjs";
+import { requestAsUser, verifyRequest } from "./auth.mjs";
 
 // Clerk tokens are RS256 JWTs. Tests use a local signing key and the matching
 // PEM public key, so they do not depend on Clerk or network access.
@@ -17,22 +16,24 @@ function token(claims) {
 const claims = { sub: "user_TestUser123", azp: "http://localhost:8787", iat: now, nbf: now - 1, exp: now + 60 };
 const env = { CLERK_SECRET_KEY: "test", CLERK_PUBLISHABLE_KEY: "pk_test", CLERK_AUTHORIZED_PARTIES: "http://localhost:8787" };
 
-test("accepts a valid token from an authorized party", async () => {
-  const jwt = token(claims);
-  const result = await verifyRequest(new Request("http://localhost", { headers: { Authorization: `Bearer ${jwt}` } }), { ...env, CLERK_SECRET_KEY: undefined, CLERK_JWT_KEY: jwtKey });
-  assert.deepEqual(result, { id: claims.sub });
-});
+describe("Clerk token verification", () => {
+  it("accepts a valid token from an authorized party", async () => {
+    const jwt = token(claims);
+    const result = await verifyRequest(new Request("http://localhost", { headers: { Authorization: `Bearer ${jwt}` } }), { ...env, CLERK_SECRET_KEY: undefined, CLERK_JWT_KEY: jwtKey });
+    expect(result).toEqual({ id: claims.sub });
+  });
 
-test("rejects absent, expired, and wrong-party tokens", async () => {
-  assert.equal(await verifyRequest(new Request("http://localhost"), { ...env, CLERK_JWT_KEY: jwtKey }), null);
-  const expired = token({ ...claims, exp: now - 10 });
-  assert.equal(await verifyRequest(new Request("http://localhost", { headers: { Authorization: `Bearer ${expired}` } }), { ...env, CLERK_JWT_KEY: jwtKey }), null);
-  const wrongParty = token({ ...claims, azp: "https://attacker.example" });
-  assert.equal(await verifyRequest(new Request("http://localhost", { headers: { Authorization: `Bearer ${wrongParty}` } }), { ...env, CLERK_JWT_KEY: jwtKey }), null);
-});
+  it("rejects absent, expired, and wrong-party tokens", async () => {
+    expect(await verifyRequest(new Request("http://localhost"), { ...env, CLERK_JWT_KEY: jwtKey })).toBeNull();
+    const expired = token({ ...claims, exp: now - 10 });
+    expect(await verifyRequest(new Request("http://localhost", { headers: { Authorization: `Bearer ${expired}` } }), { ...env, CLERK_JWT_KEY: jwtKey })).toBeNull();
+    const wrongParty = token({ ...claims, azp: "https://attacker.example" });
+    expect(await verifyRequest(new Request("http://localhost", { headers: { Authorization: `Bearer ${wrongParty}` } }), { ...env, CLERK_JWT_KEY: jwtKey })).toBeNull();
+  });
 
-test("replaces a client supplied identity header with the verified identity", () => {
-  const request = new Request("https://tickets.example/registrations", { headers: { "X-Go-Tickets-Authenticated-User": "user_Forged" } });
-  const trusted = requestAsUser(request, { id: "user_Verified123" });
-  assert.equal(trusted.headers.get("X-Go-Tickets-Authenticated-User"), "user_Verified123");
+  it("replaces a client supplied identity header with the verified identity", () => {
+    const request = new Request("https://tickets.example/registrations", { headers: { "X-Go-Tickets-Authenticated-User": "user_Forged" } });
+    const trusted = requestAsUser(request, { id: "user_Verified123" });
+    expect(trusted.headers.get("X-Go-Tickets-Authenticated-User")).toBe("user_Verified123");
+  });
 });

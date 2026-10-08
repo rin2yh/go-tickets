@@ -1,6 +1,6 @@
 {
   "name": "go-tickets-public",
-  "main": "./build/public/worker.mjs",
+  "main": "./backend/cmd/public/worker.mjs",
   "compatibility_date": "2026-10-07",
   "workers_dev": false,
   "preview_urls": false,
@@ -8,12 +8,13 @@
     "CLERK_PUBLISHABLE_KEY": "pk_test_cGxlYXNpbmctc3F1aWQtNzE4OS5jbGVyay5hY2NvdW50cy5kZXYk",
     "CLERK_AUTHORIZED_PARTIES": "http://localhost:8787"
   },
-  "assets": { "directory": "./build/web", "binding": "ASSETS" },
+  "alias": { "@clerk/backend": "./frontend/node_modules/@clerk/backend" },
+  "assets": { "directory": "./backend/build/web", "binding": "ASSETS" },
   "services": [{ "binding": "ADMIN", "service": "go-tickets-admin" }],
   "d1_databases": [{
     "binding": "DB",
     "database_name": "go-tickets",
     "database_id": "5af5f125-7b2b-4f3e-8879-829a0f4e9369",
-    "migrations_dir": "migrations"
+    "migrations_dir": "backend/migrations"
   }]
 }

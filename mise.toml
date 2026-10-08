@@ -1,46 +1,60 @@
 [tools]
-go = "1.26.7"
+go = "1.27.1"
 node = "26.7.0"
 pnpm = "11.5.1"
+"npm:wrangler" = "4.145.0"
+
+[tasks.test-go]
+description = "Run Go tests"
+dir = "backend"
+run = "go test ./..."
+
+[tasks.test-frontend]
+description = "Run Clerk authentication tests"
+dir = "frontend"
+run = "pnpm test"
 
 [tasks.test]
-description = "Run Go and Clerk authentication unit tests"
-run = ["go -C backend test ./...", { task = "auth-test" }]
+description = "Run Go and frontend tests"
+run = [{ task = "test-go" }, { task = "test-frontend" }]
 
-[tasks.auth-test]
-description = "Run Clerk token verification tests"
-dir = "frontend"
-run = "pnpm run test:auth"
+[tasks.generate-public-runtime]
+description = "Generate the Public workers-go runtime wrapper"
+dir = "backend"
+run = [
+  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/public",
+  "mv build/public/worker.mjs build/public/worker-runtime.mjs",
+]
 
-[tasks.worker-build-public]
-description = "Bundle the Public Worker wrapper and browser assets"
-dir = "frontend"
-run = "pnpm run build:public"
-
-[tasks.worker-build-admin]
-description = "Bundle the Admin Worker wrapper"
-dir = "frontend"
-run = "pnpm run build:admin"
+[tasks.build-public-wasm]
+description = "Compile the Public Go application to Wasm"
+dir = "backend"
+run = "GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/public/app.wasm ./cmd/public"
 
 [tasks.build-public]
-description = "Build Public Go Wasm and Worker bundle"
+description = "Build Public Worker and frontend assets"
+run = [
+  { task = "generate-public-runtime" },
+  { task = "build-public-wasm" },
+  "pnpm --dir frontend run build",
+]
+
+[tasks.generate-admin-runtime]
+description = "Generate the Admin workers-go runtime wrapper"
 dir = "backend"
-run = '''
-go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/public
-GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/public/app.wasm ./cmd/public
-mv build/public/worker.mjs build/public/worker-runtime.mjs
-mise run worker-build-public
-'''
+run = [
+  "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/admin",
+  "mv build/admin/worker.mjs build/admin/worker-runtime.mjs",
+]
+
+[tasks.build-admin-wasm]
+description = "Compile the Admin Go application to Wasm"
+dir = "backend"
+run = "GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/admin/app.wasm ./cmd/admin"
 
 [tasks.build-admin]
-description = "Build Admin Go Wasm and Worker bundle"
-dir = "backend"
-run = '''
-go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/admin
-GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/admin/app.wasm ./cmd/admin
-mv build/admin/worker.mjs build/admin/worker-runtime.mjs
-mise run worker-build-admin
-'''
+description = "Build the Admin Worker"
+run = [{ task = "generate-admin-runtime" }, { task = "build-admin-wasm" }]
 
 [tasks.dev]
 description = "Run Public and Admin Workers locally through one Wrangler process"
@@ -51,39 +65,33 @@ run = [
 ]
 
 [tasks.wrangler-dev]
-dir = "backend"
-run = "../frontend/node_modules/.bin/wrangler dev -c wrangler.public.jsonc -c wrangler.admin.jsonc --local --port 8787 --persist-to ../.wrangler/state"
+run = "wrangler dev -c wrangler.public.jsonc -c wrangler.admin.jsonc --local --port 8787 --persist-to .wrangler/state"
 
 [tasks.dry-public]
 description = "Build and validate the Public Worker bundle"
-depends = ["build-public"]
-dir = "backend"
-run = "../frontend/node_modules/.bin/wrangler deploy --config wrangler.public.jsonc --dry-run --outdir build/dry-public"
+dir = "frontend"
+run = [{ task = "build-public" }, "pnpm run dry:public"]
 
 [tasks.dry-admin]
 description = "Build and validate the Admin Worker bundle"
-depends = ["build-admin"]
-dir = "backend"
-run = "../frontend/node_modules/.bin/wrangler deploy --config wrangler.admin.jsonc --dry-run --outdir build/dry-admin"
+dir = "frontend"
+run = [{ task = "build-admin" }, "pnpm run dry:admin"]
 
 [tasks.d1-local-init]
 description = "Apply local D1 migrations and insert the test event"
-dir = "backend"
 run = [
-  "../frontend/node_modules/.bin/wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --local --persist-to ../.wrangler/state",
-  "../frontend/node_modules/.bin/wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to ../.wrangler/state --file scripts/seed-local.sql",
+  "wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/state",
+  "wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/state --file backend/scripts/seed-local.sql",
 ]
 
 [tasks.d1-local-cleanup]
 description = "Remove local D1 test registrations"
-dir = "backend"
-run = "../frontend/node_modules/.bin/wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to ../.wrangler/state --file scripts/cleanup-local.sql"
+run = "wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/state --file backend/scripts/cleanup-local.sql"
 
 [tasks.admin-add]
 description = "Grant D1 administrator access to a Clerk user ID"
-dir = "backend"
 run = '''
 case "$CLERK_USER_ID" in user_[A-Za-z0-9]*) ;; *) echo "set CLERK_USER_ID to a Clerk user ID" >&2; exit 2;; esac
 case "$CLERK_USER_ID" in *[!A-Za-z0-9_]*) echo "invalid Clerk user ID" >&2; exit 2;; esac
-../frontend/node_modules/.bin/wrangler d1 execute go-tickets --remote --config wrangler.admin.jsonc --command "INSERT INTO administrators(clerk_user_id) VALUES ('$CLERK_USER_ID') ON CONFLICT(clerk_user_id) DO NOTHING"
+wrangler d1 execute go-tickets --remote --config wrangler.admin.jsonc --command "INSERT INTO administrators(clerk_user_id) VALUES ('$CLERK_USER_ID') ON CONFLICT(clerk_user_id) DO NOTHING"
 '''

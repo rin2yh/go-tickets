@@ -6,9 +6,5 @@ packages: []
 
 allowBuilds:
   esbuild: true
-  workerd: true
   browser-tabs-lock: false
   core-js: false
-
-overrides:
-  sharp: 0.35.5
