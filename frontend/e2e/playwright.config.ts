@@ -1,15 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 import { config as loadEnv } from "dotenv";
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 loadEnv({ path: fileURLToPath(new URL("../../.dev.vars", import.meta.url)), quiet: true });
-
-const wranglerConfig: {
-  vars?: { CLERK_PUBLISHABLE_KEY?: string };
-} = JSON.parse(readFileSync(new URL("../../wrangler.public.jsonc", import.meta.url), "utf8"));
-process.env.CLERK_PUBLISHABLE_KEY ??= wranglerConfig.vars?.CLERK_PUBLISHABLE_KEY ?? "";
-process.env.E2E_CLERK_USER_EMAIL ??= "go-tickets-e2e+clerk_test@example.com";
 
 if (!process.env.CLERK_SECRET_KEY) {
   throw new Error(
@@ -29,20 +22,13 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "clerk-setup",
-      testMatch: /clerk\.setup\.ts/,
-    },
-    {
       name: "chromium",
       testMatch: /registration-flow\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
-      dependencies: ["clerk-setup"],
     },
   ],
   webServer: {
-    command: process.env.CI
-      ? "wrangler dev --config wrangler.public.jsonc --local --port 8787 --persist-to .wrangler/e2e"
-      : "mise run e2e-dev",
+    command: "wrangler dev --config wrangler.public.jsonc --local --port 8787 --persist-to .wrangler/e2e",
     cwd: fileURLToPath(new URL("../../", import.meta.url)),
     url: "http://localhost:8787/health",
     reuseExistingServer: false,

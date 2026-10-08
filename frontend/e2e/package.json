@@ -9,6 +9,7 @@
     "@clerk/backend": "^3.21.1",
     "@clerk/testing": "^2.0.0",
     "@playwright/test": "^1.55.0",
+    "@types/node": "^26.6.3",
     "dotenv": "^18.0.5"
   }
 }

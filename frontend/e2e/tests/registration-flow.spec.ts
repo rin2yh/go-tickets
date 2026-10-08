@@ -1,25 +1,36 @@
 import { clerk } from "@clerk/testing/playwright";
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "../fixtures/clerk-fixtures";
+import { EventDetailPage } from "../pages/event-detail-page";
+import { EventListPage } from "../pages/event-list-page";
+import { MyTicketsPage } from "../pages/my-tickets-page";
 
 test("participant registers for a ticket and sees the result in My Tickets", async ({ page }) => {
-  const emailAddress = process.env.E2E_CLERK_USER_EMAIL;
-  if (!emailAddress) throw new Error("Set E2E_CLERK_USER_EMAIL to a Clerk test user email.");
+  const eventName = "Go Conference Local Test";
+  const ticketName = "Free Local Test";
+  const eventList = new EventListPage(page);
+  const eventDetail = new EventDetailPage(page);
+  const myTickets = new MyTicketsPage(page);
 
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "イベント一覧" })).toBeVisible();
-  await page.getByRole("link", { name: "Go Conference Local Test" }).click();
+  await test.step("Open the event", async () => {
+    await eventList.goto();
+    await expect(eventList.heading).toBeVisible();
+    await eventList.openEvent(eventName);
+    await expect(eventDetail.heading(eventName)).toBeVisible();
+    await expect(eventDetail.remainingSeats(1)).toBeVisible();
+  });
 
-  await expect(page.getByRole("heading", { name: "Go Conference Local Test" })).toBeVisible();
-  await expect(page.getByText("残席 1")).toBeVisible();
-  await clerk.loaded({ page });
-  await clerk.signIn({ page, emailAddress });
+  await test.step("Sign in and register", async () => {
+    await clerk.loaded({ page });
+    await clerk.signIn({ page, emailAddress: "go-tickets-e2e+clerk_test@example.com" });
+    await eventDetail.registerButton(ticketName).click();
+    await expect(page.getByText("registered")).toBeVisible();
+  });
 
-  await page.getByRole("button", { name: "Free Local Testに申込" }).click();
-  await expect(page.getByText("registered")).toBeVisible();
-
-  await page.getByRole("link", { name: "自分のチケット" }).click();
-  const registration = page.getByText("Go Conference Local Test / Free Local Test / active");
-  await expect(registration).toBeVisible();
-  await page.reload();
-  await expect(registration).toBeVisible();
+  await test.step("Verify the ticket in My Tickets after reload", async () => {
+    await myTickets.goto();
+    await expect(myTickets.registration(eventName, ticketName, "active")).toBeVisible();
+    await page.reload();
+    await expect(myTickets.registration(eventName, ticketName, "active")).toBeVisible();
+  });
 });
