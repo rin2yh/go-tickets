@@ -126,7 +126,7 @@ jobs:
         working-directory: frontend
       - name: Prepare isolated local D1
         run: |
-          printf 'CLERK_SECRET_KEY=%s\n' "$CLERK_SECRET_KEY" > .dev.vars
+          node -e 'require("node:fs").writeFileSync(".dev.vars", `CLERK_SECRET_KEY=${process.env.CLERK_SECRET_KEY}\n`, { mode: 0o600 })'
           rm -rf .wrangler/e2e
           wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/e2e
           wrangler d1 execute go-tickets --config wrangler.public.jsonc --local --persist-to .wrangler/e2e --file backend/scripts/seed-local.sql
