@@ -77,8 +77,8 @@ WranglerローカルでPublic/Adminを別portで起動し、Public `/`、`/event
 
 ChromeではClerk標準SignIn UIにGitHub、Google、メールアドレスの選択肢が表示され、Clerkのスクリプトと画面が読み込まれることを確認した。未認証の状態が安定して表示された。実Clerkアカウントによる認証は行っていないため、有効なtokenでの申込・キャンセル、ログアウト後の状態、管理者の403/成功は未検証である。401/403の区別はGo単体テストの範囲で確認した。
 
-依存監査ではAstro 7.2.8への更新によりAstro自身の重大な指摘は解消したが、Astroの推移依存`http-cache-semantics@4.2.0`にHighが1件残る。監査DBは修正版を4.2.1以降としている一方、npm registryに4.2.1は存在せず、4.3.0は公開から7日未満である。pnpmの`minimumReleaseAge: 10080`を維持するため今回は例外指定や取得を行わなかった。Astroはビルド時のみ使い、実行Workerへは静的生成物を配信するが、CIの`pnpm audit --audit-level=high`は現状失敗する。修正版の公開から7日経過後にlockfileを更新し、監査が通るまでCI greenにはならない。
+依存監査ではAstro 7.2.8への更新によりAstro自身の重大な指摘は解消したが、Astroの推移依存`http-cache-semantics@4.2.0`にHighが1件残る。監査DBは修正版を4.2.1以降としている一方、npm registryに4.2.1はなく、4.3.0は公開から7日未満である。pnpmの`minimumReleaseAge: 10080`は維持し、CI監査ではこのGHSAだけを一時的に除外する。他のHigh/Critical指摘は引き続きCIを失敗させる。Astroはビルド時のみ使い、Workerには静的生成物を配信する。4.3.0の公開から7日経過後にlockfileを更新し、CIの例外を削除する。
 
 ## 採用・デプロイ判断の補足
 
-フロントエンド分離後もWorker uploadは64 MiB上限未満である。Admin Workerは外部routeを持たず、Public Workerは`/admin-api/*`だけをService Bindingで転送する構成をdry-runで確認した。今回はCloudflareへdeployしていないため、remote URLでの認証・D1共有・実行時間は測定していない。上記High依存監査がCIを失敗させるため、この差分を本番デプロイ可能とは判断しない。修正版の7日経過後の監査、Clerk実アカウントでの認証と権限試験、Cloudflare上のCPU測定が残る。
+フロントエンド分離後もWorker uploadは64 MiB上限未満である。Admin Workerは外部routeを持たず、Public Workerは`/admin-api/*`だけをService Bindingで転送する構成をdry-runで確認した。今回はCloudflareへdeployしていないため、remote URLでの認証・D1共有・実行時間は測定していない。Clerk実アカウントでの認証と権限試験、High依存の修正版適用、Cloudflare上のCPU測定が残る。
