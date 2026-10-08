@@ -138,9 +138,6 @@ jobs:
         env:
           WORKER_APP: public
         run: *build-worker
-      - name: Start Public Worker and run E2E tests
+      - name: Run E2E tests
         working-directory: frontend
-        run: |
-          wrangler dev --config ../wrangler.public.jsonc --local --port 8787 --persist-to ../.wrangler/e2e > "$RUNNER_TEMP/public-worker.log" 2>&1 &
-          curl --retry 30 --retry-connrefused --retry-delay 1 --fail http://localhost:8787/health
-          pnpm --filter @go-tickets/e2e test
+        run: pnpm --filter @go-tickets/e2e test

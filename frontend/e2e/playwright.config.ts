@@ -39,13 +39,14 @@ export default defineConfig({
       dependencies: ["clerk-setup"],
     },
   ],
-  webServer: process.env.CI
-    ? undefined
-    : {
-        command: "mise run e2e-dev",
-        url: "http://localhost:8787/health",
-        reuseExistingServer: false,
-        gracefulShutdown: { signal: "SIGINT", timeout: 5_000 },
-        timeout: 180_000,
-      },
+  webServer: {
+    command: process.env.CI
+      ? "wrangler dev --config wrangler.public.jsonc --local --port 8787 --persist-to .wrangler/e2e"
+      : "mise run e2e-dev",
+    cwd: fileURLToPath(new URL("../../", import.meta.url)),
+    url: "http://localhost:8787/health",
+    reuseExistingServer: false,
+    gracefulShutdown: { signal: "SIGINT", timeout: 5_000 },
+    timeout: 180_000,
+  },
 });
