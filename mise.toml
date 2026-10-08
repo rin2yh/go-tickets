@@ -55,6 +55,7 @@ mise run dev
 
 [tasks.test-e2e]
 description = "Run Playwright E2E tests with isolated local D1"
+env = { _.file = ".dev.vars" }
 run = "cd frontend && pnpm --filter @go-tickets/e2e test"
 
 [tasks.dev-admin]
