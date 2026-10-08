@@ -7,7 +7,7 @@ on:
 jobs:
   lint:
     name: Lint Go and frontend code
-    runs-on: ubuntu-24.04
+    runs-on: &ubuntu ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -41,7 +41,7 @@ jobs:
 
   test:
     name: Run tests
-    runs-on: ubuntu-24.04
+    runs-on: *ubuntu
     permissions:
       contents: read
     steps:
@@ -55,7 +55,7 @@ jobs:
 
   audit:
     name: Audit frontend dependencies
-    runs-on: ubuntu-24.04
+    runs-on: *ubuntu
     permissions:
       contents: read
     steps:
@@ -68,7 +68,7 @@ jobs:
 
   worker:
     name: Build and dry-run ${{ matrix.name }} Worker
-    runs-on: ubuntu-24.04
+    runs-on: *ubuntu
     strategy:
       matrix:
         include:
@@ -110,7 +110,7 @@ jobs:
   e2e:
     name: Run E2E tests
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
+    runs-on: *ubuntu
     permissions:
       contents: read
     env:
