@@ -6,7 +6,7 @@ on:
 
 jobs:
   lint:
-    name: Lint Go code
+    name: Lint Go and frontend code
     runs-on: ubuntu-26.04
     permissions:
       contents: read
@@ -16,6 +16,14 @@ jobs:
         with:
           version: 2026.6.0
       - run: mise run lint-go
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm run lint
+        working-directory: frontend
+      - run: pnpm run typecheck
+        working-directory: frontend
+      - run: pnpm run format:check
+        working-directory: frontend
 
   test:
     name: Run tests

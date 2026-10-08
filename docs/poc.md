@@ -16,7 +16,7 @@ Goカンファレンス向け600〜700人規模の無料チケット申込を想
 | Admin Wrangler dry-run upload | 6,088.14 KiB | 6,143.60 KiB | 7,831.77 KiB (+1,688.17 KiB / +27.48%) | 64 MiB未満 |
 | Public dry-run gzip表示 | 1,758.90 KiB | 1,772.79 KiB | 2,116.80 KiB | 制限判定は非圧縮upload値 |
 | Admin dry-run gzip表示 | 1,715.49 KiB | 1,729.93 KiB | 2,143.26 KiB | 制限判定は非圧縮upload値 |
-| 静的フロント資産 | 未導入 | `app.js` 1.8 MiB、Worker bundle外 | Vite JS 1,527.97 KiB (gzip 570.74 KiB)、Worker bundle外 | Static Assetsで別配信 |
+| 静的フロント資産 | 未導入 | `app.js` 1.8 MiB、Worker bundle外 | Vite React JS 350.98 kB (gzip 103.02 kB)、Worker bundle外 | 2026-10-08のローカルVite build値。Static Assetsで別配信 |
 | Cloudflare Worker起動時間 | 9 ms | Public 9 ms / Admin 7 ms | 未測定 | Free上限1秒。Go 1.27.1版は未deploy |
 | Cloudflare API CPU時間 | 未測定 | 未測定 | 未測定 | Free上限10 ms/要求 |
 | Workerメモリ | 未測定 | 未測定 | 未測定 | Free上限128 MB |

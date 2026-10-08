@@ -9,13 +9,13 @@
 - `backend/internal/tickets`: 共通`net/http` handlerとD1 SQLStore
 - `backend/internal/auth`: Worker境界でClerk JWTを検証するJavaScript実装。Goアプリケーション内部の認証済みidentity処理とは分離する。
 - `backend/migrations`: D1 schema
-- `frontend/index.html`、`frontend/app.js`: Clerk標準UIと認証済みPublic APIを呼ぶ小さな画面
-- `frontend/package.json`: Clerk SDK、Vite、Vitestの依存管理。WranglerはGo側の作業でも使うためmiseで管理する。
+- `frontend/index.html`、`frontend/app.tsx`: Clerk React SDKの標準UIと認証済みPublic APIを呼ぶ小さな画面
+- `frontend/package.json`: Clerk React SDK、React、TypeScript、Vite、Vitest、Oxlint、Oxfmtの依存管理。WranglerはGo側の作業でも使うためmiseで管理する。
 - frontendで共通部品が必要になった場合は`frontend/packages/`へ追加する。現時点では共通部品はない。
 
 ## 認証・認可
 
-ブラウザーでは`@clerk/clerk-js`の標準Sign inとUser Buttonを使う。ログイン状態・セッション更新・ログアウトはClerkに任せ、API呼び出し時にClerk SessionからBearer tokenを取得する。ブラウザーの`localStorage`へ独自にtokenを保存しない。HTTPS上でAuthorization headerを使い、Cookie認証に伴うCSRFを避ける。OWASP Session Managementの要点であるセッションIDの保護、TLS、サーバー側検証、ログアウトのセッション失効と整合する。ただしClerk側のセッション運用と本番domain設定はClerk Dashboard上で別途確認する。
+ブラウザーでは`@clerk/react`の`ClerkProvider`、`SignIn`、`UserButton`を使う。ログイン状態、セッション更新、ログアウトはClerk React SDKに任せ、API呼び出し時に`useAuth()`からBearer tokenを取得する。ユーザー名は`useUser()`から表示し、メールアドレスは表示しない。ブラウザーの`localStorage`へ独自にtokenを保存しない。HTTPS上でAuthorization headerを使い、Cookie認証に伴うCSRFを避ける。OWASP Session Managementの要点であるセッションIDの保護、TLS、サーバー側検証、ログアウトのセッション失効と整合する。ただしClerk側のセッション運用と本番domain設定はClerk Dashboard上で別途確認する。
 
 Worker wrapperは公式`@clerk/backend`の`verifyToken()`で署名、期限、許可Origin (`azp`) を検証する。失敗時はfail closedで401を返す。成功後に外部の`X-Go-Tickets-Authenticated-User`値を削除し、JWTの`sub`を設定してGoへ渡す。Go handlerはこのヘッダーからUser IDを得るため、本文中の`user_id`は受け付けない。
 
@@ -33,5 +33,5 @@ Public Workerは申込・キャンセルを認証必須とする。Admin Worker�
 
 - 標準Go 1.27.1と`GOOS=js GOARCH=wasm`を使い、TinyGoへは切り替えていない。
 - WranglerがClerk Backend SDKとWorker wrapperをbundleし、Go Wasmは認証済みID以降の認可とビジネスロジックを担当する。
-- `frontend/`の画面資産は`backend/build/web`として別配信し、Wasmへ含めない。
+- `frontend/`はTypeScript、Vite、React Compilerでビルドする。画面資産は`backend/build/web`として別配信し、Wasmへ含めない。
 - D1 triggerはSQLite互換の原子処理を利用する。Workers上での高負荷並行アクセス時の実挙動はCloudflare上の統合試験で再確認する。

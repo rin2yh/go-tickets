@@ -52,20 +52,24 @@ mise run d1-local-cleanup
 
 ```sh
 mise run lint-go
+pnpm --dir frontend run lint
+pnpm --dir frontend run typecheck
+pnpm --dir frontend run format:check
 mise run test
+pnpm --dir frontend run build
 mise run build-public
 mise run build-admin
 mise run dry-public
 mise run dry-admin
 ```
 
-`mise run lint-go`はgolangci-lintでGo packageを検査する。`mise run test`はGoの単体テストとVitestによるClerk JWT検証テストを実行する。テスト鍵は外部アカウントへ接続せず、期限切れ・許可Origin不一致・偽装ヘッダー置換も確認する。Build taskは`backend/cmd/{public,admin}`のGo Wasmと`workers-go`起動資産を生成する。Viteは画面資産を`backend/build/web`へ出力し、WranglerはWorker wrapperとClerk SDKをbundleする。画面資産はWasmへ含めない。
+`mise run lint-go`はgolangci-lintでGo packageを検査する。frontendの`lint`はOxlint、`typecheck`はTypeScript、`format:check`はOxfmtを実行する。React CompilerはViteのReact pluginとBabel presetを通じてTSXを最適化する。`mise run test`はGoの単体テストとVitestによるClerk JWT検証テストを実行する。テスト鍵は外部アカウントへ接続せず、期限切れ・許可Origin不一致・偽装ヘッダー置換も確認する。Build taskは`backend/cmd/{public,admin}`のGo Wasmと`workers-go`起動資産を生成する。Viteは画面資産を`backend/build/web`へ出力し、WranglerはWorker wrapperとClerk SDKをbundleする。画面資産はWasmへ含めない。
 
 `test`は`test-go`と`test-frontend`をまとめる。`build-public`はbackend内の`generate-public-runtime`と`build-public-wasm`、frontendのVite buildを順に実行する。`build-admin`もruntime生成とWasm compileを分けている。`workers-assets-gen`は`backend/go.mod`のtool directiveで管理し、`go tool workers-assets-gen`で実行する。各`dry-*`は対応するbuildの後にfrontend packageのWrangler dry-run taskを呼ぶ。mise taskの`dir`はGoコマンドを`backend/`、pnpmコマンドを`frontend/`で動かすために指定する。
 
 ## 構成上の注意
 
-- GoとCloudflareの実装・関連taskは`backend/`、ブラウザー画面・JavaScript依存・関連taskは`frontend/`で管理する。全体のツール固定とtask orchestrationはルートの`mise.toml`に置く。
+- GoとCloudflareの実装・関連taskは`backend/`、ブラウザー画面・TypeScript依存・関連taskは`frontend/`で管理する。全体のツール固定とtask orchestrationはルートの`mise.toml`に置く。
 - `backend/internal/auth`のJWT検証は公式`@clerk/backend`の`verifyToken()`を使い、WranglerがWorker bundleへ含める。Go実装の共通ロジックは`backend/internal/tickets`に置く。
 - Clerk Secret Keyは`.dev.vars`またはCloudflare Worker Secretへ登録する。`vars`、ソース、lockfileへ保存しない。
 - Admin権限を付ける公開APIはない。Cloudflareへ適用するときは運用者がD1へClerk User IDを直接登録する。

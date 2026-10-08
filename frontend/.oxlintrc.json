@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "react", "jsx-a11y"],
+  "env": {
+    "es2024": true,
+    "node": true,
+    "browser": true
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "ignorePatterns": ["**/dist/**", "**/build/**", "**/coverage/**"],
+  "rules": {
+    "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
+    "typescript/consistent-type-imports": "error",
+    "typescript/consistent-type-definitions": ["error", "interface"],
+    "unicorn/consistent-function-scoping": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-restricted-types": [
+      "error",
+      {
+        "types": {
+          "unknown": {
+            "message": "Avoid `unknown`. Use a concrete type; if a value is truly untyped, narrow it with a Zod schema or a type guard instead."
+          }
+        }
+      }
+    ],
+    "no-console": "warn",
+    "no-var": "error",
+    "complexity": ["error", 10],
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-unused-vars": [
+      "error",
+      { "args": "none", "caughtErrors": "none", "varsIgnorePattern": "^_" }
+    ],
+    "react/react-in-jsx-scope": "off",
+    "jsx-a11y/prefer-tag-over-role": "off"
+  }
+}
