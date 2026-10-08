@@ -1,0 +1,12 @@
+{
+  "name": "go-tickets-poc-public",
+  "main": "./build/public/worker.mjs",
+  "compatibility_date": "2026-10-08",
+  "workers_dev": false,
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "go-tickets-poc",
+    "database_id": "00000000-0000-0000-0000-000000000001",
+    "migrations_dir": "migrations"
+  }]
+}

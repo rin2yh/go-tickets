@@ -1,0 +1,23 @@
+{
+  "name": "go-tickets",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "go test ./...",
+    "build:public": "sh scripts/build.sh public",
+    "build:admin": "sh scripts/build.sh admin",
+    "dev:public": "npm run build:public && wrangler dev --config wrangler.public.jsonc --local --port 8787 --persist-to .wrangler/state",
+    "dev:admin": "npm run build:admin && wrangler dev --config wrangler.admin.jsonc --local --port 8788 --persist-to .wrangler/state",
+    "dev:both": "npm run build:public && npm run build:admin && wrangler dev -c wrangler.local.jsonc -c wrangler.public.jsonc -c wrangler.admin.jsonc --local --port 8787 --persist-to .wrangler/state",
+    "dry:public": "wrangler deploy --config wrangler.public.jsonc --dry-run --outdir build/dry-public",
+    "dry:admin": "wrangler deploy --config wrangler.admin.jsonc --dry-run --outdir build/dry-admin"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "wrangler": "4.148.0"
+  }
+}

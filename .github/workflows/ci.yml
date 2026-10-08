@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v5
+        with:
+          version: 2026.6.0
+      - run: mise exec -- npm ci
+      - run: mise exec -- go test ./...
+      - run: mise exec -- npm run build:public
+      - run: mise exec -- npm run build:admin
+      - run: mise exec -- npm run dry:public
+      - run: mise exec -- npm run dry:admin
