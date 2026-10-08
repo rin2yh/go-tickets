@@ -12,5 +12,5 @@
     "verbatimModuleSyntax": true,
     "types": ["vite/client"]
   },
-  "include": ["app.tsx"]
+  "include": ["src"]
 }

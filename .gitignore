@@ -15,3 +15,5 @@
 # Dependency directories and generated build output
 node_modules/
 build/
+**/dist/
+**/.astro/

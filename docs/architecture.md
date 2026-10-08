@@ -1,37 +1,30 @@
 # アーキテクチャ
 
-## ディレクトリと実行単位
+## Workerとフロントエンド
 
-`backend/`にGo module、HTTP・D1処理、migrationをまとめる。Go Wasmのentry pointとWorker起動wrapperは`backend/cmd/public`と`backend/cmd/admin`で対にする。Clerk token検証は`backend/internal/auth`に置く。Wrangler設定はルートに置き、miseで管理するWranglerが両Workerをbuild・deployする。`frontend/`はブラウザー画面とViteの依存を管理する。
+- Public WorkerはGo Wasm APIとAstroの静的ファイルを配信する。`frontend/public/`にAstroのファイルベースページと必要箇所だけhydrateするReact Islandsを置く。
+- Admin WorkerはGo Wasm APIを持つ。`frontend/admin/`のReact + Vite SPAはPublic WorkerのStatic Assetsから`/admin/*`で配信する。Admin Workerは`workers_dev:false`で外部routeを持たない。
+- Public Workerの`ADMIN` Service Bindingは`/admin-api/*`だけをAdmin Workerへ転送する。Admin APIはGo側でClerk JWTとD1の管理者情報を照合する。一般ユーザーは403、未認証は401である。
+- Wrangler設定はルートに置き、D1は既存の`go-tickets`を両Workerで共有する。
 
-- `backend/cmd/public`: Public Go WasmとWorker起動wrapper
-- `backend/cmd/admin`: Admin Go WasmとWorker起動wrapper
-- `backend/internal/tickets`: 共通`net/http` handlerとD1 SQLStore
-- `backend/internal/auth`: Clerk公式Go SDKによるJWT検証と認証済みUser IDのrequest context管理
-- `backend/migrations`: D1 schema
-- `frontend/index.html`、`frontend/app.tsx`: Clerk React SDKの標準UIと認証済みPublic APIを呼ぶ小さな画面
-- `frontend/package.json`: Clerk React SDK、React、TypeScript、Vite、Oxlint、Oxfmtの依存管理。WranglerはGo側の作業でも使うためmiseで管理する。
-- frontendで共通部品が必要になった場合は`frontend/packages/`へ追加する。現時点では共通部品はない。
+## Public SSGとD1
 
-## 認証・認可
+Astroは`output: "static"`でビルドし、リモートD1には接続しない。ページのHTMLシェルを静的生成し、Clerk標準UIはReact Island内でブラウザーから起動する。イベント名、チケット種別、残席数は公開Go APIの`GET /api/events`と`GET /api/events/{eventId}`からD1を読み、一覧・詳細のReact Islandsで表示する。HTMLの`/events/{eventId}`とはパスを分けてある。`GET /registrations`は認証済み利用者本人の申込だけを返す。
 
-ブラウザーでは`@clerk/react`の`ClerkProvider`、`SignIn`、`UserButton`を使う。ログイン状態、セッション更新、ログアウトはClerk React SDKに任せ、API呼び出し時に`useAuth()`からBearer tokenを取得する。ユーザー名は`useUser()`から表示し、メールアドレスは表示しない。ブラウザーの`localStorage`へ独自にtokenを保存しない。HTTPS上でAuthorization headerを使い、Cookie認証に伴うCSRFを避ける。OWASP Session Managementの要点であるセッションIDの保護、TLS、サーバー側検証、ログアウトのセッション失効と整合する。ただしClerk側のセッション運用と本番domain設定はClerk Dashboard上で別途確認する。
+Astroの動的詳細ページは`PUBLIC_EVENT_IDS`に指定されたIDだけSSGする。環境変数が空の場合は共通イベント詳細シェルをWorkerが返し、IslandがURLのIDを使ってAPIから実データを取得する。WorkerはStatic AssetsのHTML自動redirectを無効にし、`/`、`/tickets`、`/events/{eventId}`、`/admin/*`を対応する`index.html`へ明示的に書き換える。イベントはDBの値だけを表示し、存在しないイベントをサンプル表示しない。
 
-Goの`net/http` middlewareがClerk公式Go SDKでBearer tokenを検証する。SDKはClerk JWKS endpointから鍵を取得し、Workers GoのFetch API transportを通じて要求する。署名、発行者、期限、有効化時刻、許可Origin (`azp`) を検証し、失敗時は401を返す。User IDは検証済みJWTの`sub`からrequest contextに保存する。クライアント指定のUser ID headerやbodyは認証に使わない。JavaScript Worker層はPublic/Adminのroute振り分けとBindings連携を担当する。
+## Clerk認証
 
-Public Workerは申込・キャンセルを認証必須とする。Admin WorkerはJWT検証に加え、D1の`administrators` tableを照会して管理者のみ状況APIを許可する。一般ユーザーは403、未認証は401である。PublicからAdminへのService Bindingは持たせない。Admin Workerは`workers_dev:false`かつroute未設定のため、Cloudflare上では外部から到達できない。利用時は認証を確認したうえでAdmin用routeとアクセス制御を別途設定する。
+Public/Adminフロントエンドは`@clerk/react`の`ClerkProvider`、`SignIn`、`UserButton`を利用する。ログイン状態、トークン更新、ログアウトはClerk SDKに任せ、アプリ独自にトークンを`localStorage`へ保存しない。API呼び出しはBearer tokenを送る。
 
-管理者を追加する公開APIは提供しない。運用者がCloudflare D1からClerk User IDを直接登録する。一般のユーザーIDと管理者IDの2権限だけを持つ。
+両WorkerのGo middlewareはClerk公式Go SDKでJWTの署名・有効期限・issuer・`azp`を検証する。User IDは検証済みJWTの`sub`から取得する。クライアント入力の`user_id`は認証情報として扱わない。公開イベントGETと`GET /health`以外は認証必須である。AdminはさらにD1の`administrators` tableを確認する。
 
-## Go WasmとD1
+## D1の整合性
 
-標準Go `net/http`を第一候補にし、`github.com/syumai/workers-go`のD1 Binding connectorを通じて`database/sql`を利用する。アプリケーションの通常のDBアクセスにD1管理REST APIは使わない。PublicとAdminは同一D1を使う。
+`events`、`ticket_types`、`registrations`と予約triggerは`backend/migrations/0001_init.sql`にある。申込はtriggerによる残席条件更新とINSERTを同一SQL statementで処理し、定員到達時はrollbackする。`(ticket_type_id,user_id)` unique制約が重複申込を防ぐ。キャンセルは単一UPDATEで残席を戻す。`workers-go` D1 connectorの複数statement transactionが未実装のため、この構成では単一statement内のtriggerで整合性を保つ。
 
-`backend/migrations/0001_init.sql`で`events`、`ticket_types`、`registrations`を作り、`0002_administrators.sql`で管理者一覧を追加する。申込は単一INSERTがtriggerを起動し、残席の条件付き更新が0件なら同じ文をrollbackする。`(ticket_type_id,user_id)` unique制約で重複を拒否する。キャンセルは単一UPDATEとtriggerで残席を回復する。`workers-go`のD1 connectorは`BeginTx`が未実装のため、複数SQL文のトランザクションではなく単一SQL statement内で整合性を保つ。
+## 制約
 
-## 技術上の制約
-
-- 標準Go 1.27.1と`GOOS=js GOARCH=wasm`を使い、TinyGoへは切り替えていない。
-- Clerk公式Go SDKがGo Wasm内でJWT検証を行う。JavaScript Worker層は起動とCloudflare Bindings連携に使う。
-- `frontend/`はTypeScript、Vite、React Compilerでビルドする。画面資産は`backend/build/web`として別配信し、Wasmへ含めない。
-- D1 triggerはSQLite互換の原子処理を利用する。Workers上での高負荷並行アクセス時の実挙動はCloudflare上の統合試験で再確認する。
+- Admin向けのイベント作成・更新、申込一覧、チェックインAPIは未実装である。SPAには認証と401/403確認、画面パスだけを用意し、架空データを表示しない。
+- Admin SPA資産はPublic Workerから配信する。Admin APIは同じPublic originの`/admin-api/*`を経由し、内部Service Bindingへ渡す。Admin Worker自体には公開routeがない。
+- イベント読み取りAPIはD1の現行スキーマから名前とチケット種別・残席を返す。日程や説明欄はスキーマにないため表示しない。

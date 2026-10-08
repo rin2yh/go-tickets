@@ -1,39 +1,41 @@
 # go-tickets
 
-Goカンファレンス向け無料チケット申込の検証プロジェクトである。バックエンドはGo Wasm、Cloudflare Workers、D1、フロントエンドはClerk標準UIで構成する。
+Goカンファレンス向け無料チケットサイトのPoCである。PublicはAstroとReact Islands、AdminはReact SPA、APIはGo Wasm・Cloudflare Workers・D1で構成する。
 
 ## 必要なツールとセットアップ
 
-Go、golangci-lint、Node.js、pnpm、Wranglerは[mise.toml](mise.toml)で固定している。frontendの依存関係とロックファイルは[frontend/](frontend/)で管理し、公開から7日間経過していないnpm依存をインストールしない。
+Go、golangci-lint、Node.js、pnpm、Wranglerは[mise.toml](mise.toml)で固定している。フロントエンド依存はpnpm workspaceで管理し、公開から7日未満のnpmパッケージはインストールしない。
 
 ```sh
 mise install
-mise exec -- pnpm --dir frontend install --frozen-lockfile
+(cd frontend && pnpm install --frozen-lockfile)
+cp .dev.vars.example .dev.vars
 ```
 
-## ローカル開発
+`.dev.vars`へClerk Development InstanceのSecret Keyを設定する。詳しくは[開発手順](docs/development.md)を参照する。
 
-ルートの`.dev.vars`にClerk Development InstanceのSecret Keyを設定し、ローカルD1を初期化してWorkerを起動する。変数名やClerk Dashboardの設定は[開発手順](docs/development.md)を参照する。
+## ローカル開発
 
 ```sh
 mise run d1-local-init
 mise run dev
 ```
 
-ブラウザーで`http://localhost:8787`を開く。
+Publicは`http://localhost:8787`、Adminは`http://localhost:8787/admin`、Admin Workerは内部Service Binding先として`http://localhost:8788`で起動する。
 
 ## テスト・ビルド
 
 ```sh
-mise run lint-go
 mise run test
+mise run lint-go
+cd frontend && pnpm run lint && pnpm run typecheck && pnpm run format:check
 mise run build-public
 mise run build-admin
 mise run dry-public
 mise run dry-admin
 ```
 
-## 詳細ドキュメント
+## 詳細
 
 - [アーキテクチャ・認証設計](docs/architecture.md)
 - [開発・ローカル検証](docs/development.md)

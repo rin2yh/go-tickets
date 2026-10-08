@@ -1,14 +1,34 @@
-[build-frontend]
-description = "Build browser assets with Vite"
+[build-public-assets]
+description = "Build the Public Astro static site"
 dir = "frontend"
-run = "pnpm run build"
+run = "pnpm run build:public"
+
+[build-admin-assets]
+description = "Build the Admin React SPA"
+dir = "frontend"
+run = "pnpm run build:admin"
+
+[lint-frontend]
+description = "Lint frontend code"
+dir = "frontend"
+run = "pnpm run lint"
+
+[typecheck-frontend]
+description = "Typecheck Public and Admin frontend code"
+dir = "frontend"
+run = "pnpm run typecheck"
+
+[format-frontend]
+description = "Check frontend formatting"
+dir = "frontend"
+run = "pnpm run format:check"
 
 [dry-public-bundle]
 description = "Run Wrangler dry-run for the Public Worker"
 dir = "frontend"
-run = "pnpm run dry:public"
+run = "wrangler deploy --config ../wrangler.public.jsonc --dry-run --outdir ../backend/build/dry-public"
 
 [dry-admin-bundle]
 description = "Run Wrangler dry-run for the Admin Worker"
 dir = "frontend"
-run = "pnpm run dry:admin"
+run = "wrangler deploy --config ../wrangler.admin.jsonc --dry-run --outdir ../backend/build/dry-admin"

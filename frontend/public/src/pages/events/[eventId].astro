@@ -1,0 +1,17 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { EventDetails } from "../../components/ClerkIsland";
+
+export function getStaticPaths() {
+  const configuredIds = (import.meta.env.PUBLIC_EVENT_IDS ?? "")
+    .split(",")
+    .map((id: string) => id.trim())
+    .filter((id: string) => /^\d+$/.test(id));
+  return configuredIds.map((eventId: string) => ({ params: { eventId } }));
+}
+const { eventId = "" } = Astro.params;
+---
+<SiteLayout title="イベント詳細">
+  <h1>イベント詳細</h1>
+  <EventDetails client:load eventId={eventId} />
+</SiteLayout>

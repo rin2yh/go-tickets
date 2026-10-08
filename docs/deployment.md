@@ -1,75 +1,45 @@
-# Cloudflareデプロイ
+# デプロイ
 
-## 既存リソース
+## 配信構成
 
-今回も既存のWorkers FreeアカウントとD1 `go-tickets`を使う。新しいCloudflare環境やD1を作らず、`trend-diary-db`と他Workerには触れない。設定はrepository rootの`wrangler.public.jsonc`と`wrangler.admin.jsonc`にある。
+Public WorkerはGo APIと`backend/build/web`内のAstroページ、Admin SPAを配信する。Worker wrapperがAPIを先に処理し、Publicの静的URLと`/admin/*`をStatic Assetsへ渡す。AdminのHTML、JS、CSSはPublic Workerから配信する。
 
-| リソース | 値 |
-| --- | --- |
-| D1名 | `go-tickets` |
-| D1 ID | `5af5f125-7b2b-4f3e-8879-829a0f4e9369` |
-| Public Worker | `go-tickets-public` |
-| Admin Worker | `go-tickets-admin` |
+Admin WorkerはGo APIとD1 Bindingだけを持ち、`workers_dev:false`、`preview_urls:false`、route未設定を維持する。Public WorkerだけがAdminへのService Binding (`ADMIN`) を持つ。`/admin-api/*`以外のrequestはAdminへ転送しない。Public WorkerのAdmin用proxyもClerk/Admin認可を迂回できず、Admin Go middlewareが必ず検証する。
+
+## D1
+
+既存の`go-tickets` databaseを利用する。Terraformは導入しない。
+
+```sh
+mise exec -- wrangler d1 migrations apply go-tickets --remote --config wrangler.public.jsonc
+```
+
+新しいmigrationがある場合だけ適用する。今回の画面/API追加ではスキーマ変更はない。デプロイ前に`mise run dry-public`と`mise run dry-admin`を実行する。
 
 ## Clerk設定とSecrets
 
-Clerk Development InstanceでGitHub、Google、メールOTPを有効にする。GitHub・Googleの開発OAuth設定はClerkの標準接続を使う。アカウント連携とセッション運用をClerkへ委譲する。
-
-`CLERK_PUBLISHABLE_KEY`は両WorkerのWrangler `vars`に設定済みである。Clerk Secret Keyはルートの`.dev.vars`（ローカル）とCloudflare Worker Secrets（リモート）にだけ登録する。リポジトリへ記載しない。Cloudflareでは両Workerの`CLERK_SECRET_KEY` Secret名が登録済みであるが、値そのものは表示・検証していない。
+`CLERK_PUBLISHABLE_KEY`と`CLERK_AUTHORIZED_PARTIES`は各Wrangler configの`vars`に置く。Clerk Secret Keyはリポジトリ、`vars`、コマンドラインへ含めず、各WorkerのSecretとして対話登録する。
 
 ```sh
 mise exec -- wrangler secret put CLERK_SECRET_KEY --config wrangler.public.jsonc
 mise exec -- wrangler secret put CLERK_SECRET_KEY --config wrangler.admin.jsonc
 ```
 
-各コマンドは対話入力を使い、Secret Keyをシェル引数やログへ出さない。Clerk Session tokenの`azp`と一致する許可Originを、両Workerの`CLERK_AUTHORIZED_PARTIES`へ設定する。Wrangler設定の初期値`http://localhost:8787`はローカル専用であり、本番Originへ置き換えてから認証を確認する。
+Clerk DashboardでGitHub、Google、メールOTPを有効にする。許可Originはブラウザーを開くPublic originに絞る。Admin APIのproxy requestではBearer tokenをそのまま転送し、Go側が署名、期限、issuer、authorized party、D1管理者権限を検証する。
 
-ClerkのBearer tokenはTLS経由のAuthorization headerでWorkerへ送る。Clerk標準セッションとFrontend SDKがtoken lifecycleを管理し、アプリ独自のcookie/sessionを作らない。詳細は[認証設計](architecture.md#認証認可)を参照する。
-
-## D1マイグレーション
-
-`0002_administrators.sql`で管理者一覧を追加済みである。既存の`0001`を再作成しない。新規環境では次を実行する。
+## Build・Deploy
 
 ```sh
-mise exec -- wrangler d1 migrations apply go-tickets --config wrangler.public.jsonc --remote
-```
-
-## ビルドとデプロイ
-
-ビルド・dry-runはルートのmise taskを使う。
-
-```sh
+mise run build-public
+mise run build-admin
 mise run dry-public
 mise run dry-admin
-```
-
-認証対応版は既存Public/Admin Workerへデプロイ済みである。両方とも`No targets deployed`となり、route、workers.dev URL、preview URLは存在しない。現在のソースを再デプロイする場合は次を個別に実行する。
-
-```sh
 mise exec -- wrangler deploy --config wrangler.admin.jsonc
 mise exec -- wrangler deploy --config wrangler.public.jsonc
 ```
 
-## 公開範囲
+Cloudflare上でもAdmin Workerへ公開routeや`workers.dev` URLを追加しない。Admin APIのインターネット側入口はPublic Workerの`/admin-api/*`だけであり、認証・管理者認可を通過した要求だけをD1へ到達させる。Public Workerの公開routeを有効にする場合、`CLERK_AUTHORIZED_PARTIES`をそのoriginへ合わせ、ログイン・ログアウト・一般ユーザー403・管理者成功を確認してから行う。
 
-Adminは`workers_dev:false`、`preview_urls:false`、route未設定のままにする。Public設定にもrouteはなく、PublicからAdminへのService Bindingも設定しない。そのためCloudflare上ではAdmin APIに外部から到達できない。Admin APIを使う前に、Clerk認証・D1管理者照会を確認し、Admin専用routeとアクセス制御を用意する。
+## 未完了の公開前確認
 
-公開前に、Cloudflare上で正常・期限切れ・不正token、一般ユーザー403、D1管理者成功、申込競合を確認する。その後Publicの公開Originだけを有効化し、`CLERK_AUTHORIZED_PARTIES`をそのOriginに固定する。Adminを公開する場合は別の専用routeとアクセス制御が必要である。Clerk Dashboardのprovider設定、実ログイン、認証済みWorker requestが未確認のため、公開routeは有効にしていない。Secret名の存在だけではSecret値の正しさを保証しない。
-
-## 管理者登録
-
-公開昇格APIはない。Clerkログイン後に確認したUser IDを運用者が指定し、D1へ登録する。
-
-```sh
-CLERK_USER_ID=user_... mise run admin-add
-```
-
-登録操作はCloudflare上の`go-tickets` D1だけに行う。テスト用IDの追加後は明示的なDELETEで削除する。
-
-## デプロイ時の注意
-
-- Workers Freeの範囲内で実施し、有料機能へ変更しない。
-- Workersの`workers_dev`を有効にする前に、必ず認証済みのCloudflare試験を終える。
-- Admin Workerにroute、Preview URL、workers.dev URLを作成しない。
-- `backend/scripts/seed-local.sql`と`cleanup-local.sql`はローカルD1専用で、Remoteへ適用しない。
-- Phase 2でTerraformを導入するときは、既存のD1とWorkerをimportし、新規作成しない。
+このPoCはCloudflare remote deployを行わない。既存のCloudflareリソースに対する設定差分はdry-runで確認し、実デプロイ前にWorkers画面でPublic/AdminのrouteとStatic Assets設定を照合する。Admin用の管理操作、申込一覧、チェックインのGo APIはまだない。

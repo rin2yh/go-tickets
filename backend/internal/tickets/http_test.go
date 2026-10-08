@@ -31,24 +31,40 @@ func (f *fakeStore) IsAdmin(_ context.Context, user string) (bool, error) {
 	f.adminUser = user
 	return f.admin, f.adminErr
 }
+func (f *fakeStore) Events(context.Context) ([]Event, error) {
+	return []Event{{ID: 1, Name: "event", TicketTypes: []TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}}, nil
+}
+func (f *fakeStore) Event(_ context.Context, id int64) (Event, error) {
+	if id != 1 {
+		return Event{}, errors.New("missing")
+	}
+	return Event{ID: 1, Name: "event", TicketTypes: []TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}, nil
+}
+func (f *fakeStore) Registrations(_ context.Context, user string) ([]Registration, error) {
+	f.registeredUser = user
+	return []Registration{{TicketTypeID: 1, EventName: "event", TicketName: "ticket", Status: "active"}}, nil
+}
 
 func TestPublicHandler(t *testing.T) {
 	tests := []struct {
-		name, path, body string
-		store            fakeStore
-		want             int
+		name, method, path, body string
+		store                    fakeStore
+		want                     int
 	}{
-		{"register ignores body user id", "/registrations", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusCreated},
-		{"sold out", "/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrSoldOut}, http.StatusConflict},
-		{"duplicate", "/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrDuplicate}, http.StatusConflict},
-		{"bad body", "/registrations", `{`, fakeStore{}, http.StatusBadRequest},
-		{"cancel", "/registrations/cancel", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusOK},
-		{"missing", "/registrations/cancel", `{"ticket_type_id":1}`, fakeStore{cancelErr: ErrNotFound}, http.StatusNotFound},
+		{"events are public", http.MethodGet, "/api/events", ``, fakeStore{}, http.StatusOK},
+		{"event detail is public", http.MethodGet, "/api/events/1", ``, fakeStore{}, http.StatusOK},
+		{"my registrations", http.MethodGet, "/registrations", ``, fakeStore{}, http.StatusOK},
+		{"register ignores body user id", http.MethodPost, "/registrations", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusCreated},
+		{"sold out", http.MethodPost, "/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrSoldOut}, http.StatusConflict},
+		{"duplicate", http.MethodPost, "/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrDuplicate}, http.StatusConflict},
+		{"bad body", http.MethodPost, "/registrations", `{`, fakeStore{}, http.StatusBadRequest},
+		{"cancel", http.MethodPost, "/registrations/cancel", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusOK},
+		{"missing", http.MethodPost, "/registrations/cancel", `{"ticket_type_id":1}`, fakeStore{cancelErr: ErrNotFound}, http.StatusNotFound},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			store := &tc.store
-			r := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))
+			r := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 			r.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
 			w := httptest.NewRecorder()
 			PublicHandler(store, testAuthenticatedUserID).ServeHTTP(w, r)

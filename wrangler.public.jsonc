@@ -1,4 +1,5 @@
 {
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "go-tickets-public",
   "main": "./backend/cmd/public/worker.mjs",
   "compatibility_date": "2026-10-07",
@@ -8,7 +9,13 @@
     "CLERK_PUBLISHABLE_KEY": "pk_test_cGxlYXNpbmctc3F1aWQtNzE4OS5jbGVyay5hY2NvdW50cy5kZXYk",
     "CLERK_AUTHORIZED_PARTIES": "http://localhost:8787"
   },
-  "assets": { "directory": "./backend/build/web", "binding": "ASSETS" },
+  "services": [{ "binding": "ADMIN", "service": "go-tickets-admin" }],
+  "assets": {
+    "directory": "./backend/build/web",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none"
+  },
   "d1_databases": [{
     "binding": "DB",
     "database_name": "go-tickets",

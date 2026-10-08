@@ -16,30 +16,32 @@ description = "Run Go tests"
 run = [{ task = "test-go" }]
 
 [tasks.build-public]
-description = "Build Public Worker and frontend assets"
-run = [
-  { task = "generate-public-runtime" },
-  { task = "build-public-wasm" },
-  { task = "build-frontend" },
-]
+description = "Build Public Worker and Astro assets"
+run = "mise run generate-public-runtime && mise run build-public-wasm && mise run assemble-web-assets"
 
 [tasks.build-admin]
-description = "Build the Admin Worker"
-run = [{ task = "generate-admin-runtime" }, { task = "build-admin-wasm" }]
+description = "Build Admin Worker and SPA assets"
+run = "mise run generate-admin-runtime && mise run build-admin-wasm && mise run build-admin-assets"
 
 [tasks.dev]
-description = "Run the Public Worker locally"
-run = [
-  { task = "build-public" },
-  { task = "wrangler-dev" },
-]
+description = "Build and run Public and Admin Workers locally"
+run = '''
+mise run build-public && mise run build-admin
+mise run dev-public &
+public_pid=$!
+mise run dev-admin &
+admin_pid=$!
+trap 'kill "$public_pid" "$admin_pid" 2>/dev/null' INT TERM EXIT
+wait
+'''
 
 [tasks.dev-admin]
 description = "Run the Admin Worker locally"
-run = [{ task = "build-admin" }, { task = "wrangler-dev-admin" }]
+run = [{ task = "wrangler-dev-admin" }]
 
-[tasks.wrangler-dev]
-run = "wrangler dev -c wrangler.public.jsonc --local --port 8787 --persist-to .wrangler/state"
+[tasks.dev-public]
+description = "Run the Public Worker locally"
+run = [{ task = "wrangler-dev-public" }]
 
 [tasks.dry-public]
 description = "Build and validate the Public Worker bundle"
@@ -48,3 +50,8 @@ run = [{ task = "build-public" }, { task = "dry-public-bundle" }]
 [tasks.dry-admin]
 description = "Build and validate the Admin Worker bundle"
 run = [{ task = "build-admin" }, { task = "dry-admin-bundle" }]
+
+[tasks.assemble-web-assets]
+description = "Combine the independently built Public and Admin frontends"
+depends = ["build-public-assets", "build-admin-assets"]
+run = "rm -rf backend/build/web && mkdir -p backend/build/web/admin && cp -R backend/build/public-assets/. backend/build/web/ && cp -R backend/build/admin-assets/. backend/build/web/admin/"

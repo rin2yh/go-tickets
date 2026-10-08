@@ -2,9 +2,12 @@ minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 
-packages: []
+packages:
+  - public
+  - admin
 
 allowBuilds:
   esbuild: true
   browser-tabs-lock: false
   core-js: false
+  sharp: false

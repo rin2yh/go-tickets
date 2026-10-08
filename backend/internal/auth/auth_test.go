@@ -46,7 +46,14 @@ func TestAuthenticator(t *testing.T) {
 		"nbf": time.Now().Add(-time.Second).Unix(),
 		"exp": time.Now().Add(time.Minute).Unix(),
 	})
-	tamperedToken := validToken[:len(validToken)-1] + "x"
+	tokenParts := strings.Split(validToken, ".")
+	signature := []byte(tokenParts[2])
+	if signature[0] == 'A' {
+		signature[0] = 'B'
+	} else {
+		signature[0] = 'A'
+	}
+	tamperedToken := tokenParts[0] + "." + tokenParts[1] + "." + string(signature)
 
 	tests := []struct {
 		name  string
@@ -58,6 +65,8 @@ func TestAuthenticator(t *testing.T) {
 		{name: "valid", token: validToken, path: "/registrations", want: http.StatusNoContent, user: "user_Valid123"},
 		{name: "missing token", path: "/registrations", want: http.StatusUnauthorized},
 		{name: "health is public", path: "/health", want: http.StatusNoContent},
+		{name: "event list is public", path: "/api/events", want: http.StatusNoContent},
+		{name: "event detail is public", path: "/api/events/1", want: http.StatusNoContent},
 		{name: "invalid signature", token: tamperedToken, path: "/registrations", want: http.StatusUnauthorized},
 		{name: "wrong party", token: signToken(t, key, keyID, map[string]any{
 			"iss": "https://sample.clerk.accounts.dev", "sub": "user_Valid123", "sid": "sess_test", "azp": "https://attacker.example",

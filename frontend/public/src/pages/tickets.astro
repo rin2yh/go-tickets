@@ -1,0 +1,8 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { ClerkIsland } from "../components/ClerkIsland";
+---
+<SiteLayout title="自分のチケット">
+  <h1>自分のチケット</h1>
+  <ClerkIsland client:load mode="tickets" />
+</SiteLayout>

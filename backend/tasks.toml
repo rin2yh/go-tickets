@@ -60,3 +60,8 @@ case "$CLERK_USER_ID" in user_[A-Za-z0-9]*) ;; *) echo "set CLERK_USER_ID to a C
 case "$CLERK_USER_ID" in *[!A-Za-z0-9_]*) echo "invalid Clerk user ID" >&2; exit 2;; esac
 wrangler d1 execute go-tickets --remote --config ../wrangler.admin.jsonc --command "INSERT INTO administrators(clerk_user_id) VALUES ('$CLERK_USER_ID') ON CONFLICT(clerk_user_id) DO NOTHING"
 '''
+
+[wrangler-dev-public]
+description = "Run the Public Worker locally"
+dir = "backend"
+run = "wrangler dev --config ../wrangler.public.jsonc --local --port 8787 --persist-to ../.wrangler/state"

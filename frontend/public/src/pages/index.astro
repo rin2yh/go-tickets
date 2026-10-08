@@ -1,0 +1,8 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { EventList } from "../components/ClerkIsland";
+---
+<SiteLayout title="イベント一覧">
+  <h1>イベント一覧</h1>
+  <EventList client:load />
+</SiteLayout>

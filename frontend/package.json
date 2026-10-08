@@ -3,29 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build:public": "pnpm --filter @go-tickets/public build",
+    "build:admin": "pnpm --filter @go-tickets/admin build",
     "lint": "oxlint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm --filter @go-tickets/public typecheck && pnpm --filter @go-tickets/admin typecheck",
     "format": "oxfmt .",
-    "format:check": "oxfmt --check .",
-    "dry:public": "wrangler deploy --config ../wrangler.public.jsonc --dry-run --outdir ../backend/build/dry-public",
-    "dry:admin": "wrangler deploy --config ../wrangler.admin.jsonc --dry-run --outdir ../backend/build/dry-admin"
-  },
-  "dependencies": {
-    "@clerk/react": "6.17.4",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "format:check": "oxfmt --check ."
   },
   "devDependencies": {
-    "@rolldown/plugin-babel": "0.2.4",
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.1.0",
-    "babel-plugin-react-compiler": "1.0.0",
     "oxfmt": "0.71.0",
-    "oxlint": "1.86.0",
-    "typescript": "7.0.2",
-    "vite": "8.3.1"
+    "oxlint": "1.86.0"
   },
   "packageManager": "pnpm@11.5.1"
 }

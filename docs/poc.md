@@ -47,10 +47,38 @@ Cloudflare D1へは試験用の容量1 ticket typeへ直接SQLを実行し、異
 - Clerk Go SDKのWasm化で各WorkerのWasmは約83〜85%増えた。Wrangler uploadは約13.2 MiBでFree上限64 MiBを下回る。
 - `workers-go`はrequestごとにGo Wasm runtimeを起動するため、Clerk Go SDKのプロセス内JWKS cacheはrequest間で共有されない。認証requestごとにClerk Backend APIからJWKSを取得する構成である。ClerkはJWKS endpointにendpoint-specific rate limitを設けていないが、認証時に外部ネットワーク往復が増える。Clerkの[API制限](https://clerk.com/docs/guides/how-clerk-works/system-limits)とWorkers上のCPU・起動時間を本番負荷で再確認する必要がある。
 - Clerk Go SDK版はFreeのサイズ上限に対して十分小さい。一方、10 ms CPU上限の実測、実Clerk tokenのWorker検証、Cloudflare上のD1競合試験、メモリ測定は未実施である。
-- Admin WorkerはPublicからのService Bindingを削除し、routeも無効のままである。Cloudflare上では外部から到達できない。利用時はAdmin専用routeとアクセス制御が必要である。
+- Admin Workerは独自routeと`workers.dev` URLを持たない。Public Workerの`/admin-api/*`だけがService Bindingで転送し、Admin Go middlewareがClerk認証とD1管理者認可を行う。
 - GitHub、Google、メールOTPのDashboard provider設定はソースから判定できない。Clerk Dashboardで有効化とOAuth設定を確認する。
-- Admin公開routeはなく、認証済みの管理者登録に使う運用手順だけを用意した。Secret名は登録済みだが値の検証、Clerk provider設定、Cloudflare上の認証試験が完了するまで非公開設定を保つ。
+- Admin Workerの直接公開routeはなく、Admin画面の静的資産はPublic Workerが配信する。認証済みAdmin APIのCloudflare上の検証は未実施である。
 
 ## 採用判断
 
 Go Wasm・D1・Clerk wrapperの組み合わせはローカル起動し、Wasmとdry-run uploadはWorkers Freeの64 MiB未満である。これにより構成の実装可能性は確認できた。認証導入版も既存Workerへdeploy済みだが、URLが無効なためCloudflare上の実認証は未検証である。本番採用の判断には、Clerk認証、CPU 10 ms、リモートD1並行申込、実行エラー、メモリ上限を確認する必要がある。
+
+## Public Astro / Admin SPAの移行
+
+2026-10-08にフロントエンドを`frontend/public` (Astro static + React Islands) と`frontend/admin` (React + Vite + TanStack Router) へ分割した。AstroはPublicのHTMLシェルをSSGし、イベント名や残席などDBの値はPublic Go APIから取得する。既存スキーマにイベント名・チケット名以上の情報はないため、架空の説明文は加えていない。
+
+イベントAPI `GET /api/events`、`GET /api/events/{eventId}` と本人申込API `GET /registrations` をGoへ追加した。イベントHTMLとはURLを分けた。各種ビルド・ローカル画面/API確認の結果は次節に記録する。実Clerkログイン・ログアウト、申込・キャンセル、Cloudflare上のremote Worker/D1動作は未検証である。
+
+## Public Astro / Admin SPAのローカル確認結果
+
+2026-10-08時点のビルド値である。Go 1.27.1、Wrangler 4.145.0を使用した。Wasmは`wc -c`、WorkerはWrangler dry-runの非圧縮upload値を記録した。gzip値はWrangler表示値である。
+
+| 指標 | Public | Admin | 備考 |
+| --- | ---: | ---: | --- |
+| Go Wasm | 13,915,742 bytes | 13,830,787 bytes | Go Wasm compile成功 |
+| Wrangler dry-run upload | 13,614.03 KiB | 13,529.36 KiB | Freeの64 MiB上限未満 |
+| Wrangler dry-run gzip表示 | 3,537.20 KiB | 3,519.81 KiB | 参考値 |
+
+`mise run test`、`mise run lint-go`、frontend lint、Astro/TypeScriptとAdmin TypeScriptのtypecheck、Oxfmt、Public/Adminのdry-runは通過した。Go Wasmと両フロントエンドもdry-run内でビルドできた。Workers Freeの10 ms CPU時間、起動時間、128 MBメモリはローカルでは計測できず、今回も未測定である。
+
+WranglerローカルでPublic/Adminを別portで起動し、Public `/`、`/events`、`/events/1`、`/tickets`、`/admin`、`/admin/events/1/registrations` が200を返すことを確認した。`/api/events`と`/api/events/1`はseedしたローカルD1の値を返し、Public healthとAdmin healthは200、未認証の本人申込・Admin APIは401だった。Public `/admin-api/*`からAdmin WorkerへのService Bindingも401を返し、内部転送を確認した。使用した`.dev.vars`はローカル用の仮値で、確認後に削除した。
+
+ChromeではClerk標準SignIn UIにGitHub、Google、メールアドレスの選択肢が表示され、Clerkのスクリプトと画面が読み込まれることを確認した。未認証の状態が安定して表示された。実Clerkアカウントによる認証は行っていないため、有効なtokenでの申込・キャンセル、ログアウト後の状態、管理者の403/成功は未検証である。401/403の区別はGo単体テストの範囲で確認した。
+
+依存監査ではAstro 7.2.8への更新によりAstro自身の重大な指摘は解消したが、Astroの推移依存`http-cache-semantics@4.2.0`にHighが1件残る。監査DBは修正版を4.2.1以降としている一方、npm registryに4.2.1は存在せず、4.3.0は公開から7日未満である。pnpmの`minimumReleaseAge: 10080`を維持するため今回は例外指定や取得を行わなかった。Astroはビルド時のみ使い、実行Workerへは静的生成物を配信するが、CIの`pnpm audit --audit-level=high`は現状失敗する。修正版の公開から7日経過後にlockfileを更新し、監査が通るまでCI greenにはならない。
+
+## 採用・デプロイ判断の補足
+
+フロントエンド分離後もWorker uploadは64 MiB上限未満である。Admin Workerは外部routeを持たず、Public Workerは`/admin-api/*`だけをService Bindingで転送する構成をdry-runで確認した。今回はCloudflareへdeployしていないため、remote URLでの認証・D1共有・実行時間は測定していない。上記High依存監査がCIを失敗させるため、この差分を本番デプロイ可能とは判断しない。修正版の7日経過後の監査、Clerk実アカウントでの認証と権限試験、Cloudflare上のCPU測定が残る。

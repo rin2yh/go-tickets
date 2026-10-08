@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 )
 
 func Health(mux *http.ServeMux) {
@@ -16,6 +17,43 @@ func Health(mux *http.ServeMux) {
 func PublicHandler(store Store, authenticatedUserID func(*http.Request) string) http.Handler {
 	mux := http.NewServeMux()
 	Health(mux)
+	mux.HandleFunc("GET /api/events", func(w http.ResponseWriter, r *http.Request) {
+		events, err := store.Events(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
+			return
+		}
+		writeJSON(w, http.StatusOK, events)
+	})
+	mux.HandleFunc("GET /api/events/{id}", func(w http.ResponseWriter, r *http.Request) {
+		eventID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil || eventID <= 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_event_id"})
+			return
+		}
+		event, err := store.Event(r.Context(), eventID)
+		switch {
+		case err == nil:
+			writeJSON(w, http.StatusOK, event)
+		case errors.Is(err, sql.ErrNoRows):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
+		default:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
+		}
+	})
+	mux.HandleFunc("GET /registrations", func(w http.ResponseWriter, r *http.Request) {
+		userID := authenticatedUserID(r)
+		if userID == "" {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+		registrations, err := store.Registrations(r.Context(), userID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
+			return
+		}
+		writeJSON(w, http.StatusOK, registrations)
+	})
 	mux.HandleFunc("POST /registrations", func(w http.ResponseWriter, r *http.Request) {
 		userID := authenticatedUserID(r)
 		if userID == "" {

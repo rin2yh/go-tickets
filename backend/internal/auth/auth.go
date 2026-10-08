@@ -63,7 +63,7 @@ func New(secretKey string, authorizedParties []string, client *http.Client, cler
 // Wrap protects API requests while leaving the health endpoint public.
 func (a *Authenticator) Wrap(next http.Handler) http.Handler {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet && r.URL.Path == "/health" {
+		if isPublicRead(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -76,6 +76,20 @@ func (a *Authenticator) Wrap(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 	return a.verify(handler)
+}
+
+func isPublicRead(r *http.Request) bool {
+	if r.Method != http.MethodGet {
+		return false
+	}
+	if r.URL.Path == "/health" || r.URL.Path == "/api/events" {
+		return true
+	}
+	if !strings.HasPrefix(r.URL.Path, "/api/events/") {
+		return false
+	}
+	segment := strings.TrimPrefix(r.URL.Path, "/api/events/")
+	return segment != "" && !strings.Contains(segment, "/")
 }
 
 func (a *Authenticator) hasAuthorizedParty(party string) bool {
