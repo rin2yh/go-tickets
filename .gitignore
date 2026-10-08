@@ -11,6 +11,8 @@
 
 # Wrangler state shared by local commands
 .wrangler/
+frontend/e2e/test-results/
+frontend/e2e/playwright-report/
 
 # Dependency directories and generated build output
 node_modules/

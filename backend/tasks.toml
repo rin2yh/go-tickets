@@ -38,8 +38,8 @@ run = "GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -
 description = "Apply local D1 migrations and insert the test event"
 dir = "backend"
 run = [
-  "wrangler d1 migrations apply go-tickets --config ../wrangler.public.jsonc --local --persist-to ../.wrangler/state",
-  "wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to ../.wrangler/state --file scripts/seed-local.sql",
+  "wrangler d1 migrations apply go-tickets --config ../wrangler.public.jsonc --local --persist-to ${E2E_D1_PERSIST:-../.wrangler/state}",
+  "wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to ${E2E_D1_PERSIST:-../.wrangler/state} --file scripts/seed-local.sql",
 ]
 
 [d1-local-cleanup]
@@ -50,7 +50,7 @@ run = "wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local 
 [wrangler-dev-admin]
 description = "Run the Admin Worker locally"
 dir = "backend"
-run = "wrangler dev --config ../wrangler.admin.jsonc --local --port 8788 --persist-to ../.wrangler/state"
+run = "wrangler dev --config ../wrangler.admin.jsonc --local --port 8788 --persist-to ${E2E_D1_PERSIST:-../.wrangler/state}"
 
 [admin-add]
 description = "Grant D1 administrator access to a Clerk user ID"
@@ -64,7 +64,7 @@ wrangler d1 execute go-tickets --remote --config ../wrangler.admin.jsonc --comma
 [wrangler-dev-public]
 description = "Run the Public Worker locally"
 dir = "backend"
-run = "wrangler dev --config ../wrangler.public.jsonc --local --port 8787 --persist-to ../.wrangler/state"
+run = "wrangler dev --config ../wrangler.public.jsonc --local --port 8787 --persist-to ${E2E_D1_PERSIST:-../.wrangler/state}"
 
 [test-public-routing]
 description = "Test Public Worker routing for generated and missing event pages"

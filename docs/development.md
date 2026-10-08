@@ -50,6 +50,30 @@ curl -i http://localhost:8788/ticket-types/1/status
 
 `mise run d1-local-cleanup`はローカルのテスト申込・イベントを削除する。これはローカルD1限定である。
 
+## Playwright E2E
+
+E2Eは参加者の申込成功フローをChromiumで実行する。実際のGo Wasm API、ローカルD1、Clerk Development Instanceを使う。Remote D1は使用しない。初回は通常のfrontend依存を入れ、PlaywrightのChromiumをインストールする。
+
+```sh
+cd frontend
+pnpm install --frozen-lockfile
+pnpm --filter @go-tickets/e2e exec playwright install chromium
+```
+
+Clerk DashboardでDevelopment Instanceを用意し、テスト用ユーザーを作成する。`CLERK_SECRET_KEY`と対応する`CLERK_PUBLISHABLE_KEY`をシェル環境に設定し、`E2E_CLERK_USER_EMAIL`にそのユーザーのメールアドレスを設定する。テスト実行にClerkのSecret Keyが必要なので、値はGit管理ファイルやコマンド引数に書かない。Workerも`.dev.vars`または同じシェル環境の`CLERK_SECRET_KEY`を使う。メール+パスワード認証を有効にし、テストユーザーは`+clerk_test`形式のメールアドレスにするとClerkからメールが送信されない。`CLERK_AUTHORIZED_PARTIES`は`http://localhost:8787`にする。
+
+どちらの方法でも、実行のたびに`.wrangler/e2e`だけを削除してローカルD1を初期化し、その同じD1からAstroのSSGを生成してPublic/Admin Workerを起動する。
+
+```sh
+cd frontend
+pnpm --filter @go-tickets/e2e test
+
+# またはリポジトリルートから
+mise run test-e2e
+```
+
+Playwrightの失敗traceとレポートは`frontend/e2e/test-results`および`frontend/e2e/playwright-report`に出力され、Git管理対象外である。E2Eは通常の`mise run test`とCIには含めていない。
+
 ## チェック
 
 ```sh

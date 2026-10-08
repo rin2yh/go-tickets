@@ -5,6 +5,7 @@ minimumReleaseAgeIgnoreMissingTime: false
 packages:
   - public
   - admin
+  - e2e
 
 allowBuilds:
   esbuild: true

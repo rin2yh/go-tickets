@@ -6,7 +6,7 @@ set -eu
 query='SELECT e.id AS id, e.name AS name, t.id AS ticket_type_id, t.name AS ticket_type_name FROM events e LEFT JOIN ticket_types t ON t.event_id = e.id ORDER BY e.id, t.id'
 case "${PUBLIC_EVENTS_SOURCE:-local}" in
   local)
-    events_json="$(wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to "${PUBLIC_D1_PERSIST:-../.wrangler/state}" --command "$query" --json)"
+    events_json="$(wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to "${PUBLIC_D1_PERSIST:-${E2E_D1_PERSIST:-../.wrangler/state}}" --command "$query" --json)"
     ;;
   remote)
     events_json="$(wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --remote --command "$query" --json)"
