@@ -2,7 +2,7 @@
 
 ## ツールと依存関係
 
-Go `1.26.7`、Node.js `26.7.0`、pnpm `11.5.1`はルートの`mise.toml`で固定する。Go moduleとWorkersの設定・ソースは`backend/`に置く。pnpm workspace、`pnpm-lock.yaml`、Clerk Frontend SDK、Wrangler、esbuildは`frontend/`に閉じ込める。workspaceの`minimumReleaseAge: 10080`と`minimumReleaseAgeStrict: true`で、公開から7日未満のnpm依存を拒否する。
+Go `1.26.7`、Node.js `26.7.0`、pnpm `11.5.1`はルートの`mise.toml`で固定する。Go moduleとWorkersの設定・ソースは`backend/`に置く。frontendの依存関係と`pnpm-lock.yaml`は`frontend/`に置き、`minimumReleaseAge: 10080`と`minimumReleaseAgeStrict: true`で公開から7日未満のnpm依存を拒否する。
 
 ```sh
 mise install
@@ -58,7 +58,7 @@ mise run dry-admin
 
 ## 構成上の注意
 
-- GoとCloudflareの実装は`backend/`、pnpm workspaceは`frontend/`、開発コマンドは`mise.toml`で管理する。
+- GoとCloudflareの実装は`backend/`、ブラウザー画面とJavaScript依存は`frontend/`、開発コマンドは`mise.toml`で管理する。
 - `backend/internal/auth`のJWT検証は公式`@clerk/backend`の`verifyToken()`を使い、Cloudflare Workers用のesbuild bundleに含める。Go実装の共通ロジックは`backend/internal/tickets`に置く。
 - Clerk Secret Keyは`.dev.vars`またはCloudflare Worker Secretへ登録する。`vars`、ソース、lockfileへ保存しない。
 - Admin権限を付ける公開APIはない。Cloudflareへ適用するときは運用者がD1へClerk User IDを直接登録する。

@@ -10,11 +10,17 @@ run = ["go -C backend test ./...", { task = "auth-test" }]
 [tasks.auth-test]
 description = "Run Clerk token verification tests"
 dir = "frontend"
-run = [
-  "mkdir -p ../backend/build/test",
-  "NODE_PATH=public/node_modules pnpm exec esbuild ../backend/internal/auth/auth.mjs --bundle --format=esm --platform=node --outfile=../backend/build/test/auth.mjs",
-  "node --test ../backend/internal/auth/auth.test.mjs",
-]
+run = "pnpm run test:auth"
+
+[tasks.worker-build-public]
+description = "Bundle the Public Worker wrapper and browser assets"
+dir = "frontend"
+run = "pnpm run build:public"
+
+[tasks.worker-build-admin]
+description = "Bundle the Admin Worker wrapper"
+dir = "frontend"
+run = "pnpm run build:admin"
 
 [tasks.build-public]
 description = "Build Public Go Wasm and Worker bundle"
@@ -23,10 +29,7 @@ run = '''
 go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/public
 GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/public/app.wasm ./cmd/public
 mv build/public/worker.mjs build/public/worker-runtime.mjs
-NODE_PATH="$PWD/../frontend/public/node_modules" pnpm --dir ../frontend exec esbuild "$PWD/cmd/public/worker.mjs" --bundle --format=esm --platform=browser --target=es2022 --external:cloudflare:sockets --external:*.wasm --outfile="$PWD/build/public/worker.mjs"
-mkdir -p build/web
-cp ../frontend/index.html build/web/index.html
-pnpm --dir ../frontend exec esbuild ../frontend/app.js --bundle --format=esm --platform=browser --target=es2022 --outfile="$PWD/build/web/app.js"
+mise run worker-build-public
 '''
 
 [tasks.build-admin]
@@ -36,7 +39,7 @@ run = '''
 go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go -o build/admin
 GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/admin/app.wasm ./cmd/admin
 mv build/admin/worker.mjs build/admin/worker-runtime.mjs
-NODE_PATH="$PWD/../frontend/admin/node_modules" pnpm --dir ../frontend exec esbuild "$PWD/cmd/admin/worker.mjs" --bundle --format=esm --platform=browser --target=es2022 --external:cloudflare:sockets --external:*.wasm --outfile="$PWD/build/admin/worker.mjs"
+mise run worker-build-admin
 '''
 
 [tasks.dev]

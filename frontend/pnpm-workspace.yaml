@@ -2,10 +2,7 @@ minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 
-packages:
-  - public
-  - admin
-  - packages/*
+packages: []
 
 allowBuilds:
   esbuild: true

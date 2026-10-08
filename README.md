@@ -4,7 +4,7 @@ Goカンファレンス向け無料チケット申込の検証プロジェクト
 
 ## 必要なツールとセットアップ
 
-Go、Node.js、pnpmは[mise.toml](mise.toml)で固定している。pnpm workspaceと依存ロックは[frontend/](frontend/)内で管理し、依存の公開から7日間はインストール対象にしない。
+Go、Node.js、pnpmは[mise.toml](mise.toml)で固定している。frontendの依存関係とロックファイルは[frontend/](frontend/)で管理し、公開から7日間経過していないnpm依存をインストールしない。
 
 ```sh
 mise install

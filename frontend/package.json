@@ -2,11 +2,17 @@
   "name": "go-tickets-frontend",
   "private": true,
   "packageManager": "pnpm@11.5.1",
+  "scripts": {
+    "build:public": "NODE_PATH=./node_modules esbuild ../backend/cmd/public/worker.mjs --bundle --format=esm --platform=browser --target=es2022 --external:cloudflare:sockets --external:*.wasm --outfile=../backend/build/public/worker.mjs && mkdir -p ../backend/build/web && cp index.html ../backend/build/web/index.html && esbuild app.js --bundle --format=esm --platform=browser --target=es2022 --outfile=../backend/build/web/app.js",
+    "build:admin": "NODE_PATH=./node_modules esbuild ../backend/cmd/admin/worker.mjs --bundle --format=esm --platform=browser --target=es2022 --external:cloudflare:sockets --external:*.wasm --outfile=../backend/build/admin/worker.mjs",
+    "test:auth": "mkdir -p ../backend/build/test && NODE_PATH=./node_modules esbuild ../backend/internal/auth/auth.mjs --bundle --format=esm --platform=node --outfile=../backend/build/test/auth.mjs && node --test ../backend/internal/auth/auth.test.mjs"
+  },
   "devDependencies": {
     "esbuild": "0.28.2",
     "wrangler": "4.145.0"
   },
   "dependencies": {
+    "@clerk/backend": "3.21.1",
     "@clerk/clerk-js": "6.36.0"
   }
 }

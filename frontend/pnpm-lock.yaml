@@ -11,6 +11,9 @@ importers:
 
   .:
     dependencies:
+      '@clerk/backend':
+        specifier: 3.21.1
+        version: 3.21.1
       '@clerk/clerk-js':
         specifier: 6.36.0
         version: 6.36.0
@@ -21,18 +24,6 @@ importers:
       wrangler:
         specifier: 4.145.0
         version: 4.145.0
-
-  admin:
-    dependencies:
-      '@clerk/backend':
-        specifier: 3.21.1
-        version: 3.21.1
-
-  public:
-    dependencies:
-      '@clerk/backend':
-        specifier: 3.21.1
-        version: 3.21.1
 
 packages:
 

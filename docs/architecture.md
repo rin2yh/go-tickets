@@ -2,7 +2,7 @@
 
 ## ディレクトリと実行単位
 
-`backend/`にGo module、HTTP・D1処理、migration、Wrangler設定をまとめる。Go Wasmのentry pointとWorker起動wrapperは`backend/cmd/public`と`backend/cmd/admin`で対にする。共有Clerk token検証は`backend/internal/auth`に置く。`frontend/`はpnpm workspaceで、標準ログインUIとWorker向けJavaScript依存を管理する。ビルド・開発操作はルートの`mise.toml`で管理する。
+`backend/`にGo module、HTTP・D1処理、migration、Wrangler設定をまとめる。Go Wasmのentry pointとWorker起動wrapperは`backend/cmd/public`と`backend/cmd/admin`で対にする。Clerk token検証は`backend/internal/auth`に置く。`frontend/`はブラウザー画面と、そのビルドおよびWorker bundleに使うJavaScript依存を管理する。ビルド・開発操作はルートの`mise.toml`で管理する。
 
 - `backend/cmd/public`: Public Go WasmとClerk認証wrapper
 - `backend/cmd/admin`: Admin Go Wasmと独立したClerk認証wrapper
@@ -10,8 +10,8 @@
 - `backend/internal/auth`: Worker境界でClerk JWTを検証するJavaScript実装。Goアプリケーション内部の認証済みidentity処理とは分離する。
 - `backend/migrations`: D1 schema
 - `frontend/index.html`、`frontend/app.js`: Clerk標準UIと認証済みPublic APIを呼ぶ小さな画面
-- `frontend/public`、`frontend/admin`: Worker単位のpnpm workspace project
-- `frontend/packages/*`: frontend workspace間で共有するUI部品・コンポーネントの配置先。現時点で共通化対象はないためpackageは置いていない。
+- `frontend/package.json`: Clerk Frontend/Backend SDK、esbuild、Wranglerの依存管理
+- frontendで共通部品が必要になった場合は`frontend/packages/`へ追加する。現時点では共通部品はない。
 
 ## 認証・認可
 
