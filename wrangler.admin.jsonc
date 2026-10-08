@@ -7,7 +7,7 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "go-tickets",
-    "database_id": "00000000-0000-0000-0000-000000000001",
+    "database_id": "5af5f125-7b2b-4f3e-8879-829a0f4e9369",
     "migrations_dir": "migrations"
   }]
 }
