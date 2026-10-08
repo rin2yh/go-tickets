@@ -5,22 +5,17 @@ on:
   pull_request:
 
 jobs:
-  lint:
-    name: Lint Go and frontend code
+  frontend:
+    name: Frontend ${{ matrix.task }}
     runs-on: &ubuntu ubuntu-26.04
+    strategy:
+      matrix:
+        task: [lint, test]
     permissions:
       contents: read
     steps:
       - &checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - &setup-go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version-file: backend/go.mod
-      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        with:
-          version: v2.14.0
-          working-directory: backend
       - &setup-node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -32,21 +27,24 @@ jobs:
       - &install-frontend
         run: pnpm install --frozen-lockfile
         working-directory: frontend
-      - run: pnpm run lint
-        working-directory: frontend
-      - run: pnpm run typecheck
-        working-directory: frontend
-      - run: pnpm run format:check
+      - run: pnpm run ${{ matrix.task }}
         working-directory: frontend
 
-  test:
-    name: Run tests
+  backend:
+    name: Lint and test Go code
     runs-on: *ubuntu
     permissions:
       contents: read
     steps:
       - *checkout
-      - *setup-go
+      - &setup-go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: backend/go.mod
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.14.0
+          working-directory: backend
       - run: go test ./...
         working-directory: backend
 

@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "astro build",
+    "test": "vitest run --environment jsdom",
     "typecheck": "astro-check"
   },
   "dependencies": {
@@ -17,9 +18,12 @@
     "@astrojs/check": "^0.9.10",
     "@emnapi/runtime": "1.11.3",
     "@rolldown/plugin-babel": "0.2.4",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "babel-plugin-react-compiler": "1.0.0",
-    "typescript": "6.0.3"
+    "jsdom": "^30.1.1",
+    "typescript": "6.0.3",
+    "vitest": "^5.0.3"
   }
 }
