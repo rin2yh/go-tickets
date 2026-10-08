@@ -13,13 +13,23 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:8787",
     trace: "retain-on-failure",
-    ...devices["Desktop Chrome"],
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "clerk-setup",
+      testMatch: /clerk\.setup\.ts/,
+    },
+    {
+      name: "chromium",
+      testMatch: /registration-flow\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["clerk-setup"],
+    },
+  ],
   webServer: {
     command: "mise run e2e-dev",
     url: "http://localhost:8787/health",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 180_000,
   },
 });

@@ -11,6 +11,7 @@ test("participant registers for a ticket and sees the result in My Tickets", asy
 
   await expect(page.getByRole("heading", { name: "Go Conference Local Test" })).toBeVisible();
   await expect(page.getByText("残席 1")).toBeVisible();
+  await clerk.loaded({ page });
   await clerk.signIn({ page, emailAddress });
 
   await page.getByRole("button", { name: "Free Local Testに申込" }).click();

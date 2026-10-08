@@ -47,6 +47,7 @@ mise run d1-local-init
 [tasks.e2e-dev]
 description = "Prepare isolated E2E data and run the local Workers"
 run = '''
+node -e 'const net = require("node:net"); const server = net.createServer(); server.once("error", () => { console.error("E2E requires port 8787 to be free; stop the existing listener and retry."); process.exit(1); }); server.listen(8787, "127.0.0.1", () => server.close());'
 export E2E_D1_PERSIST="../.wrangler/e2e"
 mise run e2e-prepare
 mise run dev
