@@ -4,7 +4,7 @@ import { test as base } from "@playwright/test";
 
 export const test = base.extend<{}, { clerkSetup: void }>({
   clerkSetup: [
-    async (_fixtures, use) => {
+    async ({}, use) => {
       await initializeClerk({
         publishableKey: "pk_test_cGxlYXNpbmctc3F1aWQtNzE4OS5jbGVyay5hY2NvdW50cy5kZXYk",
       });
