@@ -51,7 +51,7 @@ mise exec -- npm run dry:public
 mise exec -- npm run dry:admin
 ```
 
-`scripts/build.sh` がWorkerごとにGo Wasmと必要な起動資産を生成します。GitHub Actionsは認証情報なしでGoテスト、両Wasmビルド、両Wrangler dry-runを実行します。CIからCloudflareへはデプロイしません。
+`scripts/build.sh` がWorkerごとにGo Wasmと必要な起動資産を生成します。`-buildvcs=false` でコミット情報の埋め込みを止め、サイズ計測を再現可能にしています。GitHub Actionsは認証情報なしでGoテスト、両Wasmビルド、両Wrangler dry-runを実行します。CIからCloudflareへはデプロイしません。
 Wranglerの間接依存 `sharp` は、監査で報告された脆弱性を避けるため `package.json` の `overrides` で0.35.5に固定しています。
 
 ## D1作成・マイグレーション・デプロイ
@@ -82,8 +82,8 @@ Workers Freeの制限値は[Cloudflare公式ドキュメント](https://develope
 | 指標 | Public | Admin | Free制限・判断 |
 | --- | ---: | ---: | --- |
 | Wasmバイナリ（3回のビルド、すべて同値） | 6,366,361 bytes | 6,207,639 bytes | 参考値 |
-| Wrangler dry-run非圧縮バンドル | 6243.31 KiB | 6088.29 KiB | 64 MiB以内 |
-| Wrangler dry-run gzip表示 | 1759.55 KiB | 1715.07 KiB | 制限対象外 |
+| Wrangler dry-run非圧縮バンドル | 6243.15 KiB | 6088.14 KiB | 64 MiB以内 |
+| Wrangler dry-run gzip表示 | 1758.90 KiB | 1715.49 KiB | 制限対象外 |
 | ローカルHTTP経過時間 `/health`、20回、中央値（最小〜最大） | 5.23 ms (4.16〜46.63) | 5.12 ms (4.27〜37.79) | CPU時間ではない |
 | ローカルHTTP経過時間 `GET /ticket-types/1/status`、20回 | 対象外 | 6.24 ms (5.06〜13.63) | CPU時間ではない |
 | API CPU時間 | 未測定 | 未測定 | 10 ms/要求。Cloudflare実行ログが必要 |
