@@ -13,10 +13,14 @@ mise exec -- pnpm --dir frontend install --frozen-lockfile
 
 ## Clerkローカル設定
 
-ルートの`.dev.vars`を作成し、Clerk Development InstanceのSecret Keyを設定する。このファイルはGit管理外である。
+ルートで`.dev.vars.example`をコピーして`.dev.vars`を作り、Clerk Development InstanceのSecret Keyを設定する。`.dev.vars`はGit管理外である。
 
 ```dotenv
 CLERK_SECRET_KEY=sk_test_...
+```
+
+```sh
+cp .dev.vars.example .dev.vars
 ```
 
 Publishable Keyはルートの`wrangler.public.jsonc`と`wrangler.admin.jsonc`の`vars.CLERK_PUBLISHABLE_KEY`に設定済みである。Clerk DashboardでGitHub、Google、メールOTPを有効にし、GitHubとGoogleの開発用OAuth連携を設定する。ローカルの許可OriginはWrangler設定の`http://localhost:8787`である。
