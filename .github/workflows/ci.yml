@@ -49,9 +49,6 @@ jobs:
       - *setup-go
       - run: go test ./...
         working-directory: backend
-      - *setup-node
-      - run: node --test cmd/public/worker.test.mjs
-        working-directory: backend
 
   audit:
     name: Audit frontend dependencies

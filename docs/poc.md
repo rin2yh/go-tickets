@@ -81,9 +81,9 @@ ChromeではClerk標準SignIn UIにGitHub、Google、メールアドレスの選
 
 2026-10-08、Astroのビルド前にWrangler CLIでD1の`events`と`ticket_types`をJOINし、そのJSON結果をAstroの一覧と`getStaticPaths()`へ渡す方式に変更した。ローカルではWrangler local D1、デプロイ用ビルドでは`PUBLIC_EVENTS_SOURCE=remote`により同じBindingのremote D1を読む。APIサーバーの事前起動や別のイベントデータファイルは不要である。remoteビルドにはWrangler認証が必要である。
 
-ローカルD1のseed `Go Conference Local Test`、`Free Local Test`で生成HTMLを確認した。`index.html`にイベント名、`events/1/index.html`にイベント名とチケット種別名が含まれ、JavaScriptを実行しないHTMLにも情報が出力される。`events/999/index.html`は生成されず、Workerの静的ルーティング単体テストで未生成IDと非数値IDが404になることを確認した。残席数は詳細画面のReact Islandが`GET /api/events/{eventId}`から取得する。
+ローカルD1のseed `Go Conference Local Test`、`Free Local Test`で生成HTMLを確認した。`index.html`にイベント名、`events/1/index.html`にイベント名とチケット種別名が含まれ、JavaScriptを実行しないHTMLにも情報が出力される。`events/999/index.html`は生成されない。残席数は詳細画面のReact Islandが`GET /api/events/{eventId}`から取得する。ルーティングのE2E検証はPlaywrightで扱う。
 
-seedしたデータを用いた`PUBLIC_D1_PERSIST=../.wrangler/frontend-test mise run dry-public`は成功した。Wrangler 4.145.0のdry-run uploadは13,613.97 KiB、gzip表示は3,537.21 KiBである。`mise run test`（Go全テストとPublic routingの2テスト）、Public dry-run、Admin dry-run、frontend lint/typecheck/format checkは成功した。イベント追加・変更後はremote D1を読み直してPublicを再ビルド・再デプロイする必要がある。Cloudflareの認証済みremote D1を使った本番相当ビルドとデプロイは未実施である。
+seedしたデータを用いた`PUBLIC_D1_PERSIST=../.wrangler/frontend-test mise run dry-public`は成功した。Wrangler 4.145.0のdry-run uploadは13,613.97 KiB、gzip表示は3,537.21 KiBである。`mise run test`（Go全テスト）、Public dry-run、Admin dry-run、frontend lint/typecheck/format checkは成功した。イベント追加・変更後はremote D1を読み直してPublicを再ビルド・再デプロイする必要がある。Cloudflareの認証済みremote D1を使った本番相当ビルドとデプロイは未実施である。
 
 依存監査ではAstro 7.2.8の推移依存`http-cache-semantics@4.2.0`にHighが1件見つかった。pnpm 11.5.1の`pnpm audit --fix=update`は修正版の最小値4.2.1を`minimumReleaseAgeExclude`へ登録したが、npm registryに4.2.1がなく修正できなかった。`pnpm audit --fix`は同バージョンでは無効な指定であったため、pnpm標準の`pnpm audit --fix=override`を使い、生成された対象範囲限定overrideを実在する修正版4.3.0へ合わせた。`minimumReleaseAge: 10080`を維持し、例外も`http-cache-semantics@4.3.0`だけに限定した。解決版は4.3.0であり、`pnpm audit --audit-level=high`は脆弱性なしとなった。CIでは監査を除外なしで実行する。
 

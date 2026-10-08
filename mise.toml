@@ -12,9 +12,9 @@ includes = [
 ]
 
 [tasks.test]
-description = "Run Go and Public routing tests"
+description = "Run Go tests"
 dir = "backend"
-run = "go test ./... && node --test cmd/public/worker.test.mjs"
+run = "go test ./..."
 
 [tasks.init]
 description = "Install local tools, dependencies, D1, Clerk settings, and Playwright"
