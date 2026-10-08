@@ -12,72 +12,116 @@ includes = [
 ]
 
 [tasks.test]
-description = "Run Go tests"
-run = [{ task = "test-go" }, { task = "test-public-routing" }]
+description = "Run Go and Public routing tests"
+dir = "backend"
+run = "go test ./... && node --test cmd/public/worker.test.mjs"
+
+[tasks.init]
+description = "Install local tools, dependencies, D1, Clerk settings, and Playwright"
+run = [{ task = "init-dependencies" }, { task = "d1-local-init" }, { task = "register-local-admin" }]
+
+[tasks.e2e]
+description = "Run Playwright E2E tests with isolated local D1"
+env = { _.file = ".dev.vars" }
+dir = "frontend"
+run = "pnpm --filter @go-tickets/e2e test"
+
+[tasks.check]
+description = "Run lint, format checks, and typechecks"
+run = [{ task = "lint-go" }, { task = "lint-frontend" }, { task = "format-frontend" }, { task = "typecheck-frontend" }]
+
+[tasks.build]
+description = "Build the Public and Admin Workers"
+run = [{ task = "build-public" }, { task = "build-admin" }, { task = "assemble-web-assets" }]
+
+[tasks.dry]
+description = "Build and run Wrangler dry-runs for Public and Admin"
+run = [{ task = "build" }, { task = "dry-public-bundle" }, { task = "dry-admin-bundle" }]
+
+[tasks.init-dependencies]
+description = "Install pinned tools, frontend dependencies, local Clerk config, and Chromium"
+hide = true
+run = '''
+set -eu
+mise install
+if [ ! -f .dev.vars ]; then
+  cp .dev.vars.example .dev.vars
+  printf "Created .dev.vars; set CLERK_SECRET_KEY before starting Workers.\\n"
+fi
+mise run install-frontend
+'''
+
+[tasks.register-local-admin]
+description = "Add a Clerk user to the local D1 administrator table"
+hide = true
+dir = "backend"
+run = '''
+set -eu
+CLERK_USER_ID="${CLERK_USER_ID:-}"
+if [ -z "$CLERK_USER_ID" ] && [ -t 0 ]; then
+  printf "Clerk user ID for local admin (leave blank to skip): "
+  read -r CLERK_USER_ID || true
+fi
+if [ -n "$CLERK_USER_ID" ]; then
+  case "$CLERK_USER_ID" in user_[A-Za-z0-9_]*) ;; *) echo "invalid Clerk user ID" >&2; exit 2;; esac
+  case "$CLERK_USER_ID" in *[!A-Za-z0-9_]*) echo "invalid Clerk user ID" >&2; exit 2;; esac
+  wrangler d1 execute go-tickets --config ../wrangler.admin.jsonc --local --persist-to ../.wrangler/state --command "INSERT OR IGNORE INTO administrators(clerk_user_id) VALUES ('$CLERK_USER_ID')"
+fi
+'''
 
 [tasks.build-public]
 description = "Build Public Worker and Astro assets"
-run = "mise run generate-public-runtime && mise run build-public-wasm && mise run assemble-web-assets"
+hide = true
+dir = "backend"
+run = '''
+go tool workers-assets-gen -mode=go -o build/public
+mv build/public/worker.mjs build/public/worker-runtime.mjs
+GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/public/app.wasm ./cmd/public
+mise run build-public-assets
+'''
 
 [tasks.build-admin]
 description = "Build Admin Worker and SPA assets"
-run = "mise run generate-admin-runtime && mise run build-admin-wasm && mise run build-admin-assets"
+hide = true
+dir = "backend"
+run = '''
+go tool workers-assets-gen -mode=go -o build/admin
+mv build/admin/worker.mjs build/admin/worker-runtime.mjs
+GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/admin/app.wasm ./cmd/admin
+mise run build-admin-assets
+'''
 
 [tasks.dev]
 description = "Build and run Public and Admin Workers locally"
 run = '''
-mise run build-public && mise run build-admin
-mise run dev-public &
-public_pid=$!
-mise run dev-admin &
-admin_pid=$!
+mise run build
+mise run wrangler-dev-public &
+mise run wrangler-dev-admin &
 trap 'trap - INT TERM EXIT; kill -TERM -- -$$ 2>/dev/null || true' INT TERM EXIT
 wait
 '''
 
+[tasks.assemble-web-assets]
+description = "Combine the independently built Public and Admin frontends"
+hide = true
+run = "rm -rf backend/build/web && mkdir -p backend/build/web/admin && cp -R backend/build/public-assets/. backend/build/web/ && cp -R backend/build/admin-assets/. backend/build/web/admin/"
+
 [tasks.e2e-prepare]
-description = "Recreate the isolated local D1 used by E2E tests"
+description = "Recreate only the isolated local D1 used by E2E tests"
+hide = true
 run = '''
 set -eu
-export E2E_D1_PERSIST="../.wrangler/e2e"
+node -e 'const net = require("node:net"); (async () => { for (const port of [8787, 8788]) await new Promise((resolve, reject) => { const server = net.createServer(); server.once("error", () => reject(new Error(`E2E requires port ${port} to be free; stop the existing listener and retry.`))); server.listen(port, "127.0.0.1", () => server.close(resolve)); }); })().catch(error => { console.error(error.message); process.exit(1); });'
 rm -rf .wrangler/e2e
 mise run d1-local-init
 '''
 
 [tasks.e2e-dev]
-description = "Prepare isolated E2E data and run the local Workers"
+description = "Prepare isolated local D1 and start the local Workers for Playwright"
+hide = true
 run = '''
-node -e 'const net = require("node:net"); for (const port of [8787, 8788]) { const server = net.createServer(); server.once("error", () => { console.error(`E2E requires port ${port} to be free; stop the existing listener and retry.`); process.exit(1); }); server.listen(port, "127.0.0.1", () => server.close()); }'
+set -eu
 export E2E_D1_PERSIST="../.wrangler/e2e"
 mise run e2e-prepare
-mise run dev &
-dev_pid=$!
-trap 'trap - INT TERM EXIT; kill -TERM -- -$dev_pid 2>/dev/null || true; wait "$dev_pid" 2>/dev/null || true' INT TERM EXIT
-wait "$dev_pid"
+mise run dev
 '''
-
-[tasks.test-e2e]
-description = "Run Playwright E2E tests with isolated local D1"
-env = { _.file = ".dev.vars" }
-run = "cd frontend && pnpm --filter @go-tickets/e2e test"
-
-[tasks.dev-admin]
-description = "Run the Admin Worker locally"
-run = [{ task = "wrangler-dev-admin" }]
-
-[tasks.dev-public]
-description = "Run the Public Worker locally"
-run = [{ task = "wrangler-dev-public" }]
-
-[tasks.dry-public]
-description = "Build and validate the Public Worker bundle"
-run = [{ task = "build-public" }, { task = "dry-public-bundle" }]
-
-[tasks.dry-admin]
-description = "Build and validate the Admin Worker bundle"
-run = [{ task = "build-admin" }, { task = "dry-admin-bundle" }]
-
-[tasks.assemble-web-assets]
-description = "Combine the independently built Public and Admin frontends"
-depends = ["build-public-assets", "build-admin-assets"]
-run = "rm -rf backend/build/web && mkdir -p backend/build/web/admin && cp -R backend/build/public-assets/. backend/build/web/ && cp -R backend/build/admin-assets/. backend/build/web/admin/"

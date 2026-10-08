@@ -1,72 +1,26 @@
-[test-go]
-description = "Run Go tests"
-dir = "backend"
-run = "go test ./..."
-
 [lint-go]
 description = "Lint Go packages with golangci-lint"
+hide = true
 dir = "backend"
 run = "golangci-lint run ./..."
 
-[generate-public-runtime]
-description = "Generate the Public workers-go runtime wrapper"
-dir = "backend"
-run = [
-  "go tool workers-assets-gen -mode=go -o build/public",
-  "mv build/public/worker.mjs build/public/worker-runtime.mjs",
-]
-
-[build-public-wasm]
-description = "Compile the Public Go application to Wasm"
-dir = "backend"
-run = "GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/public/app.wasm ./cmd/public"
-
-[generate-admin-runtime]
-description = "Generate the Admin workers-go runtime wrapper"
-dir = "backend"
-run = [
-  "go tool workers-assets-gen -mode=go -o build/admin",
-  "mv build/admin/worker.mjs build/admin/worker-runtime.mjs",
-]
-
-[build-admin-wasm]
-description = "Compile the Admin Go application to Wasm"
-dir = "backend"
-run = "GOOS=js GOARCH=wasm go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/admin/app.wasm ./cmd/admin"
-
 [d1-local-init]
 description = "Apply local D1 migrations and insert the test event"
+hide = true
 dir = "backend"
 run = [
   "wrangler d1 migrations apply go-tickets --config ../wrangler.public.jsonc --local --persist-to ${E2E_D1_PERSIST:-../.wrangler/state}",
   "wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to ${E2E_D1_PERSIST:-../.wrangler/state} --file scripts/seed-local.sql",
 ]
 
-[d1-local-cleanup]
-description = "Remove local D1 test registrations"
-dir = "backend"
-run = "wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to ../.wrangler/state --file scripts/cleanup-local.sql"
-
 [wrangler-dev-admin]
 description = "Run the Admin Worker locally"
+hide = true
 dir = "backend"
 run = "wrangler dev --config ../wrangler.admin.jsonc --local --port 8788 --inspector-port 9230 --persist-to ${E2E_D1_PERSIST:-../.wrangler/state}"
 
-[admin-add]
-description = "Grant D1 administrator access to a Clerk user ID"
-dir = "backend"
-run = '''
-case "$CLERK_USER_ID" in user_[A-Za-z0-9]*) ;; *) echo "set CLERK_USER_ID to a Clerk user ID" >&2; exit 2;; esac
-case "$CLERK_USER_ID" in *[!A-Za-z0-9_]*) echo "invalid Clerk user ID" >&2; exit 2;; esac
-wrangler d1 execute go-tickets --remote --config ../wrangler.admin.jsonc --command "INSERT INTO administrators(clerk_user_id) VALUES ('$CLERK_USER_ID') ON CONFLICT(clerk_user_id) DO NOTHING"
-'''
-
 [wrangler-dev-public]
 description = "Run the Public Worker locally"
+hide = true
 dir = "backend"
 run = "wrangler dev --config ../wrangler.public.jsonc --local --port 8787 --persist-to ${E2E_D1_PERSIST:-../.wrangler/state}"
-
-[test-public-routing]
-description = "Test Public Worker routing for generated and missing event pages"
-dir = "backend"
-run = "mise run generate-public-runtime && node --test cmd/public/worker.test.mjs"

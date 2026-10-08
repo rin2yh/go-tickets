@@ -4,20 +4,17 @@ Goカンファレンス向け無料チケットサイトのPoCである。Public
 
 ## 必要なツールとセットアップ
 
-Go、golangci-lint、Node.js、pnpm、Wranglerは[mise.toml](mise.toml)で固定している。フロントエンド依存はpnpm workspaceで管理し、公開から7日未満のnpmパッケージはインストールしない。
+Go、golangci-lint、Node.js、pnpm、Wranglerは[mise.toml](mise.toml)で固定している。フロントエンド依存はpnpm workspaceで管理し、公開から7日未満のnpmパッケージはインストールしない。miseはローカル開発だけに使い、CIは各ツールを直接実行する。
 
 ```sh
-mise install
-(cd frontend && pnpm install --frozen-lockfile)
-cp .dev.vars.example .dev.vars
+mise run init
 ```
 
-`.dev.vars`へClerk Development InstanceのSecret Keyを設定する。詳しくは[開発手順](docs/development.md)を参照する。
+初回は`.dev.vars`が作成されるので、Clerk Development InstanceのSecret Keyを設定する。initは既存の設定ファイルとローカルD1を保持する。詳しくは[開発手順](docs/development.md)を参照する。
 
 ## ローカル開発
 
 ```sh
-mise run d1-local-init
 mise run dev
 ```
 
@@ -27,12 +24,10 @@ Publicは`http://localhost:8787`、Adminは`http://localhost:8787/admin`、Admin
 
 ```sh
 mise run test
-mise run lint-go
-cd frontend && pnpm run lint && pnpm run typecheck && pnpm run format:check
-mise run build-public
-mise run build-admin
-mise run dry-public
-mise run dry-admin
+mise run e2e
+mise run check
+mise run build
+mise run dry
 ```
 
 ## 詳細
