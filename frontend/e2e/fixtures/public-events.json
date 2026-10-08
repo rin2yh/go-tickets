@@ -1,0 +1,13 @@
+[
+  {
+    "success": true,
+    "results": [
+      {
+        "id": 1,
+        "name": "Go Conference Local Test",
+        "ticket_type_id": 1,
+        "ticket_type_name": "Free Local Test"
+      }
+    ]
+  }
+]
