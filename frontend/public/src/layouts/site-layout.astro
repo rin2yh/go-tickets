@@ -3,10 +3,13 @@ interface Props { title: string }
 const { title } = Astro.props;
 // oxlint-disable-next-line import/no-unassigned-import
 import "@go-tickets/ui/styles.css";
+import { ClientRouter } from "astro:transitions";
+import { ClerkIsland } from "../components/clerk-island";
 ---
 <!doctype html>
 <html lang="ja">
   <head>
+    <ClientRouter />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content={Astro.generator} />
@@ -16,6 +19,7 @@ import "@go-tickets/ui/styles.css";
     <div class="public-shell">
       <header class="public-header"><a href="/">Go Tickets</a><nav><a href="/tickets">自分のチケット</a></nav></header>
       <main class="public-content"><slot /></main>
+      <ClerkIsland client:load transition:persist="clerk-auth" />
     </div>
   </body>
 </html>

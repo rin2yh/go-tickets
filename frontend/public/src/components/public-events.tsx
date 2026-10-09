@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ClerkIsland, TicketAvailability } from "./clerk-island";
+import { TicketAvailability } from "./clerk-island";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
@@ -120,13 +120,6 @@ export function PublicEventDetail() {
             </li>
           ))}
         </ul>
-      )}
-      {event.ticket_types.length > 0 && (
-        <ClerkIsland
-          mode="event"
-          eventId={event.id}
-          ticketTypes={event.ticket_types.map(({ id, name }) => ({ id, name }))}
-        />
       )}
     </>
   );

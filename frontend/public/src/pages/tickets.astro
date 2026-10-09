@@ -1,6 +1,5 @@
 ---
 import SiteLayout from "../layouts/site-layout.astro";
-import { ClerkIsland } from "../components/clerk-island";
 ---
 <SiteLayout title="自分のチケット">
   <div class="public-hero">
@@ -8,5 +7,4 @@ import { ClerkIsland } from "../components/clerk-island";
     <h1>自分のチケット</h1>
     <p>お申し込み済みのチケットを確認できます。</p>
   </div>
-  <ClerkIsland client:load mode="tickets" />
 </SiteLayout>

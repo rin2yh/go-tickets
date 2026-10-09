@@ -23,17 +23,10 @@ async function clerkKey(): Promise<string> {
   return config.publishableKey;
 }
 
-export function ClerkIsland({
-  mode,
-  eventId = 0,
-  ticketTypes = [],
-}: {
-  mode: "tickets" | "event";
-  eventId?: number;
-  ticketTypes?: TicketType[];
-}) {
+export function ClerkIsland() {
   const [key, setKey] = useState("");
   const [error, setError] = useState("");
+  const [pathname, setPathname] = useState("");
   useEffect(() => {
     let active = true;
     void clerkKey()
@@ -44,8 +37,17 @@ export function ClerkIsland({
     };
   }, []);
 
-  if (error) return <Alert variant="destructive">{error}</Alert>;
-  if (!key)
+  useEffect(() => {
+    const onPageLoad = () => setPathname(window.location.pathname);
+    onPageLoad();
+    document.addEventListener("astro:page-load", onPageLoad);
+    return () => document.removeEventListener("astro:page-load", onPageLoad);
+  }, []);
+
+  const needsAuth = pathname === "/tickets" || /^\/events\/\d+\/?$/.test(pathname);
+
+  if (error) return needsAuth ? <Alert variant="destructive">{error}</Alert> : null;
+  if (!key && needsAuth)
     return (
       <Card>
         <CardContent>
@@ -53,23 +55,46 @@ export function ClerkIsland({
         </CardContent>
       </Card>
     );
+  if (!key) return null;
   return (
     <ClerkProvider publishableKey={key}>
-      <AuthenticatedContent mode={mode} eventId={eventId} ticketTypes={ticketTypes} />
+      <AuthenticatedContent />
     </ClerkProvider>
   );
 }
 
-function AuthenticatedContent({
-  mode,
-  eventId,
-  ticketTypes,
-}: {
-  mode: "tickets" | "event";
-  eventId: number;
-  ticketTypes: TicketType[];
-}) {
+function AuthenticatedContent() {
+  const [pathname, setPathname] = useState("");
   const { isLoaded, isSignedIn } = useAuth();
+  const mode = pathname === "/tickets" ? "tickets" : "event";
+  const eventId = Number(pathname.match(/^\/events\/(\d+)\/?$/)?.[1] ?? 0);
+  const [ticketTypesForEvent, setTicketTypesForEvent] = useState<{
+    eventId: number;
+    ticketTypes: TicketType[];
+  }>({ eventId: 0, ticketTypes: [] });
+  const ticketTypes =
+    ticketTypesForEvent.eventId === eventId ? ticketTypesForEvent.ticketTypes : [];
+  useEffect(() => {
+    const onPageLoad = () => setPathname(window.location.pathname);
+    onPageLoad();
+    document.addEventListener("astro:page-load", onPageLoad);
+    return () => document.removeEventListener("astro:page-load", onPageLoad);
+  }, []);
+  useEffect(() => {
+    if (mode !== "event" || !eventId) return;
+    let active = true;
+    void fetch(`/api/events/${eventId}`)
+      .then(async (response) => {
+        if (!response.ok) return;
+        const event: { ticket_types: TicketType[] } = await response.json();
+        if (active) setTicketTypesForEvent({ eventId, ticketTypes: event.ticket_types });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [eventId, mode]);
+  if (pathname !== "/tickets" && !/^\/events\/\d+\/?$/.test(pathname)) return null;
   if (!isLoaded)
     return (
       <Card>
