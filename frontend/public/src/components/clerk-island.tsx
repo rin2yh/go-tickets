@@ -107,9 +107,7 @@ function AuthenticatedContent() {
     return (
       <Card>
         <CardContent>
-          <div data-testid="public-sign-in">
-            <SignIn routing="hash" />
-          </div>
+          <SignIn routing="hash" />
         </CardContent>
       </Card>
     );
