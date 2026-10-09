@@ -68,7 +68,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		TicketTypeID int64 `json:"ticket_type_id"`
 	}
-	if !decodeJSON(w, r, &input) || input.TicketTypeID <= 0 {
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if input.TicketTypeID <= 0 {
 		writeError(w, http.StatusBadRequest, "invalid_request")
 		return
 	}
@@ -87,7 +90,10 @@ func (h *Handler) CancelRegistration(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		TicketTypeID int64 `json:"ticket_type_id"`
 	}
-	if !decodeJSON(w, r, &input) || input.TicketTypeID <= 0 {
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if input.TicketTypeID <= 0 {
 		writeError(w, http.StatusBadRequest, "invalid_request")
 		return
 	}

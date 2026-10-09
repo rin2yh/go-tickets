@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -67,8 +68,9 @@ func TestPublicHandler(t *testing.T) {
 		{"register ignores body user id", http.MethodPost, "/api/registrations", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusCreated},
 		{"sold out", http.MethodPost, "/api/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrSoldOut}, http.StatusConflict},
 		{"duplicate", http.MethodPost, "/api/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrDuplicate}, http.StatusConflict},
-		{"bad body", http.MethodPost, "/api/registrations", `{`, fakeStore{}, http.StatusBadRequest},
+		{"bad register body", http.MethodPost, "/api/registrations", `{`, fakeStore{}, http.StatusBadRequest},
 		{"cancel", http.MethodPost, "/api/registrations/cancel", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusOK},
+		{"bad cancel body", http.MethodPost, "/api/registrations/cancel", `{`, fakeStore{}, http.StatusBadRequest},
 		{"missing", http.MethodPost, "/api/registrations/cancel", `{"ticket_type_id":1}`, fakeStore{cancelErr: ErrNotFound}, http.StatusNotFound},
 	}
 	for _, tc := range tests {
@@ -80,6 +82,19 @@ func TestPublicHandler(t *testing.T) {
 			testPublicMux(store).ServeHTTP(w, r)
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
+			}
+			if tc.name == "bad register body" || tc.name == "bad cancel body" {
+				var response map[string]string
+				decoder := json.NewDecoder(w.Body)
+				if err := decoder.Decode(&response); err != nil {
+					t.Fatalf("error response is not JSON: %v", err)
+				}
+				if response["error"] != "invalid_request" {
+					t.Fatalf("error response = %#v", response)
+				}
+				if err := decoder.Decode(&response); !errors.Is(err, io.EOF) {
+					t.Fatalf("error response contains additional data: %v", err)
+				}
 			}
 			if strings.HasPrefix(tc.name, "register") && store.registeredUser != "user_Authenticated" {
 				t.Fatalf("registered user = %q", store.registeredUser)
