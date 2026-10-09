@@ -5,6 +5,7 @@ package main
 import (
 	"database/sql"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -33,5 +34,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	workers.Serve(authenticator.Wrap(tickets.AdminHandler(tickets.SQLQuery{DB: db}, tickets.SQLCommand{DB: db}, auth.UserID, cloudflare.Getenv("CLERK_PUBLISHABLE_KEY"))))
+	handler := tickets.NewHandler(tickets.SQLQuery{DB: db}, tickets.SQLCommand{DB: db}, auth.UserID)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", handler.Health)
+	mux.Handle("GET /api/auth/config", handler.AuthConfig(cloudflare.Getenv("CLERK_PUBLISHABLE_KEY")))
+	mux.HandleFunc("GET /api/events", handler.Events)
+	mux.Handle("GET /api/ticket-types/{id}/status", handler.AdminOnly(http.HandlerFunc(handler.TicketTypeStatus)))
+	mux.Handle("POST /api/events", handler.AdminOnly(http.HandlerFunc(handler.CreateEvent)))
+	mux.Handle("PUT /api/events/{id}", handler.AdminOnly(http.HandlerFunc(handler.UpdateEvent)))
+	mux.Handle("POST /api/events/{id}/ticket-types", handler.AdminOnly(http.HandlerFunc(handler.CreateTicketType)))
+	mux.Handle("PUT /api/ticket-types/{id}", handler.AdminOnly(http.HandlerFunc(handler.UpdateTicketType)))
+	workers.Serve(authenticator.Wrap(mux))
 }

@@ -14,6 +14,7 @@ type fakeStore struct {
 	registerErr, cancelErr, statusErr, adminErr error
 	admin                                       bool
 	registeredUser, cancelledUser, adminUser    string
+	statusID                                    int64
 }
 
 func (f *fakeStore) Register(_ context.Context, _ int64, user string) error {
@@ -24,8 +25,9 @@ func (f *fakeStore) Cancel(_ context.Context, _ int64, user string) error {
 	f.cancelledUser = user
 	return f.cancelErr
 }
-func (f *fakeStore) Status(context.Context, int64) (Status, error) {
-	return Status{TicketTypeID: 1, Capacity: 1, Reserved: 1}, f.statusErr
+func (f *fakeStore) Status(_ context.Context, id int64) (Status, error) {
+	f.statusID = id
+	return Status{TicketTypeID: id, Capacity: 1, Reserved: 1}, f.statusErr
 }
 func (f *fakeStore) IsAdmin(_ context.Context, user string) (bool, error) {
 	f.adminUser = user
@@ -75,7 +77,7 @@ func TestPublicHandler(t *testing.T) {
 			r := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 			r.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
 			w := httptest.NewRecorder()
-			PublicHandler(store, store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
+			testPublicMux(store).ServeHTTP(w, r)
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
 			}
@@ -90,7 +92,7 @@ func TestPublicHandler(t *testing.T) {
 	t.Run("unauthenticated", func(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1,"user_id":"user_Forged"}`))
 		w := httptest.NewRecorder()
-		PublicHandler(&fakeStore{}, &fakeStore{}, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
+		testPublicMux(&fakeStore{}).ServeHTTP(w, r)
 		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("status = %d, want 401", w.Code)
 		}
@@ -105,7 +107,7 @@ func TestAdminHandler(t *testing.T) {
 	}{
 		{"events are public", "/api/events", fakeStore{}, http.StatusOK},
 		{"admin status", "/api/ticket-types/1/status", fakeStore{admin: true}, http.StatusOK},
-		{"invalid type", "/api/ticket-types/2/status", fakeStore{admin: true}, http.StatusBadRequest},
+		{"requested type id", "/api/ticket-types/2/status", fakeStore{admin: true}, http.StatusOK},
 		{"legacy status path is gone", "/ticket-types/1/status", fakeStore{admin: true}, http.StatusNotFound},
 		{"database error", "/api/ticket-types/1/status", fakeStore{admin: true, statusErr: errors.New("db")}, http.StatusInternalServerError},
 		{"general user", "/api/ticket-types/1/status", fakeStore{}, http.StatusForbidden},
@@ -116,17 +118,20 @@ func TestAdminHandler(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, tc.path, nil)
 			r.Header.Set("X-Test-Authenticated-User", "user_ValidUser")
 			w := httptest.NewRecorder()
-			AdminHandler(store, store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
+			testAdminMux(store).ServeHTTP(w, r)
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d", w.Code, tc.want)
 			}
 			if tc.name != "events are public" && tc.name != "legacy status path is gone" && store.adminUser != "user_ValidUser" {
 				t.Fatalf("admin lookup user = %q", store.adminUser)
 			}
-			if tc.name == "admin status" {
+			if tc.name == "admin status" || tc.name == "requested type id" {
 				var s Status
 				if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil || s.Reserved != 1 {
 					t.Fatalf("status body: %s: %v", w.Body.String(), err)
+				}
+				if tc.name == "requested type id" && (store.statusID != 2 || s.TicketTypeID != 2) {
+					t.Fatalf("status queried id = %d, response id = %d", store.statusID, s.TicketTypeID)
 				}
 			}
 		})
@@ -134,7 +139,7 @@ func TestAdminHandler(t *testing.T) {
 	t.Run("unauthenticated", func(t *testing.T) {
 		store := &fakeStore{admin: true}
 		w := httptest.NewRecorder()
-		AdminHandler(store, store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/ticket-types/1/status", nil))
+		testAdminMux(store).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/ticket-types/1/status", nil))
 		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("status = %d, want 401", w.Code)
 		}
@@ -162,7 +167,7 @@ func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 			req.Header.Set("X-Test-Authenticated-User", "user_admin")
 			w := httptest.NewRecorder()
-			AdminHandler(store, store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, req)
+			testAdminMux(store).ServeHTTP(w, req)
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
 			}
@@ -173,11 +178,38 @@ func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/api/events", strings.NewReader(`{"name":"GoConf"}`))
 		req.Header.Set("X-Test-Authenticated-User", "user_regular")
 		w := httptest.NewRecorder()
-		AdminHandler(store, store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, req)
+		testAdminMux(store).ServeHTTP(w, req)
 		if w.Code != http.StatusForbidden {
 			t.Fatalf("status=%d, want 403", w.Code)
 		}
 	})
+}
+
+func testPublicMux(store *fakeStore) *http.ServeMux {
+	h := NewHandler(store, store, testAuthenticatedUserID)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", h.Health)
+	mux.Handle("GET /api/auth/config", h.AuthConfig("pk_test_example"))
+	mux.HandleFunc("GET /api/events", h.Events)
+	mux.HandleFunc("GET /api/events/{id}", h.Event)
+	mux.Handle("GET /api/registrations", h.Authenticated(http.HandlerFunc(h.Registrations)))
+	mux.Handle("POST /api/registrations", h.Authenticated(http.HandlerFunc(h.Register)))
+	mux.Handle("POST /api/registrations/cancel", h.Authenticated(http.HandlerFunc(h.CancelRegistration)))
+	return mux
+}
+
+func testAdminMux(store *fakeStore) *http.ServeMux {
+	h := NewHandler(store, store, testAuthenticatedUserID)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", h.Health)
+	mux.Handle("GET /api/auth/config", h.AuthConfig("pk_test_example"))
+	mux.HandleFunc("GET /api/events", h.Events)
+	mux.Handle("GET /api/ticket-types/{id}/status", h.AdminOnly(http.HandlerFunc(h.TicketTypeStatus)))
+	mux.Handle("POST /api/events", h.AdminOnly(http.HandlerFunc(h.CreateEvent)))
+	mux.Handle("PUT /api/events/{id}", h.AdminOnly(http.HandlerFunc(h.UpdateEvent)))
+	mux.Handle("POST /api/events/{id}/ticket-types", h.AdminOnly(http.HandlerFunc(h.CreateTicketType)))
+	mux.Handle("PUT /api/ticket-types/{id}", h.AdminOnly(http.HandlerFunc(h.UpdateTicketType)))
+	return mux
 }
 
 func testAuthenticatedUserID(r *http.Request) string {
