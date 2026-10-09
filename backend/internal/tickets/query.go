@@ -34,20 +34,11 @@ func (s SQLQuery) Status(ctx context.Context, typeID int64) (Status, error) {
 }
 
 func (s SQLQuery) IsAdmin(ctx context.Context, userID string) (bool, error) {
-	query := selectQuery(sm.Columns(sqliteExpr.Exists(selectQuery(
-		sm.Columns("1"),
-		sm.From("administrators"),
-		sm.Where(quote("clerk_user_id").EQ(arg(userID))),
-	))))
-	sqlText, args, err := bob.Build(ctx, query)
-	if err != nil {
+	var isAdmin bool
+	if err := s.DB.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM administrators WHERE clerk_user_id = ?)", userID).Scan(&isAdmin); err != nil {
 		return false, fmt.Errorf("admin lookup: %w", err)
 	}
-	var isAdmin int
-	if err := s.DB.QueryRowContext(ctx, sqlText, args...).Scan(&isAdmin); err != nil {
-		return false, fmt.Errorf("admin lookup: %w", err)
-	}
-	return isAdmin == 1, nil
+	return isAdmin, nil
 }
 
 func eventsQuery(eventID *int64) bob.BaseQuery[*sqdialect.SelectQuery] {
