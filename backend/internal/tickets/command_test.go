@@ -6,12 +6,15 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/rin2yh/go-tickets/internal/test/store"
 )
 
 func TestSQLCommand(t *testing.T) {
 	ctx := context.Background()
 	t.Run("create and update", func(t *testing.T) {
-		_, q, c := newSQLStore(t)
+		db := store.NewDB(t)
+		q, c := SQLQuery{DB: db}, SQLCommand{DB: db}
 		eventID, err := c.CreateEvent(ctx, "First")
 		if err != nil {
 			t.Fatal(err)
@@ -33,7 +36,7 @@ func TestSQLCommand(t *testing.T) {
 		}
 	})
 	t.Run("updates missing rows", func(t *testing.T) {
-		_, _, c := newSQLStore(t)
+		c := SQLCommand{DB: store.NewDB(t)}
 		for name, call := range map[string]func() error{
 			"event":       func() error { return c.UpdateEvent(ctx, 404, "missing") },
 			"ticket type": func() error { return c.UpdateTicketType(ctx, 404, "missing", 1) },
@@ -51,7 +54,7 @@ func TestSQLCommand(t *testing.T) {
 			{"event foreign key", 99, 1}, {"negative capacity", 1, -1},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				_, _, c := newSQLStore(t)
+				c := SQLCommand{DB: store.NewDB(t)}
 				if _, err := c.CreateTicketType(ctx, tc.eventID, "Invalid", tc.capacity); err == nil {
 					t.Fatal("expected SQLite constraint violation")
 				}
@@ -59,7 +62,8 @@ func TestSQLCommand(t *testing.T) {
 		}
 	})
 	t.Run("register inserts active row and cancel updates it", func(t *testing.T) {
-		db, _, c := newSQLStore(t)
+		db := store.NewDB(t)
+		c := SQLCommand{DB: db}
 		eventID, err := c.CreateEvent(ctx, "Conference")
 		if err != nil {
 			t.Fatal(err)
@@ -78,7 +82,7 @@ func TestSQLCommand(t *testing.T) {
 		assertRegistrationStatus(t, db, typeID, "user", "cancelled")
 	})
 	t.Run("cancel missing registration", func(t *testing.T) {
-		_, _, c := newSQLStore(t)
+		c := SQLCommand{DB: store.NewDB(t)}
 		if err := c.Cancel(ctx, 404, "missing"); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("Cancel() error = %v; want ErrNotFound", err)
 		}

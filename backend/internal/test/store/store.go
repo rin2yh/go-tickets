@@ -1,23 +1,30 @@
-package tickets
+package store
 
 import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	_ "modernc.org/sqlite"
 )
 
-func newSQLStore(t *testing.T) (*sql.DB, SQLQuery, SQLCommand) {
+func NewDB(t testing.TB) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "tickets.db")+"?_pragma=foreign_keys(1)")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
+
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("locate store helper")
+	}
+	migrationsDir := filepath.Join(filepath.Dir(file), "..", "..", "..", "migrations")
 	for _, name := range []string{"0001_init.sql", "0002_administrators.sql"} {
-		migration, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
+		migration, err := os.ReadFile(filepath.Join(migrationsDir, name))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -25,10 +32,10 @@ func newSQLStore(t *testing.T) (*sql.DB, SQLQuery, SQLCommand) {
 			t.Fatalf("apply %s: %v", name, err)
 		}
 	}
-	return db, SQLQuery{DB: db}, SQLCommand{DB: db}
+	return db
 }
 
-func seedSQLStore(t *testing.T, db *sql.DB) {
+func Seed(t testing.TB, db *sql.DB) {
 	t.Helper()
 	for _, statement := range []string{
 		`INSERT INTO events(id, name) VALUES (1, 'Later'), (2, 'Earlier'), (3, 'Empty')`,

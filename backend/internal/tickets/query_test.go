@@ -6,12 +6,15 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/rin2yh/go-tickets/internal/test/store"
 )
 
 func TestSQLQuery(t *testing.T) {
 	ctx := context.Background()
-	db, q, _ := newSQLStore(t)
-	seedSQLStore(t, db)
+	db := store.NewDB(t)
+	q := SQLQuery{DB: db}
+	store.Seed(t, db)
 
 	t.Run("status", func(t *testing.T) {
 		got, err := q.Status(ctx, 12)
@@ -68,7 +71,7 @@ func TestSQLQuery(t *testing.T) {
 		}
 	})
 	t.Run("empty events", func(t *testing.T) {
-		_, emptyQuery, _ := newSQLStore(t)
+		emptyQuery := SQLQuery{DB: store.NewDB(t)}
 		got, err := emptyQuery.Events(ctx)
 		if err != nil || len(got) != 0 {
 			t.Fatalf("empty Events() = %#v, %v", got, err)
