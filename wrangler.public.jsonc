@@ -3,11 +3,11 @@
   "name": "go-tickets-public",
   "main": "./backend/cmd/public/worker.mjs",
   "compatibility_date": "2026-10-07",
-  "workers_dev": false,
+  "workers_dev": true,
   "preview_urls": false,
   "vars": {
     "CLERK_PUBLISHABLE_KEY": "pk_test_cGxlYXNpbmctc3F1aWQtNzE4OS5jbGVyay5hY2NvdW50cy5kZXYk",
-    "CLERK_AUTHORIZED_PARTIES": "http://localhost:8787"
+    "CLERK_AUTHORIZED_PARTIES": "https://go-tickets-public.gtms.workers.dev"
   },
   "assets": {
     "directory": "./backend/build/public-assets",

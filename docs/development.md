@@ -24,9 +24,9 @@ mise run dev
 
 `dev`はGo Wasm、Astro、Admin SPAをビルドし、Public Workerを8787、Admin Workerを8788で起動する。画面URLはPublicが`http://localhost:8787/`と`/tickets`、Adminが`http://localhost:8788/`である。
 
-`mise run build`はビルド前にWrangler経由でD1から公開イベント名とチケット種別を取得する。ローカルはlocal D1を読み、`PUBLIC_D1_PERSIST`で保存先を変えられる。リモートのD1からビルドする場合は`PUBLIC_EVENTS_SOURCE=remote mise run build`を使う。remoteモードにはWranglerのCloudflare認証が必要である。ビルド成果物にはイベント情報がHTMLとして含まれ、イベントが0件なら空の一覧を生成する。詳細ページも実在するD1イベントだけ生成し、不明なIDは404となる。残席数は閲覧時にGo APIから取得する。
+Publicのイベント一覧と詳細は、表示時に同じWorkerのGo APIからD1を取得する。イベント作成・変更は次のページ表示からPublicにも反映される。PublicのビルドでD1やCloudflare認証は必要ない。未知のイベントIDはAPIが404を返し、画面にイベントが見つからない旨を表示する。
 
-イベントを追加・変更した後は、内容を確認してPublic Workerを再ビルド・再デプロイする。D1更新だけでは生成済みHTMLは変わらない。`mise run build`は通常のローカルD1を読み、CIではCI専用D1を作成して生成HTMLを検証する。
+イベントの内容はページ表示時に取得するため、Adminからイベントを作成・変更した後の再ビルド・再デプロイは不要である。CIのPublicビルドもD1データに依存しない。
 
 ## 手動確認
 

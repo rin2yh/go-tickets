@@ -1,18 +1,8 @@
 ---
 import SiteLayout from "../layouts/site-layout.astro";
-import { getEvents } from "../data/events";
-
-const events = getEvents();
+import { PublicEventList } from "../components/public-events";
 ---
 <SiteLayout title="イベント一覧">
   <h1>イベント一覧</h1>
-  {events.length === 0 ? (
-    <p>現在、公開中のイベントはありません。</p>
-  ) : (
-    <ul>
-      {events.map((event) => (
-        <li><a href={`/events/${event.id}`}>{event.name}</a></li>
-      ))}
-    </ul>
-  )}
+  <PublicEventList client:load />
 </SiteLayout>

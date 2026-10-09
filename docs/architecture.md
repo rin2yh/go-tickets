@@ -9,11 +9,11 @@
 
 ## Public SSGとD1
 
-Astroは`output: "static"`でビルドする。ビルドタスクはWrangler CLIでPublic Workerに設定したD1 databaseからイベント名とチケット種別を一度取得し、同じ結果をAstro一覧と`getStaticPaths()`へ渡す。ローカルビルドはlocal D1、デプロイ用ビルドは`PUBLIC_EVENTS_SOURCE=remote`でremote D1を使う。APIサーバー起動、Clerk認証、直接のD1 REST APIは不要であり、D1を別のデータファイルに複製しない。
+Astroは`output: "static"`でビルドする。イベント一覧と詳細はReact IslandがPublic Go APIから表示時に取得する。イベント作成・変更後にPublicを再ビルドする必要はない。未知のイベントIDにも共通の詳細HTMLを返し、イベント有無は`GET /api/events/{eventId}`の応答で判断する。D1をビルド成果物へ複製しない。
 
-イベント名とチケット種別はAstroがHTMLへ出力するため、JavaScriptなしでも読める。残席数は変動情報のため、イベント詳細のReact Islandが公開Go APIの`GET /api/events/{eventId}`から取得する。Clerk標準UI、申込・キャンセル、`GET /api/registrations`によるマイチケット表示もReact Islandsに置く。SSGはビルド時点の公開情報を固定するため、イベントの作成・変更後はPublicを再ビルド・再デプロイする。
+イベント名、チケット種別、残席数は表示時に公開Go APIの`GET /api/events`と`GET /api/events/{eventId}`から取得する。Clerk標準UI、申込・キャンセル、`GET /api/registrations`によるマイチケット表示もReact Islandsに置く。
 
-詳細ページはビルド時にD1に存在したIDだけ生成する。存在しないIDに汎用の詳細シェルを返さず404とする。WorkerはStatic AssetsのHTML自動redirectを無効にし、`/`、`/tickets`、`/events/{eventId}`を対応する`index.html`へ明示的に書き換える。Admin Workerは画面パスをSPAの`index.html`へ渡す。
+イベント詳細の共通HTMLは`/events/{eventId}`へ返し、イベントが存在しない場合はAPIの404を画面に表示する。WorkerはStatic AssetsのHTML自動redirectを無効にし、`/`、`/tickets`、`/events/{eventId}`を対応する`index.html`へ明示的に書き換える。Admin Workerは画面パスをSPAの`index.html`へ渡す。
 
 ## Clerk認証
 

@@ -6,7 +6,7 @@
   "preview_urls": false,
   "vars": {
     "CLERK_PUBLISHABLE_KEY": "pk_test_cGxlYXNpbmctc3F1aWQtNzE4OS5jbGVyay5hY2NvdW50cy5kZXYk",
-    "CLERK_AUTHORIZED_PARTIES": "http://localhost:8788"
+    "CLERK_AUTHORIZED_PARTIES": "https://go-tickets-admin.gtms.workers.dev"
   },
   "d1_databases": [{
     "binding": "DB",

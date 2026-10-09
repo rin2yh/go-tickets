@@ -8,20 +8,7 @@ run = "pnpm install --frozen-lockfile && pnpm --filter @go-tickets/e2e exec play
 description = "Build the Public Astro static site"
 hide = true
 dir = "frontend"
-run = '''
-set -eu
-query='SELECT e.id AS id, e.name AS name, t.id AS ticket_type_id, t.name AS ticket_type_name FROM events e LEFT JOIN ticket_types t ON t.event_id = e.id ORDER BY e.id, t.id'
-case "${PUBLIC_EVENTS_SOURCE:-local}" in
-  local)
-    events_json="$(wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to "${PUBLIC_D1_PERSIST:-${E2E_D1_PERSIST:-../.wrangler/state}}" --command "$query" --json)"
-    ;;
-  remote)
-    events_json="$(wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --remote --command "$query" --json)"
-    ;;
-  *) echo "PUBLIC_EVENTS_SOURCE must be local or remote" >&2; exit 2 ;;
-esac
-PUBLIC_EVENTS_JSON="$events_json" pnpm run build:public
-'''
+run = "pnpm run build:public"
 
 [build-admin-assets]
 description = "Build the Admin React SPA"

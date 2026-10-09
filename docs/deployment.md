@@ -14,7 +14,7 @@ Admin WorkerはGo API、D1 Binding、`backend/build/admin-assets`内のSPAを持
 mise exec -- wrangler d1 migrations apply go-tickets --remote --config wrangler.public.jsonc
 ```
 
-新しいmigrationがある場合だけ適用する。今回の画面/API追加ではスキーマ変更はない。デプロイ前に`PUBLIC_EVENTS_SOURCE=remote mise run dry`を実行する。Publicのビルドはremote D1から公開情報を取得するためWrangler認証が必要である。CIではlocal D1にmigrationとseedを適用してビルドする。
+新しいmigrationがある場合だけ適用する。Publicのイベント一覧と詳細は実行時にGo APIからD1を取得するため、イベントを追加するたびにPublicを再ビルドする必要はない。デプロイ前に`mise run dry`を実行する。
 
 ## Clerk設定とSecrets
 
@@ -30,14 +30,14 @@ Clerk DashboardでGitHub、Google、メールOTPを有効にする。PublicとAd
 ## Build・Deploy
 
 ```sh
-PUBLIC_EVENTS_SOURCE=remote mise run build
-PUBLIC_EVENTS_SOURCE=remote mise run dry
+mise run build
+mise run dry
 mise exec -- wrangler deploy --config wrangler.admin.jsonc
 mise exec -- wrangler deploy --config wrangler.public.jsonc
 ```
 
 Admin Workerは`workers.dev` URLを独立した入口として使う。Public WorkerにAdminへのService Bindingは設定しない。API要求は認証・管理者認可を通過したものだけがD1へ到達する。
 
-## 未完了の公開前確認
+## 未実装の機能
 
-このPoCはCloudflare remote deployを行わない。既存のCloudflareリソースに対する設定差分はdry-runで確認し、実デプロイ前にWorkers画面でPublic/AdminのrouteとStatic Assets設定を照合する。Admin用の管理操作、申込一覧、チェックインのGo APIはまだない。
+申込一覧とチェックインの管理APIは未実装である。
