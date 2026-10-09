@@ -14,6 +14,7 @@ mise install
 
 echo "==> Running lint, format, typecheck, and unit tests"
 (cd backend && mise exec -- golangci-lint run ./...)
+(cd backend && mise exec -- go tool go-arch-lint check --project-path .)
 (cd frontend && mise exec -- pnpm run lint)
 (cd frontend && mise exec -- pnpm run format:check)
 (cd frontend && mise exec -- pnpm run typecheck)
