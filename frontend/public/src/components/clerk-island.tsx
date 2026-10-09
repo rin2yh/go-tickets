@@ -277,9 +277,5 @@ export function TicketAvailability({
       </Badge>
     );
   const remaining = Math.max(0, availability.capacity - availability.reserved);
-  return (
-    <Badge variant={remaining > 0 ? "default" : "secondary"}>
-      {remaining > 0 ? `残席 ${remaining}` : "満席"}
-    </Badge>
-  );
+  return <Badge variant={remaining > 0 ? "default" : "secondary"}>残席 {remaining}</Badge>;
 }
