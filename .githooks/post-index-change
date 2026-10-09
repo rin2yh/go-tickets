@@ -1,9 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# Git passes: worktree-updated, index-updated (skip-worktree bits may change).
-# Check only writes that changed the index; this hook cannot reject that write.
-[[ ${2:-0} == 1 ]] || exit 0
+# Git passes worktree-update and skip-worktree flags. Ordinary `git add` calls
+# this hook with `0 0`, so the flags do not gate staged-file checks.
 
 root=$(git rev-parse --show-toplevel)
 cd "$root"
@@ -12,21 +11,36 @@ staged=$(mktemp)
 trap 'rm -f "$staged"' EXIT
 git diff --cached --name-only --diff-filter=ACMR -z > "$staged"
 
-declare -a go_dirs=()
+declare -a go_packages=()
+declare -a go_files=()
 declare -a frontend_lint_files=()
 declare -a frontend_format_files=()
+declare -a check_paths=()
 while IFS= read -r -d '' path; do
   case "$path" in
     backend/*.go)
-      [[ -f "$path" ]] || continue
-      formatted=$(gofmt -d "$path")
-      if [[ -n "$formatted" ]]; then
-        printf '%s\n' "$formatted" >&2
-        echo "Run gofmt on $path, then stage the result." >&2
-        exit 1
+      check_paths+=("$path")
+      if [[ -f "$path" ]]; then
+        go_files+=("$path")
+        dir=$(dirname "$path")
+        if [[ "$dir" == backend ]]; then
+          package="./"
+        else
+          package="./${dir#backend/}"
+        fi
+        package_found=0
+        if ((${#go_packages[@]})); then
+          for existing_package in "${go_packages[@]}"; do
+            if [[ "$existing_package" == "$package" ]]; then
+              package_found=1
+              break
+            fi
+          done
+        fi
+        if ((package_found == 0)); then
+          go_packages+=("$package")
+        fi
       fi
-      dir=$(dirname "$path")
-      case " ${go_dirs[*]} " in *" $dir "*) ;; *) go_dirs+=("$dir");; esac
       ;;
     frontend/*)
       case "$path" in
@@ -36,6 +50,7 @@ while IFS= read -r -d '' path; do
       esac
       case "$path" in
         *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.astro|*.json|*.css|*.md|*.yaml|*.yml|*.html)
+          check_paths+=("$path")
           [[ -f "$path" ]] && frontend_format_files+=("${path#frontend/}")
           ;;
       esac
@@ -43,10 +58,31 @@ while IFS= read -r -d '' path; do
   esac
 done < "$staged"
 
-if ((${#go_dirs[@]})); then
-  for dir in "${go_dirs[@]}"; do
-    (cd backend && mise exec -- golangci-lint run "./${dir#backend/}")
+# Package-based tools read the worktree. Refuse to lint when it differs from
+# the index, so their result cannot be mistaken for a check of staged content.
+if ((${#check_paths[@]})); then
+  for path in "${check_paths[@]}"; do
+    if ! git diff-files --quiet -- "$path"; then
+      echo "Staged file differs from the worktree: $path" >&2
+      echo "Restage it or restore the worktree version before checking." >&2
+      exit 1
+    fi
   done
+fi
+
+if ((${#go_files[@]})); then
+  for path in "${go_files[@]}"; do
+    formatted=$(gofmt -d "$path")
+    if [[ -n "$formatted" ]]; then
+      printf '%s\n' "$formatted" >&2
+      echo "Run gofmt on $path, then stage the result." >&2
+      exit 1
+    fi
+  done
+fi
+
+if ((${#go_packages[@]})); then
+  (cd backend && mise exec -- golangci-lint run "${go_packages[@]}")
 fi
 
 if ((${#frontend_lint_files[@]})); then
