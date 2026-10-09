@@ -26,37 +26,6 @@ type Status struct {
 	Reserved     int64 `json:"reserved"`
 }
 
-type TicketType struct {
-	ID                   int64   `json:"id"`
-	Name                 string  `json:"name"`
-	Capacity             int64   `json:"capacity"`
-	Reserved             int64   `json:"reserved"`
-	RegistrationStartsAt *string `json:"registration_starts_at"`
-	RegistrationEndsAt   *string `json:"registration_ends_at"`
-}
-
-type Event struct {
-	ID                int64        `json:"id"`
-	Name              string       `json:"name"`
-	Description       string       `json:"description"`
-	StartsAt          *string      `json:"starts_at"`
-	EndsAt            *string      `json:"ends_at"`
-	VenueName         *string      `json:"venue_name"`
-	VenueAddress      *string      `json:"venue_address"`
-	PublicationStatus string       `json:"publication_status"`
-	TicketTypes       []TicketType `json:"ticket_types"`
-}
-
-type EventInput struct {
-	Name              string
-	Description       string
-	StartsAt          *string
-	EndsAt            *string
-	VenueName         *string
-	VenueAddress      *string
-	PublicationStatus string
-}
-
 type TicketTypeInput struct {
 	Name                 string
 	Capacity             int64
@@ -74,18 +43,12 @@ type Registration struct {
 type Command interface {
 	Register(context.Context, int64, string) error
 	Cancel(context.Context, int64, string) error
-	CreateEvent(context.Context, EventInput) (int64, error)
-	UpdateEvent(context.Context, int64, EventInput) error
 	CreateTicketType(context.Context, int64, TicketTypeInput) (int64, error)
 	UpdateTicketType(context.Context, int64, TicketTypeInput) error
 }
 
 type Query interface {
 	Status(context.Context, int64) (Status, error)
-	Events(context.Context) ([]Event, error)
-	Event(context.Context, int64) (Event, error)
-	AdminEvents(context.Context) ([]Event, error)
-	AdminEvent(context.Context, int64) (Event, error)
 	Registrations(context.Context, string) ([]Registration, error)
 }
 

@@ -9,17 +9,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rin2yh/go-tickets/internal/ticket"
 	httpx "github.com/rin2yh/go-tickets/x/http"
 )
 
 // Handler serves event listing and administration endpoints.
 type Handler struct {
-	queries  ticket.Query
-	commands ticket.Command
+	queries  Query
+	commands Command
 }
 
-func NewHandler(queries ticket.Query, commands ticket.Command) *Handler {
+func NewHandler(queries Query, commands Command) *Handler {
 	return &Handler{queries: queries, commands: commands}
 }
 
@@ -113,7 +112,7 @@ func (h *Handler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := h.commands.UpdateEvent(r.Context(), id, input)
-	if errors.Is(err, ticket.ErrNotFound) {
+	if errors.Is(err, ErrNotFound) {
 		httpx.WriteError(w, http.StatusNotFound, "not_found")
 	} else if err != nil {
 		writeEventError(w, err)
@@ -132,25 +131,25 @@ type eventBody struct {
 	PublicationStatus string  `json:"publication_status"`
 }
 
-func (b eventBody) input() (ticket.EventInput, string) {
+func (b eventBody) input() (EventInput, string) {
 	name := strings.TrimSpace(b.Name)
 	if len(name) > 200 {
-		return ticket.EventInput{}, "invalid_name"
+		return EventInput{}, "invalid_name"
 	}
 	status := b.PublicationStatus
 	if status == "" {
 		status = "draft"
 	}
 	if status != "draft" && status != "published" {
-		return ticket.EventInput{}, "invalid_publication_status"
+		return EventInput{}, "invalid_publication_status"
 	}
 	if !validTimestamp(b.StartsAt) || !validTimestamp(b.EndsAt) {
-		return ticket.EventInput{}, "invalid_datetime"
+		return EventInput{}, "invalid_datetime"
 	}
 	if b.StartsAt != nil && b.EndsAt != nil && !before(*b.StartsAt, *b.EndsAt) {
-		return ticket.EventInput{}, "invalid_event_period"
+		return EventInput{}, "invalid_event_period"
 	}
-	return ticket.EventInput{Name: name, Description: b.Description, StartsAt: b.StartsAt, EndsAt: b.EndsAt, VenueName: b.VenueName, VenueAddress: b.VenueAddress, PublicationStatus: status}, ""
+	return EventInput{Name: name, Description: b.Description, StartsAt: b.StartsAt, EndsAt: b.EndsAt, VenueName: b.VenueName, VenueAddress: b.VenueAddress, PublicationStatus: status}, ""
 }
 func validTimestamp(value *string) bool {
 	if value == nil {
@@ -159,7 +158,7 @@ func validTimestamp(value *string) bool {
 	parsed, err := time.Parse(time.RFC3339, *value)
 	return err == nil && parsed.Location() == time.UTC && strings.HasSuffix(*value, "Z")
 }
-func validatePublished(input ticket.EventInput) string {
+func validatePublished(input EventInput) string {
 	if input.Name == "" {
 		return "invalid_name"
 	}
@@ -180,7 +179,7 @@ func before(left, right string) bool {
 	return a.Before(b)
 }
 func writeEventError(w http.ResponseWriter, err error) {
-	if errors.Is(err, ticket.ErrNotFound) {
+	if errors.Is(err, ErrNotFound) {
 		httpx.WriteError(w, http.StatusNotFound, "not_found")
 		return
 	}

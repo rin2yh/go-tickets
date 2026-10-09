@@ -36,7 +36,7 @@ func main() {
 		log.Fatal(err)
 	}
 	handler := ticket.NewHandler(ticket.SQLQuery{DB: db}, ticket.SQLCommand{DB: db}, auth.UserID)
-	events := event.NewHandler(ticket.SQLQuery{DB: db}, ticket.SQLCommand{DB: db})
+	events := event.NewHandler(event.SQLQuery{DB: db}, event.SQLCommand{DB: db})
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handler.Health)
 	mux.Handle("GET /api/auth/config", handler.AuthConfig(cloudflare.Getenv("CLERK_PUBLISHABLE_KEY")))

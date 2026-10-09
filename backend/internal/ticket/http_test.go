@@ -38,25 +38,25 @@ func (f *fakeStore) IsAdmin(_ context.Context, user string) (bool, error) {
 	f.adminUser = user
 	return f.admin, f.adminErr
 }
-func (f *fakeStore) Events(context.Context) ([]ticket.Event, error) {
-	return []ticket.Event{{ID: 1, Name: "event", TicketTypes: []ticket.TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}}, nil
+func (f *fakeStore) Events(context.Context) ([]event.Event, error) {
+	return []event.Event{{ID: 1, Name: "event", TicketTypes: []event.TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}}, nil
 }
-func (f *fakeStore) AdminEvents(ctx context.Context) ([]ticket.Event, error) { return f.Events(ctx) }
-func (f *fakeStore) Event(_ context.Context, id int64) (ticket.Event, error) {
+func (f *fakeStore) AdminEvents(ctx context.Context) ([]event.Event, error) { return f.Events(ctx) }
+func (f *fakeStore) Event(_ context.Context, id int64) (event.Event, error) {
 	if id != 1 {
-		return ticket.Event{}, errors.New("missing")
+		return event.Event{}, errors.New("missing")
 	}
-	return ticket.Event{ID: 1, Name: "event", TicketTypes: []ticket.TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}, nil
+	return event.Event{ID: 1, Name: "event", TicketTypes: []event.TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}, nil
 }
-func (f *fakeStore) AdminEvent(ctx context.Context, id int64) (ticket.Event, error) {
+func (f *fakeStore) AdminEvent(ctx context.Context, id int64) (event.Event, error) {
 	return f.Event(ctx, id)
 }
 func (f *fakeStore) Registrations(_ context.Context, user string) ([]ticket.Registration, error) {
 	f.registeredUser = user
 	return []ticket.Registration{{TicketTypeID: 1, EventName: "event", TicketName: "ticket", Status: "active"}}, nil
 }
-func (f *fakeStore) CreateEvent(context.Context, ticket.EventInput) (int64, error) { return 2, nil }
-func (f *fakeStore) UpdateEvent(context.Context, int64, ticket.EventInput) error   { return nil }
+func (f *fakeStore) CreateEvent(context.Context, event.EventInput) (int64, error) { return 2, nil }
+func (f *fakeStore) UpdateEvent(context.Context, int64, event.EventInput) error   { return nil }
 func (f *fakeStore) CreateTicketType(context.Context, int64, ticket.TicketTypeInput) (int64, error) {
 	return 2, nil
 }

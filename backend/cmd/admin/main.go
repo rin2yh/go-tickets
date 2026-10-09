@@ -37,8 +37,7 @@ func main() {
 		log.Fatal(err)
 	}
 	handler := ticket.NewHandler(ticket.SQLQuery{DB: db}, ticket.SQLCommand{DB: db}, auth.UserID)
-	queries, commands := ticket.SQLQuery{DB: db}, ticket.SQLCommand{DB: db}
-	events := event.NewHandler(queries, commands)
+	events := event.NewHandler(event.SQLQuery{DB: db}, event.SQLCommand{DB: db})
 	adminOnly := auth.AdminOnly(auth.UserID, func(ctx context.Context, userID string) (bool, error) { return auth.IsAdmin(ctx, db, userID) })
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handler.Health)
