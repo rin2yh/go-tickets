@@ -12,6 +12,14 @@ export class MyTicketsPage {
       .filter({ hasText: statusLabel });
   }
 
+  cancelButton(eventName: string, ticketName: string): Locator {
+    return this.page
+      .getByRole("listitem")
+      .filter({ hasText: eventName })
+      .filter({ hasText: ticketName })
+      .getByRole("button", { name: "キャンセル" });
+  }
+
   async goto() {
     await this.page.getByRole("link", { name: "自分のチケット" }).click();
   }

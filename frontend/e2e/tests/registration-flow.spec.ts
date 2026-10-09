@@ -25,12 +25,19 @@ test("participant registers for a ticket and sees the result in My Tickets", asy
     await clerk.signIn({ page, emailAddress: "go-tickets-e2e+clerk_test@example.com" });
     await eventDetail.registerButton(ticketName).click();
     await expect(page.getByText("registered")).toBeVisible();
+    await eventDetail.registerButton(ticketName).click();
+    await expect(page.getByText("409: duplicate_registration")).toBeVisible();
   });
 
-  await test.step("Verify the ticket in My Tickets after reload", async () => {
+  await test.step("Cancel the ticket and verify the reservation counter", async () => {
     await myTickets.goto();
     await expect(myTickets.registration(eventName, ticketName, "active")).toBeVisible();
+    await myTickets.cancelButton(eventName, ticketName).click();
+    await expect(myTickets.registration(eventName, ticketName, "cancelled")).toBeVisible();
     await page.reload();
-    await expect(myTickets.registration(eventName, ticketName, "active")).toBeVisible();
+    await expect(myTickets.registration(eventName, ticketName, "cancelled")).toBeVisible();
+    await eventList.goto();
+    await eventList.openEvent(eventName);
+    await expect(eventDetail.remainingSeats(1)).toBeVisible();
   });
 });
