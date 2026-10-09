@@ -29,7 +29,7 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      "wrangler dev --config wrangler.public.jsonc --local --port 8787 --persist-to .wrangler/e2e",
+      "wrangler dev --config wrangler.public.jsonc --local --port 8787 --var CLERK_AUTHORIZED_PARTIES:http://localhost:8787 --persist-to .wrangler/e2e",
     cwd: fileURLToPath(new URL("../../", import.meta.url)),
     url: "http://localhost:8787/health",
     reuseExistingServer: false,

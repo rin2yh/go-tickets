@@ -4,7 +4,12 @@ export class MyTicketsPage {
   constructor(private readonly page: Page) {}
 
   registration(eventName: string, ticketName: string, status: string): Locator {
-    return this.page.getByText(`${eventName} / ${ticketName} / ${status}`);
+    const statusLabel = status === "active" ? "申込中" : "キャンセル済み";
+    return this.page
+      .getByRole("listitem")
+      .filter({ hasText: eventName })
+      .filter({ hasText: ticketName })
+      .filter({ hasText: statusLabel });
   }
 
   async goto() {
