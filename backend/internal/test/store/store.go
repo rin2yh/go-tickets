@@ -23,7 +23,7 @@ func NewDB(t testing.TB) *sql.DB {
 		t.Fatal("locate store helper")
 	}
 	migrationsDir := filepath.Join(filepath.Dir(file), "..", "..", "..", "migrations")
-	for _, name := range []string{"0001_init.sql", "0002_administrators.sql"} {
+	for _, name := range []string{"0001_init.sql", "0002_administrators.sql", "0003_event_details_and_registration_periods.sql"} {
 		migration, err := os.ReadFile(filepath.Join(migrationsDir, name))
 		if err != nil {
 			t.Fatal(err)
@@ -38,8 +38,8 @@ func NewDB(t testing.TB) *sql.DB {
 func Seed(t testing.TB, db *sql.DB) {
 	t.Helper()
 	for _, statement := range []string{
-		`INSERT INTO events(id, name) VALUES (1, 'Later'), (2, 'Earlier'), (3, 'Empty')`,
-		`INSERT INTO ticket_types(id, event_id, name, capacity) VALUES (12, 1, 'Zed', 3), (11, 1, 'Alpha', 2), (21, 2, 'General', 1), (30, 2, 'No registrations', 0)`,
+		`INSERT INTO events(id, name, description, starts_at, ends_at, publication_status) VALUES (1, 'Later', 'Description', '2099-01-01T00:00:00Z', '2099-01-02T00:00:00Z', 'published'), (2, 'Earlier', 'Description', '2099-01-01T00:00:00Z', '2099-01-02T00:00:00Z', 'published'), (3, 'Empty', 'Description', '2099-01-01T00:00:00Z', '2099-01-02T00:00:00Z', 'published')`,
+		`INSERT INTO ticket_types(id, event_id, name, capacity, registration_starts_at, registration_ends_at) VALUES (12, 1, 'Zed', 3, '2000-01-01T00:00:00Z', '2099-01-01T00:00:00Z'), (11, 1, 'Alpha', 2, '2000-01-01T00:00:00Z', '2099-01-01T00:00:00Z'), (21, 2, 'General', 1, '2000-01-01T00:00:00Z', '2099-01-01T00:00:00Z'), (30, 2, 'No registrations', 0, '2000-01-01T00:00:00Z', '2099-01-01T00:00:00Z')`,
 		`INSERT INTO registrations(ticket_type_id, user_id) VALUES (12, 'user'), (21, 'user'), (11, 'other')`,
 		`INSERT INTO administrators(clerk_user_id) VALUES ('admin')`,
 	} {

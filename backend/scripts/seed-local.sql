@@ -1,2 +1,2 @@
-INSERT OR IGNORE INTO events(id, name) VALUES (1, 'Go Conference Local Test');
-INSERT OR IGNORE INTO ticket_types(id, event_id, name, capacity) VALUES (1, 1, 'Free Local Test', 1);
+INSERT OR IGNORE INTO events(id, name, description, starts_at, ends_at, publication_status) VALUES (1, 'Go Conference Local Test', 'Local registration test event', '2099-01-01T00:00:00Z', '2099-01-02T00:00:00Z', 'published');
+INSERT OR IGNORE INTO ticket_types(id, event_id, name, capacity, registration_starts_at, registration_ends_at) VALUES (1, 1, 'Free Local Test', 1, '2000-01-01T00:00:00Z', '2099-01-01T00:00:00Z');

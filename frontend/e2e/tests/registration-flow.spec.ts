@@ -55,8 +55,7 @@ test("participant uses tickets across authenticated page transitions", async ({ 
   await test.step("Register and cancel a ticket", async () => {
     await eventDetail.registerButton(ticketName).click();
     await expect(page.getByText("registered")).toBeVisible();
-    await eventDetail.registerButton(ticketName).click();
-    await expect(page.getByText("409: duplicate_registration")).toBeVisible();
+    await expect(eventDetail.registeredButton(ticketName)).toBeDisabled();
 
     await myTickets.goto();
     await expect(myTickets.registration(eventName, ticketName, "active")).toBeVisible();

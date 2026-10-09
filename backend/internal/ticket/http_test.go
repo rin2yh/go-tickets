@@ -41,22 +41,28 @@ func (f *fakeStore) IsAdmin(_ context.Context, user string) (bool, error) {
 func (f *fakeStore) Events(context.Context) ([]ticket.Event, error) {
 	return []ticket.Event{{ID: 1, Name: "event", TicketTypes: []ticket.TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}}, nil
 }
+func (f *fakeStore) AdminEvents(ctx context.Context) ([]ticket.Event, error) { return f.Events(ctx) }
 func (f *fakeStore) Event(_ context.Context, id int64) (ticket.Event, error) {
 	if id != 1 {
 		return ticket.Event{}, errors.New("missing")
 	}
 	return ticket.Event{ID: 1, Name: "event", TicketTypes: []ticket.TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}, nil
 }
+func (f *fakeStore) AdminEvent(ctx context.Context, id int64) (ticket.Event, error) {
+	return f.Event(ctx, id)
+}
 func (f *fakeStore) Registrations(_ context.Context, user string) ([]ticket.Registration, error) {
 	f.registeredUser = user
 	return []ticket.Registration{{TicketTypeID: 1, EventName: "event", TicketName: "ticket", Status: "active"}}, nil
 }
-func (f *fakeStore) CreateEvent(context.Context, string) (int64, error) { return 2, nil }
-func (f *fakeStore) UpdateEvent(context.Context, int64, string) error   { return nil }
-func (f *fakeStore) CreateTicketType(context.Context, int64, string, int64) (int64, error) {
+func (f *fakeStore) CreateEvent(context.Context, ticket.EventInput) (int64, error) { return 2, nil }
+func (f *fakeStore) UpdateEvent(context.Context, int64, ticket.EventInput) error   { return nil }
+func (f *fakeStore) CreateTicketType(context.Context, int64, ticket.TicketTypeInput) (int64, error) {
 	return 2, nil
 }
-func (f *fakeStore) UpdateTicketType(context.Context, int64, string, int64) error { return nil }
+func (f *fakeStore) UpdateTicketType(context.Context, int64, ticket.TicketTypeInput) error {
+	return nil
+}
 
 func TestPublicHandler(t *testing.T) {
 	tests := []struct {
@@ -124,7 +130,8 @@ func TestAdminHandler(t *testing.T) {
 		store      fakeStore
 		want       int
 	}{
-		{"events are public", "/api/events", fakeStore{}, http.StatusOK},
+		{"admin events are restricted", "/api/admin/events", fakeStore{admin: true}, http.StatusOK},
+		{"admin events reject regular users", "/api/admin/events", fakeStore{}, http.StatusForbidden},
 		{"admin status", "/api/ticket-types/1/status", fakeStore{admin: true}, http.StatusOK},
 		{"requested type id", "/api/ticket-types/2/status", fakeStore{admin: true}, http.StatusOK},
 		{"legacy status path is gone", "/ticket-types/1/status", fakeStore{admin: true}, http.StatusNotFound},
@@ -141,7 +148,7 @@ func TestAdminHandler(t *testing.T) {
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d", w.Code, tc.want)
 			}
-			if tc.name != "events are public" && tc.name != "legacy status path is gone" && store.adminUser != "user_ValidUser" {
+			if tc.name != "legacy status path is gone" && store.adminUser != "user_ValidUser" {
 				t.Fatalf("admin lookup user = %q", store.adminUser)
 			}
 			if tc.name == "admin status" || tc.name == "requested type id" {
@@ -174,10 +181,13 @@ func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 		want                     int
 	}{
 		{"create event", http.MethodPost, "/api/events", `{"name":" GoConf "}`, http.StatusCreated},
-		{"reject blank event name", http.MethodPost, "/api/events", `{"name":"  "}`, http.StatusBadRequest},
+		{"draft may omit event name", http.MethodPost, "/api/events", `{}`, http.StatusCreated},
+		{"published event requires details", http.MethodPost, "/api/events", `{"publication_status":"published"}`, http.StatusBadRequest},
+		{"reject equal event datetime boundary", http.MethodPost, "/api/events", `{"name":"Event","description":"Details","starts_at":"2027-01-01T00:00:00.000Z","ends_at":"2027-01-01T00:00:00Z","publication_status":"published"}`, http.StatusBadRequest},
 		{"edit event", http.MethodPut, "/api/events/1", `{"name":"GoConf 2027"}`, http.StatusOK},
 		{"create ticket type", http.MethodPost, "/api/events/1/ticket-types", `{"name":"General","capacity":20}`, http.StatusCreated},
 		{"reject negative capacity", http.MethodPost, "/api/events/1/ticket-types", `{"name":"General","capacity":-1}`, http.StatusBadRequest},
+		{"reject equal registration datetime boundary", http.MethodPost, "/api/events/1/ticket-types", `{"name":"General","capacity":1,"registration_starts_at":"2027-01-01T00:00:00.000Z","registration_ends_at":"2027-01-01T00:00:00Z"}`, http.StatusBadRequest},
 		{"edit ticket type", http.MethodPut, "/api/ticket-types/1", `{"name":"General","capacity":20}`, http.StatusOK},
 	}
 	for _, tc := range tests {
@@ -225,8 +235,9 @@ func testAdminMux(store *fakeStore) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", h.Health)
 	mux.Handle("GET /api/auth/config", h.AuthConfig("pk_test_example"))
-	mux.HandleFunc("GET /api/events", events.Events)
 	adminOnly := auth.AdminOnly(testAuthenticatedUserID, store.IsAdmin)
+	mux.Handle("GET /api/admin/events", adminOnly(http.HandlerFunc(events.AdminEvents)))
+	mux.Handle("GET /api/admin/events/{id}", adminOnly(http.HandlerFunc(events.AdminEvent)))
 	mux.Handle("GET /api/ticket-types/{id}/status", adminOnly(http.HandlerFunc(h.TicketTypeStatus)))
 	mux.Handle("POST /api/events", adminOnly(http.HandlerFunc(events.CreateEvent)))
 	mux.Handle("PUT /api/events/{id}", adminOnly(http.HandlerFunc(events.UpdateEvent)))

@@ -6,6 +6,8 @@ Public/Admin WorkerはCloudflare Workers BuildsのGit連携でデプロイする
 
 両Workerは同じ既存の`go-tickets` D1 databaseを参照する。新しいmigrationがある場合は、Git連携デプロイの前に一度適用する。
 
+`0003_event_details_and_registration_periods.sql`は既存イベント・チケット種別・申込をコピーしてテーブルを再構築する。イベント名、定員、確定数、申込状態は維持され、既存イベントは日時未設定の`draft`として移行される。旧テーブルに作成日時がないため、移行された行の`created_at`と`updated_at`は移行時刻になる。リモート適用前に対象イベントを確認し、公開する行は適用後に管理画面から日時・説明・チケット受付期間を入力して公開する。
+
 ```sh
 mise exec -- wrangler d1 migrations apply go-tickets --remote --config wrangler.public.jsonc
 ```

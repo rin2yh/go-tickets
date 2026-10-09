@@ -14,4 +14,8 @@ export class EventDetailPage {
   registerButton(ticketName: string): Locator {
     return this.page.getByRole("button", { name: `${ticketName}に申込` });
   }
+
+  registeredButton(ticketName: string): Locator {
+    return this.page.getByRole("button", { name: `${ticketName}（申込済み）` });
+  }
 }

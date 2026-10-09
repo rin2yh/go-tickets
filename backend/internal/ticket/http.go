@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rin2yh/go-tickets/x/http"
 )
@@ -56,7 +57,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err == nil:
 		httpx.WriteJSON(w, http.StatusCreated, map[string]string{"status": "registered"})
-	case errors.Is(err, ErrSoldOut), errors.Is(err, ErrDuplicate):
+	case errors.Is(err, ErrSoldOut), errors.Is(err, ErrDuplicate), errors.Is(err, ErrUnpublished), errors.Is(err, ErrRegistrationNotStarted), errors.Is(err, ErrRegistrationEnded), errors.Is(err, ErrEventEnded):
 		httpx.WriteJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 	default:
 		httpx.WriteError(w, http.StatusInternalServerError, "database_error")
@@ -107,18 +108,20 @@ func (h *Handler) CreateTicketType(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		Name     string `json:"name"`
-		Capacity int64  `json:"capacity"`
+		Name                 string  `json:"name"`
+		Capacity             int64   `json:"capacity"`
+		RegistrationStartsAt *string `json:"registration_starts_at"`
+		RegistrationEndsAt   *string `json:"registration_ends_at"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
 	name := strings.TrimSpace(input.Name)
-	if !validName(name) || input.Capacity < 0 {
+	if !validName(name) || input.Capacity < 0 || !validTimestamp(input.RegistrationStartsAt) || !validTimestamp(input.RegistrationEndsAt) || invalidRange(input.RegistrationStartsAt, input.RegistrationEndsAt) {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_ticket_type")
 		return
 	}
-	id, err := h.commands.CreateTicketType(r.Context(), eventID, name, input.Capacity)
+	id, err := h.commands.CreateTicketType(r.Context(), eventID, TicketTypeInput{Name: name, Capacity: input.Capacity, RegistrationStartsAt: input.RegistrationStartsAt, RegistrationEndsAt: input.RegistrationEndsAt})
 	if err != nil {
 		writeAdminMutationResult(w, err)
 		return
@@ -132,18 +135,20 @@ func (h *Handler) UpdateTicketType(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		Name     string `json:"name"`
-		Capacity int64  `json:"capacity"`
+		Name                 string  `json:"name"`
+		Capacity             int64   `json:"capacity"`
+		RegistrationStartsAt *string `json:"registration_starts_at"`
+		RegistrationEndsAt   *string `json:"registration_ends_at"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
 	name := strings.TrimSpace(input.Name)
-	if !validName(name) || input.Capacity < 0 {
+	if !validName(name) || input.Capacity < 0 || !validTimestamp(input.RegistrationStartsAt) || !validTimestamp(input.RegistrationEndsAt) || invalidRange(input.RegistrationStartsAt, input.RegistrationEndsAt) {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_ticket_type")
 		return
 	}
-	writeAdminMutationResult(w, h.commands.UpdateTicketType(r.Context(), id, name, input.Capacity))
+	writeAdminMutationResult(w, h.commands.UpdateTicketType(r.Context(), id, TicketTypeInput{Name: name, Capacity: input.Capacity, RegistrationStartsAt: input.RegistrationStartsAt, RegistrationEndsAt: input.RegistrationEndsAt}))
 }
 
 func pathID(w http.ResponseWriter, r *http.Request, key, errorCode string) (int64, bool) {
@@ -164,6 +169,21 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 }
 
 func validName(name string) bool { return name != "" && len(name) <= 200 }
+func validTimestamp(value *string) bool {
+	if value == nil {
+		return true
+	}
+	_, err := time.Parse(time.RFC3339, *value)
+	return err == nil && strings.HasSuffix(*value, "Z")
+}
+func invalidRange(start, end *string) bool {
+	if start == nil || end == nil {
+		return false
+	}
+	startTime, startErr := time.Parse(time.RFC3339Nano, *start)
+	endTime, endErr := time.Parse(time.RFC3339Nano, *end)
+	return startErr != nil || endErr != nil || !startTime.Before(endTime)
+}
 
 func writeAdminMutationResult(w http.ResponseWriter, err error) {
 	if err == nil {
@@ -176,6 +196,10 @@ func writeAdminMutationResult(w http.ResponseWriter, err error) {
 	}
 	if strings.Contains(err.Error(), "CHECK constraint failed") {
 		httpx.WriteError(w, http.StatusConflict, "capacity_below_reserved_or_invalid_event")
+		return
+	}
+	if strings.Contains(err.Error(), "invalid_registration_period") {
+		httpx.WriteError(w, http.StatusBadRequest, "invalid_registration_period")
 		return
 	}
 	if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {

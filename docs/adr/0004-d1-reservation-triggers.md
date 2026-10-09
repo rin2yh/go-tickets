@@ -6,8 +6,8 @@
 
 ## Decision
 
-単一の申込INSERTを起点にD1 triggerで残席を条件付き更新する。残席がなければtriggerがstatementをabortする。キャンセル時もtriggerで残席を戻し、ticket typeとuserの組み合わせにはunique制約を置く。
+単一の申込INSERTを起点にD1 triggerで公開状態・受付期間・開催終了時刻を検証し、残席を条件付き更新する。条件を満たさない申込や残席がない場合はstatementをabortする。キャンセル時もtriggerで残席を戻し、ticket typeとuserの組み合わせにはunique制約を置く。
 
 ## Consequences
 
-残席更新と申込結果は同じSQL statementの成否に従い、アプリケーション側の複数statement transactionを必要としない。予約数の整合性はmigration内のtriggerと制約に依存するため、これらの変更は予約処理の振る舞いに影響する。
+受付条件の検査・残席更新・申込結果は同じSQL statementの成否に従い、アプリケーション側の複数statement transactionを必要としない。予約数の整合性はmigration内のtriggerと制約に依存するため、これらの変更は予約処理の振る舞いに影響する。
