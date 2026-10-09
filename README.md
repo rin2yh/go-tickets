@@ -18,7 +18,7 @@ mise run init
 mise run dev
 ```
 
-Publicは`http://localhost:8787`、Adminは`http://localhost:8787/admin`、Admin Workerは内部Service Binding先として`http://localhost:8788`で起動する。
+Publicは`http://localhost:8787`、Adminは独立したAdmin Workerの`http://localhost:8788`で起動する。
 
 ## テスト・ビルド
 

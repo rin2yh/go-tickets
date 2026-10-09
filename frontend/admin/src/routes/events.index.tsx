@@ -28,7 +28,7 @@ function Events() {
     setError("");
     try {
       const token = await getToken();
-      const r = await fetch("/admin-api/api/events", {
+      const r = await fetch("/api/events", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
         body: JSON.stringify({ name }),

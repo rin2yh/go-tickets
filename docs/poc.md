@@ -47,9 +47,9 @@ Cloudflare D1へは試験用の容量1 ticket typeへ直接SQLを実行し、異
 - Clerk Go SDKのWasm化で各WorkerのWasmは約83〜85%増えた。Wrangler uploadは約13.2 MiBでFree上限64 MiBを下回る。
 - `workers-go`はrequestごとにGo Wasm runtimeを起動するため、Clerk Go SDKのプロセス内JWKS cacheはrequest間で共有されない。認証requestごとにClerk Backend APIからJWKSを取得する構成である。ClerkはJWKS endpointにendpoint-specific rate limitを設けていないが、認証時に外部ネットワーク往復が増える。Clerkの[API制限](https://clerk.com/docs/guides/how-clerk-works/system-limits)とWorkers上のCPU・起動時間を本番負荷で再確認する必要がある。
 - Clerk Go SDK版はFreeのサイズ上限に対して十分小さい。一方、10 ms CPU上限の実測、実Clerk tokenのWorker検証、Cloudflare上のD1競合試験、メモリ測定は未実施である。
-- Admin Workerは独自routeと`workers.dev` URLを持たない。Public Workerの`/admin/*`と`/admin-api/*`をService Bindingで転送し、Admin Go middlewareがAPI要求のClerk認証とD1管理者認可を行う。
+- Admin Workerは独立した`workers.dev` URLを持ち、Admin画面とAPIを提供する。Admin Go middlewareがAPI要求のClerk認証とD1管理者認可を行う。
 - GitHub、Google、メールOTPのDashboard provider設定はソースから判定できない。Clerk Dashboardで有効化とOAuth設定を確認する。
-- Admin Workerの直接公開routeはなく、Admin画面の静的資産はAdmin Worker自身が配信する。認証済みAdmin APIのCloudflare上の検証は未実施である。
+- Admin画面の静的資産はAdmin Worker自身が配信する。認証済みAdmin APIのCloudflare上の検証は未実施である。
 
 ## 採用判断
 
@@ -73,7 +73,7 @@ Go Wasm・D1・Clerk wrapperの組み合わせはローカル起動し、Wasmと
 
 `mise run test`、`mise run lint-go`、frontend lint、Astro/TypeScriptとAdmin TypeScriptのtypecheck、Oxfmt、Public/Adminのdry-runは通過した。Go Wasmと両フロントエンドもdry-run内でビルドできた。Workers Freeの10 ms CPU時間、起動時間、128 MBメモリはローカルでは計測できず、今回も未測定である。
 
-WranglerローカルでPublic/Adminを別portで起動し、Public `/`、`/events`、`/events/1`、`/tickets`、`/admin`、`/admin/events/1/registrations` が200を返すことを確認した。`/api/events`と`/api/events/1`はseedしたローカルD1の値を返し、Public healthとAdmin healthは200、未認証の本人申込・Admin APIは401だった。Public `/admin-api/*`からAdmin WorkerへのService Bindingも401を返し、内部転送を確認した。使用した`.dev.vars`はローカル用の仮値で、確認後に削除した。
+2026-10-08の初期構成ではPublicから`/admin`と`/admin-api/*`をService Bindingで転送していた。今回の分離後はAdmin Workerの独立した`http://localhost:8788`でAdmin画面とAPIを提供する。過去に確認したPublic `/`、`/events`、`/events/1`、`/tickets`、Admin画面、Public/Admin APIの応答内容は当時のローカル構成での結果であり、今回の変更後のローカルHTTP確認ではない。使用した`.dev.vars`はローカル用の仮値で、確認後に削除した。
 
 ChromeではClerk標準SignIn UIにGitHub、Google、メールアドレスの選択肢が表示され、Clerkのスクリプトと画面が読み込まれることを確認した。未認証の状態が安定して表示された。実Clerkアカウントによる認証は行っていないため、有効なtokenでの申込・キャンセル、ログアウト後の状態、管理者の403/成功は未検証である。401/403の区別はGo単体テストの範囲で確認した。
 
@@ -89,4 +89,4 @@ seedしたデータを用いた`PUBLIC_D1_PERSIST=../.wrangler/frontend-test mis
 
 ## 採用・デプロイ判断の補足
 
-フロントエンド分離後もWorker uploadは64 MiB上限未満である。Admin Workerは外部routeを持たず、Public Workerは`/admin/*`と`/admin-api/*`をService Bindingで転送する構成をdry-runで確認した。今回はCloudflareへdeployしていないため、remote URLでの認証・D1共有・実行時間は測定していない。Clerk実アカウントでの認証と権限試験、Cloudflare上のCPU測定が残る。
+フロントエンド分離後もWorker uploadは64 MiB上限未満である。Admin Workerが独立した`workers.dev` URLを持ち、Public WorkerからAdminへのService Bindingを持たない構成をdry-runで確認した。今回はCloudflareへdeployしていないため、remote URLでの認証・D1共有・実行時間は測定していない。Clerk実アカウントでの認証と権限試験、Cloudflare上のCPU測定が残る。

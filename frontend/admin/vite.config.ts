@@ -5,7 +5,7 @@ import babel from "@rolldown/plugin-babel";
 import reactCompiler from "babel-plugin-react-compiler";
 
 export default defineConfig({
-  base: "/admin/",
+  base: "/",
   plugins: [
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),

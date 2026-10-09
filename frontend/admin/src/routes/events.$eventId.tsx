@@ -36,7 +36,7 @@ function EventPage() {
     setError("");
     try {
       const token = await getToken();
-      const r = await fetch(`/admin-api${path}`, {
+      const r = await fetch(path, {
         method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
         body: JSON.stringify(body),

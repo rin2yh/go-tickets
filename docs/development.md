@@ -14,7 +14,7 @@ mise run init
 
 `.dev.vars`にClerk Development InstanceのSecret Keyを設定する。初回の`mise run init`でファイルが作成される。
 
-`.dev.vars`はGit管理外である。Publishable Keyは`wrangler.public.jsonc`と`wrangler.admin.jsonc`の`vars.CLERK_PUBLISHABLE_KEY`に設定済みである。Clerk DashboardでGitHub、Google、メールOTPを有効にし、OAuth開発設定を行う。認証済みセッションの`azp`と一致するOriginをWrangler設定の`CLERK_AUTHORIZED_PARTIES`に指定する。ローカル値は`http://localhost:8787`である。
+`.dev.vars`はGit管理外である。Publishable Keyは`wrangler.public.jsonc`と`wrangler.admin.jsonc`の`vars.CLERK_PUBLISHABLE_KEY`に設定済みである。Clerk DashboardでGitHub、Google、メールOTPを有効にし、OAuth開発設定を行う。認証済みセッションの`azp`と一致するOriginをWrangler設定の`CLERK_AUTHORIZED_PARTIES`に指定する。Publicは`http://localhost:8787`、Adminは`http://localhost:8788`である。
 
 ## D1とWorkerの起動
 
@@ -22,7 +22,7 @@ mise run init
 mise run dev
 ```
 
-`dev`はGo Wasm、Astro、Admin SPAをビルドし、Public Workerを8787、Admin Workerを8788で起動する。PublicからAdminへのService Bindingは、ローカルで同じWorker名のWrangler dev sessionが起動している場合に接続される。画面URLは`http://localhost:8787/`、`/tickets`、`/admin`である。
+`dev`はGo Wasm、Astro、Admin SPAをビルドし、Public Workerを8787、Admin Workerを8788で起動する。画面URLはPublicが`http://localhost:8787/`と`/tickets`、Adminが`http://localhost:8788/`である。
 
 `mise run build`はビルド前にWrangler経由でD1から公開イベント名とチケット種別を取得する。ローカルはlocal D1を読み、`PUBLIC_D1_PERSIST`で保存先を変えられる。リモートのD1からビルドする場合は`PUBLIC_EVENTS_SOURCE=remote mise run build`を使う。remoteモードにはWranglerのCloudflare認証が必要である。ビルド成果物にはイベント情報がHTMLとして含まれ、イベントが0件なら空の一覧を生成する。詳細ページも実在するD1イベントだけ生成し、不明なIDは404となる。残席数は閲覧時にGo APIから取得する。
 
@@ -35,12 +35,11 @@ curl http://localhost:8787/health
 curl http://localhost:8787/api/events
 curl http://localhost:8787/api/events/1
 curl -i http://localhost:8787/registrations
-curl http://localhost:8787/admin
-curl -i http://localhost:8787/admin-api/ticket-types/1/status
+curl http://localhost:8788/
 curl -i http://localhost:8788/ticket-types/1/status
 ```
 
-健康確認と公開イベントGETは未認証で利用できる。本人の申込一覧、申込、キャンセルはClerk tokenを必要とする。Admin APIはService Binding経由でも認証とD1管理者照会を行う。一般ユーザーの応答は403、未認証は401となる。
+健康確認と公開イベントGETは未認証で利用できる。本人の申込一覧、申込、キャンセルはClerk tokenを必要とする。Admin APIは直接リクエストでも認証とD1管理者照会を行う。一般ユーザーの応答は403、未認証は401となる。
 
 `mise run init`は通常のローカルD1を削除しない。テストデータのリセットが必要な場合は、`.wrangler/state`を自分で確認してから手動で操作する。
 
@@ -48,9 +47,9 @@ curl -i http://localhost:8788/ticket-types/1/status
 
 E2Eは参加者の申込成功フローをChromiumで実行する。実際のGo Wasm API、専用ローカルD1、Clerk Development Instanceを使う。Remote D1は使用しない。`mise run init`で依存とChromiumを準備する。
 
-Clerk DashboardでDevelopment Instanceを用意する。`CLERK_SECRET_KEY`をルートの`.dev.vars`またはシェル環境に設定する。Playwright設定は`CLERK_PUBLISHABLE_KEY`を`wrangler.public.jsonc`から読み込む。Secret KeyはGit管理ファイルやコマンド引数へ書かない。`.dev.vars`はPlaywright設定とWorkerが読み込む。`CLERK_AUTHORIZED_PARTIES`は`http://localhost:8787`にする。Playwrightのsetup projectは公式の`clerkSetup()`を実行し、専用のテストユーザーをClerk Backend APIで用意する。フローでは`clerk.signIn()`を使って実セッションを作る。
+Clerk DashboardでDevelopment Instanceを用意する。`CLERK_SECRET_KEY`をルートの`.dev.vars`またはシェル環境に設定する。Playwright設定は`CLERK_PUBLISHABLE_KEY`を`wrangler.public.jsonc`から読み込む。Secret KeyはGit管理ファイルやコマンド引数へ書かない。`.dev.vars`はPlaywright設定とWorkerが読み込む。Publicの`CLERK_AUTHORIZED_PARTIES`は`http://localhost:8787`、Adminは`http://localhost:8788`にする。Playwrightのsetup projectは公式の`clerkSetup()`を実行し、専用のテストユーザーをClerk Backend APIで用意する。フローでは`clerk.signIn()`を使って実セッションを作る。
 
-`mise run e2e`は実行のたびに専用の`.wrangler/e2e`だけを作り直してD1を初期化し、そのD1からAstroのSSGを生成してPublic/Admin Workerを起動する。通常開発用の`.wrangler/state`は使わない。既存サーバーは再利用せず、8787または8788番ポートが使用中ならD1初期化前に失敗する。
+`mise run e2e`は実行のたびに専用の`.wrangler/e2e`だけを作り直してD1を初期化し、そのD1からAstroのSSGを生成してPublic Workerを起動する。通常開発用の`.wrangler/state`は使わない。既存サーバーは再利用せず、8787または8788番ポートが使用中ならD1初期化前に失敗する。
 
 ```sh
 cd frontend
@@ -74,5 +73,5 @@ mise run check
 ## 既知の問題
 
 - Clerk Secret KeyがないとGo Worker middlewareが起動できない。`.dev.vars`を設定してからWranglerを起動する。
-- ローカルService Bindingを使うにはAdmin WorkerのWrangler dev sessionも起動する必要がある。Publicだけを起動したとき`/admin-api/*`は502になる。
+- Admin画面とAPIはAdmin Workerの`http://localhost:8788`から直接利用する。Public WorkerではAdminのパスを提供しない。
 - Astroの単独`pnpm run build:public`はD1データ取得を行わない。SSGデータを取得してからAstroを実行する`mise run build`を使う。

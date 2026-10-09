@@ -9,7 +9,6 @@
     "CLERK_PUBLISHABLE_KEY": "pk_test_cGxlYXNpbmctc3F1aWQtNzE4OS5jbGVyay5hY2NvdW50cy5kZXYk",
     "CLERK_AUTHORIZED_PARTIES": "http://localhost:8787"
   },
-  "services": [{ "binding": "ADMIN", "service": "go-tickets-admin" }],
   "assets": {
     "directory": "./backend/build/public-assets",
     "binding": "ASSETS",

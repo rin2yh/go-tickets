@@ -3,8 +3,8 @@
 ## Workerとフロントエンド
 
 - Public WorkerはGo Wasm APIとAstroの静的ファイルを配信する。`frontend/public/`にAstroのファイルベースページと必要箇所だけhydrateするReact Islandsを置く。
-- Admin WorkerはGo Wasm APIと`frontend/admin/`のReact + Vite SPAを持つ。Admin Workerは`workers_dev:false`で外部routeを持たない。
-- Public Workerの`ADMIN` Service Bindingは`/admin/*`をAdmin SPAへ、`/admin-api/*`をAdmin APIへ転送する。Admin APIはGo側でClerk JWTとD1の管理者情報を照合する。一般ユーザーは403、未認証は401である。
+- Admin WorkerはGo Wasm APIと`frontend/admin/`のReact + Vite SPAを持ち、自身のStatic Assetsで画面を配信する。`workers_dev:true`により独立したURLを持つ。
+- Admin APIはAdmin Workerのoriginで直接提供し、Go側でClerk JWTとD1の管理者情報を照合する。一般ユーザーは403、未認証は401である。
 - Wrangler設定はルートに置き、D1は既存の`go-tickets`を両Workerで共有する。
 
 ## Public SSGとD1
@@ -13,7 +13,7 @@ Astroは`output: "static"`でビルドする。ビルドタスクはWrangler CLI
 
 イベント名とチケット種別はAstroがHTMLへ出力するため、JavaScriptなしでも読める。残席数は変動情報のため、イベント詳細のReact Islandが公開Go APIの`GET /api/events/{eventId}`から取得する。Clerk標準UI、申込・キャンセル、`GET /registrations`によるマイチケット表示もReact Islandsに置く。SSGはビルド時点の公開情報を固定するため、イベントの作成・変更後はPublicを再ビルド・再デプロイする。
 
-詳細ページはビルド時にD1に存在したIDだけ生成する。存在しないIDに汎用の詳細シェルを返さず404とする。WorkerはStatic AssetsのHTML自動redirectを無効にし、`/`、`/tickets`、`/events/{eventId}`を対応する`index.html`へ明示的に書き換える。Admin Workerは`/admin/*`をSPAの`index.html`へ渡す。
+詳細ページはビルド時にD1に存在したIDだけ生成する。存在しないIDに汎用の詳細シェルを返さず404とする。WorkerはStatic AssetsのHTML自動redirectを無効にし、`/`、`/tickets`、`/events/{eventId}`を対応する`index.html`へ明示的に書き換える。Admin Workerは画面パスをSPAの`index.html`へ渡す。
 
 ## Clerk認証
 
@@ -28,5 +28,5 @@ Public/Adminフロントエンドは`@clerk/react`の`ClerkProvider`、`SignIn`�
 ## 制約
 
 - Admin向けのイベント作成・更新、申込一覧、チェックインAPIは未実装である。SPAには認証と401/403確認、画面パスだけを用意し、架空データを表示しない。
-- Public WorkerはPublic Astro資産を、Admin WorkerはAdmin SPA資産をそれぞれ配信する。Admin APIは同じPublic originの`/admin-api/*`を経由し、内部Service Bindingへ渡す。Admin Worker自体には公開routeがない。
+- Public WorkerはPublic Astro資産とPublic APIを提供する。Admin WorkerはAdmin SPA資産とAdmin APIを自身の独立したoriginで提供する。両Worker間にService Bindingはない。
 - イベント読み取りAPIはD1の現行スキーマから名前とチケット種別・残席を返す。日程や説明欄はスキーマにないため表示しない。
