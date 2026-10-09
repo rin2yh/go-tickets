@@ -14,10 +14,11 @@ run = "go tool go-arch-lint check --project-path ."
 description = "Apply local D1 migrations and insert the test event"
 hide = true
 dir = "backend"
-run = [
-  "wrangler d1 migrations apply go-tickets --config ../wrangler.public.jsonc --local --persist-to ${E2E_D1_PERSIST:-../.wrangler/state}",
-  "wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to ${E2E_D1_PERSIST:-../.wrangler/state} --file scripts/seed-local.sql",
-]
+run = '''
+set -eu
+wrangler d1 migrations apply go-tickets --config ../wrangler.public.jsonc --local --persist-to "${E2E_D1_PERSIST:-../.wrangler/state}"
+wrangler d1 execute go-tickets --config ../wrangler.public.jsonc --local --persist-to "${E2E_D1_PERSIST:-../.wrangler/state}" --file scripts/seed-local.sql
+'''
 
 [wrangler-dev-admin]
 description = "Run the Admin Worker locally"
