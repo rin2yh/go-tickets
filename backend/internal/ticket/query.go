@@ -1,4 +1,4 @@
-package tickets
+package ticket
 
 import (
 	"context"
@@ -31,14 +31,6 @@ func (s SQLQuery) Status(ctx context.Context, typeID int64) (Status, error) {
 		return Status{}, fmt.Errorf("status: %w", err)
 	}
 	return result, nil
-}
-
-func (s SQLQuery) IsAdmin(ctx context.Context, userID string) (bool, error) {
-	var isAdmin bool
-	if err := s.DB.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM administrators WHERE clerk_user_id = ?)", userID).Scan(&isAdmin); err != nil {
-		return false, fmt.Errorf("admin lookup: %w", err)
-	}
-	return isAdmin, nil
 }
 
 func eventsQuery(eventID *int64) bob.BaseQuery[*sqdialect.SelectQuery] {

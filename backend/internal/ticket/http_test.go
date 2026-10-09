@@ -1,4 +1,4 @@
-package tickets
+package ticket_test
 
 import (
 	"context"
@@ -9,6 +9,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/rin2yh/go-tickets/internal/auth"
+	"github.com/rin2yh/go-tickets/internal/event"
+	"github.com/rin2yh/go-tickets/internal/ticket"
 )
 
 type fakeStore struct {
@@ -26,26 +30,26 @@ func (f *fakeStore) Cancel(_ context.Context, _ int64, user string) error {
 	f.cancelledUser = user
 	return f.cancelErr
 }
-func (f *fakeStore) Status(_ context.Context, id int64) (Status, error) {
+func (f *fakeStore) Status(_ context.Context, id int64) (ticket.Status, error) {
 	f.statusID = id
-	return Status{TicketTypeID: id, Capacity: 1, Reserved: 1}, f.statusErr
+	return ticket.Status{TicketTypeID: id, Capacity: 1, Reserved: 1}, f.statusErr
 }
 func (f *fakeStore) IsAdmin(_ context.Context, user string) (bool, error) {
 	f.adminUser = user
 	return f.admin, f.adminErr
 }
-func (f *fakeStore) Events(context.Context) ([]Event, error) {
-	return []Event{{ID: 1, Name: "event", TicketTypes: []TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}}, nil
+func (f *fakeStore) Events(context.Context) ([]ticket.Event, error) {
+	return []ticket.Event{{ID: 1, Name: "event", TicketTypes: []ticket.TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}}, nil
 }
-func (f *fakeStore) Event(_ context.Context, id int64) (Event, error) {
+func (f *fakeStore) Event(_ context.Context, id int64) (ticket.Event, error) {
 	if id != 1 {
-		return Event{}, errors.New("missing")
+		return ticket.Event{}, errors.New("missing")
 	}
-	return Event{ID: 1, Name: "event", TicketTypes: []TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}, nil
+	return ticket.Event{ID: 1, Name: "event", TicketTypes: []ticket.TicketType{{ID: 1, Name: "ticket", Capacity: 1}}}, nil
 }
-func (f *fakeStore) Registrations(_ context.Context, user string) ([]Registration, error) {
+func (f *fakeStore) Registrations(_ context.Context, user string) ([]ticket.Registration, error) {
 	f.registeredUser = user
-	return []Registration{{TicketTypeID: 1, EventName: "event", TicketName: "ticket", Status: "active"}}, nil
+	return []ticket.Registration{{TicketTypeID: 1, EventName: "event", TicketName: "ticket", Status: "active"}}, nil
 }
 func (f *fakeStore) CreateEvent(context.Context, string) (int64, error) { return 2, nil }
 func (f *fakeStore) UpdateEvent(context.Context, int64, string) error   { return nil }
@@ -66,12 +70,12 @@ func TestPublicHandler(t *testing.T) {
 		{"my registrations", http.MethodGet, "/api/registrations", ``, fakeStore{}, http.StatusOK},
 		{"legacy registrations path is gone", http.MethodGet, "/registrations", ``, fakeStore{}, http.StatusNotFound},
 		{"register ignores body user id", http.MethodPost, "/api/registrations", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusCreated},
-		{"sold out", http.MethodPost, "/api/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrSoldOut}, http.StatusConflict},
-		{"duplicate", http.MethodPost, "/api/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrDuplicate}, http.StatusConflict},
+		{"sold out", http.MethodPost, "/api/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ticket.ErrSoldOut}, http.StatusConflict},
+		{"duplicate", http.MethodPost, "/api/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ticket.ErrDuplicate}, http.StatusConflict},
 		{"bad register body", http.MethodPost, "/api/registrations", `{`, fakeStore{}, http.StatusBadRequest},
 		{"cancel", http.MethodPost, "/api/registrations/cancel", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusOK},
 		{"bad cancel body", http.MethodPost, "/api/registrations/cancel", `{`, fakeStore{}, http.StatusBadRequest},
-		{"missing", http.MethodPost, "/api/registrations/cancel", `{"ticket_type_id":1}`, fakeStore{cancelErr: ErrNotFound}, http.StatusNotFound},
+		{"missing", http.MethodPost, "/api/registrations/cancel", `{"ticket_type_id":1}`, fakeStore{cancelErr: ticket.ErrNotFound}, http.StatusNotFound},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -141,7 +145,7 @@ func TestAdminHandler(t *testing.T) {
 				t.Fatalf("admin lookup user = %q", store.adminUser)
 			}
 			if tc.name == "admin status" || tc.name == "requested type id" {
-				var s Status
+				var s ticket.Status
 				if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil || s.Reserved != 1 {
 					t.Fatalf("status body: %s: %v", w.Body.String(), err)
 				}
@@ -201,29 +205,33 @@ func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 }
 
 func testPublicMux(store *fakeStore) *http.ServeMux {
-	h := NewHandler(store, store, testAuthenticatedUserID)
+	h := ticket.NewHandler(store, store, testAuthenticatedUserID)
+	events := event.NewHandler(store, store)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", h.Health)
 	mux.Handle("GET /api/auth/config", h.AuthConfig("pk_test_example"))
-	mux.HandleFunc("GET /api/events", h.Events)
-	mux.HandleFunc("GET /api/events/{id}", h.Event)
-	mux.Handle("GET /api/registrations", h.Authenticated(http.HandlerFunc(h.Registrations)))
-	mux.Handle("POST /api/registrations", h.Authenticated(http.HandlerFunc(h.Register)))
-	mux.Handle("POST /api/registrations/cancel", h.Authenticated(http.HandlerFunc(h.CancelRegistration)))
+	mux.HandleFunc("GET /api/events", events.Events)
+	mux.HandleFunc("GET /api/events/{id}", events.Event)
+	protected := auth.Authenticated(testAuthenticatedUserID)
+	mux.Handle("GET /api/registrations", protected(http.HandlerFunc(h.Registrations)))
+	mux.Handle("POST /api/registrations", protected(http.HandlerFunc(h.Register)))
+	mux.Handle("POST /api/registrations/cancel", protected(http.HandlerFunc(h.CancelRegistration)))
 	return mux
 }
 
 func testAdminMux(store *fakeStore) *http.ServeMux {
-	h := NewHandler(store, store, testAuthenticatedUserID)
+	h := ticket.NewHandler(store, store, testAuthenticatedUserID)
+	events := event.NewHandler(store, store)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", h.Health)
 	mux.Handle("GET /api/auth/config", h.AuthConfig("pk_test_example"))
-	mux.HandleFunc("GET /api/events", h.Events)
-	mux.Handle("GET /api/ticket-types/{id}/status", h.AdminOnly(http.HandlerFunc(h.TicketTypeStatus)))
-	mux.Handle("POST /api/events", h.AdminOnly(http.HandlerFunc(h.CreateEvent)))
-	mux.Handle("PUT /api/events/{id}", h.AdminOnly(http.HandlerFunc(h.UpdateEvent)))
-	mux.Handle("POST /api/events/{id}/ticket-types", h.AdminOnly(http.HandlerFunc(h.CreateTicketType)))
-	mux.Handle("PUT /api/ticket-types/{id}", h.AdminOnly(http.HandlerFunc(h.UpdateTicketType)))
+	mux.HandleFunc("GET /api/events", events.Events)
+	adminOnly := auth.AdminOnly(testAuthenticatedUserID, store.IsAdmin)
+	mux.Handle("GET /api/ticket-types/{id}/status", adminOnly(http.HandlerFunc(h.TicketTypeStatus)))
+	mux.Handle("POST /api/events", adminOnly(http.HandlerFunc(events.CreateEvent)))
+	mux.Handle("PUT /api/events/{id}", adminOnly(http.HandlerFunc(events.UpdateEvent)))
+	mux.Handle("POST /api/events/{id}/ticket-types", adminOnly(http.HandlerFunc(h.CreateTicketType)))
+	mux.Handle("PUT /api/ticket-types/{id}", adminOnly(http.HandlerFunc(h.UpdateTicketType)))
 	return mux
 }
 

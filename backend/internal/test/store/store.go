@@ -12,7 +12,7 @@ import (
 
 func NewDB(t testing.TB) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "tickets.db")+"?_pragma=foreign_keys(1)")
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "ticket.db")+"?_pragma=foreign_keys(1)")
 	if err != nil {
 		t.Fatal(err)
 	}

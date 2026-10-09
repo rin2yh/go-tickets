@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/rin2yh/go-tickets/internal/auth"
-	"github.com/rin2yh/go-tickets/internal/tickets"
+	"github.com/rin2yh/go-tickets/internal/event"
+	"github.com/rin2yh/go-tickets/internal/ticket"
 	"github.com/syumai/workers-go"
 	"github.com/syumai/workers-go/cloudflare"
 	"github.com/syumai/workers-go/cloudflare/d1"
@@ -34,14 +35,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	handler := tickets.NewHandler(tickets.SQLQuery{DB: db}, tickets.SQLCommand{DB: db}, auth.UserID)
+	handler := ticket.NewHandler(ticket.SQLQuery{DB: db}, ticket.SQLCommand{DB: db}, auth.UserID)
+	events := event.NewHandler(ticket.SQLQuery{DB: db}, ticket.SQLCommand{DB: db})
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handler.Health)
 	mux.Handle("GET /api/auth/config", handler.AuthConfig(cloudflare.Getenv("CLERK_PUBLISHABLE_KEY")))
-	mux.HandleFunc("GET /api/events", handler.Events)
-	mux.HandleFunc("GET /api/events/{id}", handler.Event)
-	mux.Handle("GET /api/registrations", handler.Authenticated(http.HandlerFunc(handler.Registrations)))
-	mux.Handle("POST /api/registrations", handler.Authenticated(http.HandlerFunc(handler.Register)))
-	mux.Handle("POST /api/registrations/cancel", handler.Authenticated(http.HandlerFunc(handler.CancelRegistration)))
+	mux.HandleFunc("GET /api/events", events.Events)
+	mux.HandleFunc("GET /api/events/{id}", events.Event)
+	protected := auth.Authenticated(auth.UserID)
+	mux.Handle("GET /api/registrations", protected(http.HandlerFunc(handler.Registrations)))
+	mux.Handle("POST /api/registrations", protected(http.HandlerFunc(handler.Register)))
+	mux.Handle("POST /api/registrations/cancel", protected(http.HandlerFunc(handler.CancelRegistration)))
 	workers.Serve(authenticator.Wrap(mux))
 }

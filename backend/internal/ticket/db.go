@@ -1,4 +1,4 @@
-package tickets
+package ticket
 
 import (
 	"context"
@@ -53,7 +53,6 @@ type Command interface {
 
 type Query interface {
 	Status(context.Context, int64) (Status, error)
-	IsAdmin(context.Context, string) (bool, error)
 	Events(context.Context) ([]Event, error)
 	Event(context.Context, int64) (Event, error)
 	Registrations(context.Context, string) ([]Registration, error)

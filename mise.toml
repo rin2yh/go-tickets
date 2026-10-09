@@ -32,8 +32,8 @@ dir = "frontend"
 run = "pnpm --filter @go-tickets/e2e test"
 
 [tasks.check]
-description = "Run lint, format checks, and typechecks"
-run = [{ task = "lint-go" }, { task = "lint-frontend" }, { task = "format-frontend" }, { task = "typecheck-frontend" }]
+description = "Run lint, architecture checks, format checks, and typechecks"
+run = [{ task = "lint-go" }, { task = "lint-architecture" }, { task = "lint-frontend" }, { task = "format-frontend" }, { task = "typecheck-frontend" }]
 
 [tasks.build]
 description = "Build the Public and Admin Workers"

@@ -1,0 +1,55 @@
+version: 3
+workdir: .
+
+allow:
+  depOnAnyVendor: true
+  ignoreNotFoundComponents: false
+
+excludeFiles:
+  - "^.*_test\\.go$"
+  - "^.*internal/test/.*$"
+
+components:
+  auth:
+    in: internal/auth
+  event:
+    in: internal/event
+  ticket:
+    in: internal/ticket
+  http:
+    in: x/http
+  public:
+    in: cmd/public
+  admin:
+    in: cmd/admin
+
+deps:
+  http:
+    anyVendorDeps: true
+
+  auth:
+    mayDependOn:
+      - http
+
+  ticket:
+    mayDependOn:
+      - http
+
+  event:
+    mayDependOn:
+      - ticket
+      - http
+
+  public:
+    mayDependOn:
+      - auth
+      - event
+      - ticket
+      - http
+
+  admin:
+    mayDependOn:
+      - auth
+      - event
+      - ticket
+      - http

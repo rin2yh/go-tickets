@@ -45,6 +45,9 @@ jobs:
         with:
           version: v2.14.0
           working-directory: backend
+      - name: Check Go architecture
+        run: go tool go-arch-lint check --project-path .
+        working-directory: backend
       - run: go test ./...
         working-directory: backend
 

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"net/http"
 	"regexp"
@@ -10,6 +11,8 @@ import (
 	"github.com/clerk/clerk-sdk-go/v2"
 	clerkhttp "github.com/clerk/clerk-sdk-go/v2/http"
 	"github.com/clerk/clerk-sdk-go/v2/jwks"
+
+	httpx "github.com/rin2yh/go-tickets/x/http"
 )
 
 type userIDKey struct{}
@@ -103,8 +106,46 @@ func UserID(r *http.Request) string {
 	return userID
 }
 
+// IsAdmin reports whether the Clerk user ID is present in the administrators table.
+func IsAdmin(ctx context.Context, db *sql.DB, userID string) (bool, error) {
+	var admin bool
+	err := db.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM administrators WHERE clerk_user_id = ?)", userID).Scan(&admin)
+	return admin, err
+}
+
 func unauthorized(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
 	_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
+}
+
+// Authenticated requires a user identity established by the Clerk authenticator.
+func Authenticated(userID func(*http.Request) string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if userID(r) == "" {
+				httpx.WriteError(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// AdminOnly requires an authenticated user that is present in the administrators table.
+func AdminOnly(userID func(*http.Request) string, isAdmin func(context.Context, string) (bool, error)) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return Authenticated(userID)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			admin, err := isAdmin(r.Context(), userID(r))
+			if err != nil {
+				httpx.WriteError(w, http.StatusInternalServerError, "database_error")
+				return
+			}
+			if !admin {
+				httpx.WriteError(w, http.StatusForbidden, "forbidden")
+				return
+			}
+			next.ServeHTTP(w, r)
+		}))
+	}
 }

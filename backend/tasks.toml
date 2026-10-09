@@ -4,6 +4,12 @@ hide = true
 dir = "backend"
 run = "golangci-lint run ./..."
 
+[lint-architecture]
+description = "Check Go package dependency rules"
+hide = true
+dir = "backend"
+run = "go tool go-arch-lint check --project-path ."
+
 [d1-local-init]
 description = "Apply local D1 migrations and insert the test event"
 hide = true
