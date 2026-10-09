@@ -92,7 +92,7 @@ func TestSQLCommand(t *testing.T) {
 		}
 		start := time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
 		end := time.Now().UTC().Add(3 * time.Hour).Format(time.RFC3339)
-		input := event.EventInput{Name: "Published", Description: "Details", StartsAt: ptr(time.Now().UTC().Add(4 * time.Hour).Format(time.RFC3339)), EndsAt: ptr(time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339)), PublicationStatus: "published"}
+		input := event.EventInput{Name: "Published", Description: "Details", StartsAt: new(time.Now().UTC().Add(4 * time.Hour).Format(time.RFC3339)), EndsAt: new(time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339)), PublicationStatus: "published"}
 		publishedID, err := ec.CreateEvent(ctx, input)
 		if err != nil {
 			t.Fatal(err)
@@ -126,7 +126,7 @@ func TestSQLCommand(t *testing.T) {
 		if err := c.Register(ctx, endedWindowID, "late"); !errors.Is(err, ticket.ErrRegistrationEnded) {
 			t.Fatalf("registration at end boundary error = %v", err)
 		}
-		finishedEvent := event.EventInput{Name: "Finished", Description: "Details", StartsAt: ptr(time.Now().UTC().Add(-2 * time.Hour).Format(time.RFC3339)), EndsAt: ptr(time.Now().UTC().Add(-time.Minute).Format(time.RFC3339)), PublicationStatus: "published"}
+		finishedEvent := event.EventInput{Name: "Finished", Description: "Details", StartsAt: new(time.Now().UTC().Add(-2 * time.Hour).Format(time.RFC3339)), EndsAt: new(time.Now().UTC().Add(-time.Minute).Format(time.RFC3339)), PublicationStatus: "published"}
 		finishedID, err := ec.CreateEvent(ctx, finishedEvent)
 		if err != nil {
 			t.Fatal(err)
@@ -141,7 +141,8 @@ func TestSQLCommand(t *testing.T) {
 	})
 }
 
-func ptr(value string) *string { return &value }
+//go:fix inline
+func ptr(value string) *string { return new(value) }
 
 func eventInput(name string) event.EventInput {
 	start := time.Now().UTC().Add(-time.Hour).Format(time.RFC3339)
