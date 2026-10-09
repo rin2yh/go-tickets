@@ -1,32 +1,13 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { TicketAvailability } from "./clerk-island";
+import { fetchPublicEvent, type PublicEvent } from "../lib/public-event";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
 
-interface TicketType {
-  id: number;
-  name: string;
-  capacity: number;
-  reserved: number;
-  registration_starts_at: string | null;
-  registration_ends_at: string | null;
-}
-
-interface Event {
-  id: number;
-  name: string;
-  description: string;
-  starts_at: string | null;
-  ends_at: string | null;
-  venue_name: string | null;
-  venue_address: string | null;
-  publication_status: "draft" | "published";
-  ticket_types: TicketType[];
-}
-
 export function PublicEventList() {
-  const [events, setEvents] = useState<Event[] | null>(null);
+  const [events, setEvents] = useState<PublicEvent[] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -74,7 +55,7 @@ export function PublicEventList() {
 }
 
 export function PublicEventDetail() {
-  const [event, setEvent] = useState<Event | null>(null);
+  const [event, setEvent] = useState<PublicEvent | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,14 +64,14 @@ export function PublicEventDetail() {
     void Promise.resolve()
       .then(() => {
         if (!eventId) throw new Error("イベントが見つかりません。");
-        return fetch(`/api/events/${eventId}`, { cache: "no-store" });
+        return fetchPublicEvent(Number(eventId));
       })
-      .then(async (response) => {
-        if (response.status === 404) throw new Error("イベントが見つかりません。");
-        if (!response.ok) throw new Error(`イベントを取得できません (${response.status})`);
-        setEvent(await response.json());
+      .then((item) => {
+        setEvent(item);
       })
-      .catch((cause: Error) => setError(cause.message))
+      .catch((cause: Error) =>
+        setError(cause.message.includes("404") ? "イベントが見つかりません。" : cause.message),
+      )
       .finally(() => setLoaded(true));
   }, []);
 
@@ -146,11 +127,11 @@ export function PublicEventDetail() {
             <li className="public-ticket-row" key={ticket.id}>
               <strong>{ticket.name}</strong>
               <TicketAvailability
-                eventId={event.id}
-                ticketTypeId={ticket.id}
                 registrationStartsAt={ticket.registration_starts_at}
                 registrationEndsAt={ticket.registration_ends_at}
                 eventEndsAt={event.ends_at}
+                capacity={ticket.capacity}
+                reserved={ticket.reserved}
               />
             </li>
           ))}
@@ -169,54 +150,5 @@ function formatJST(value: string) {
 }
 
 export function Markdown({ text }: { text: string }) {
-  const blocks = text.split(/\n\s*\n/).filter(Boolean);
-  return (
-    <div>
-      {blocks.map((block, index) => {
-        const lines = block.split("\n");
-        const heading = lines[0].match(/^(#{1,3})\s+(.+)$/);
-        if (heading && heading[1].length === 1)
-          return <h2 key={index}>{inlineMarkdown(heading[2])}</h2>;
-        if (heading && heading[1].length === 2)
-          return <h3 key={index}>{inlineMarkdown(heading[2])}</h3>;
-        if (heading) return <h4 key={index}>{inlineMarkdown(heading[2])}</h4>;
-        if (lines.every((line) => /^[-*]\s/.test(line)))
-          return (
-            <ul key={index}>
-              {lines.map((line, lineIndex) => (
-                <li key={lineIndex}>{inlineMarkdown(line.replace(/^[-*]\s/, ""))}</li>
-              ))}
-            </ul>
-          );
-        return (
-          <p key={index}>
-            {lines.map((line, lineIndex) => (
-              <span key={lineIndex}>
-                {lineIndex > 0 && <br />}
-                {inlineMarkdown(line)}
-              </span>
-            ))}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
-function inlineMarkdown(value: string) {
-  const parts = value.split(/(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`)/g);
-  return parts.map((part, index) => {
-    const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
-    if (link)
-      return (
-        <a key={index} href={link[2]} target="_blank" rel="noreferrer">
-          {link[1]}
-        </a>
-      );
-    if (part.startsWith("**") && part.endsWith("**"))
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
-    if (part.startsWith("`") && part.endsWith("`"))
-      return <code key={index}>{part.slice(1, -1)}</code>;
-    return part;
-  });
+  return <ReactMarkdown>{text}</ReactMarkdown>;
 }

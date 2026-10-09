@@ -4,15 +4,14 @@ import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Button } from "@go-tickets/ui/components/button";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
+import {
+  fetchPublicEvent,
+  invalidatePublicEvent,
+  type PublicTicketType,
+} from "../lib/public-event";
 
-interface TicketType {
-  id: number;
-  name: string;
-  capacity: number;
-  reserved: number;
-  registration_starts_at: string | null;
-  registration_ends_at: string | null;
-}
+type TicketType = PublicTicketType;
+type TokenGetter = () => Promise<string | null>;
 interface MyRegistration {
   ticket_type_id: number;
   event_name: string;
@@ -79,6 +78,7 @@ function AuthenticatedContent() {
   }>({ eventId: 0, ticketTypes: [], endsAt: null });
   const ticketTypes =
     ticketTypesForEvent.eventId === eventId ? ticketTypesForEvent.ticketTypes : [];
+  const eventEndsAt = ticketTypesForEvent.eventId === eventId ? ticketTypesForEvent.endsAt : null;
   useEffect(() => {
     const onPageLoad = () => setPathname(window.location.pathname);
     onPageLoad();
@@ -88,10 +88,8 @@ function AuthenticatedContent() {
   useEffect(() => {
     if (mode !== "event" || !eventId) return;
     let active = true;
-    void fetch(`/api/events/${eventId}`)
-      .then(async (response) => {
-        if (!response.ok) return;
-        const event: { ticket_types: TicketType[]; ends_at: string | null } = await response.json();
+    void fetchPublicEvent(eventId)
+      .then((event) => {
         if (active)
           setTicketTypesForEvent({
             eventId,
@@ -126,7 +124,7 @@ function AuthenticatedContent() {
       mode={mode}
       eventId={eventId}
       ticketTypes={ticketTypes}
-      eventEndsAt={ticketTypesForEvent.endsAt}
+      eventEndsAt={eventEndsAt}
     />
   );
 }
@@ -145,23 +143,34 @@ function TicketActions({
   const { getToken } = useAuth();
   const { user } = useUser();
   const [items, setItems] = useState<MyRegistration[]>([]);
+  const [loadedRegistrationKey, setLoadedRegistrationKey] = useState("");
+  const [loadedTokenGetter, setLoadedTokenGetter] = useState<TokenGetter | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const historyKey = registrationHistoryKey(mode, eventId);
+  const registrationsReady = isRegistrationHistoryReady(
+    loadedRegistrationKey,
+    loadedTokenGetter,
+    historyKey,
+    getToken,
+  );
+  const currentItems = registrationsReady ? items : [];
   const userName = user?.username || user?.fullName || user?.firstName || "ユーザー";
 
   useEffect(() => {
-    if (mode !== "tickets" && mode !== "event") return;
-    void getToken()
-      .then(async (token) => {
-        if (!token) return;
-        const response = await fetch("/api/registrations", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) setItems(await response.json());
-        else setMessage(`申込を取得できません (${response.status})`);
+    let active = true;
+    void loadRegistrations(getToken)
+      .then((registrations) => {
+        if (!active) return;
+        setItems(registrations);
+        setLoadedRegistrationKey(registrationHistoryKey(mode, eventId));
+        setLoadedTokenGetter(() => getToken);
       })
-      .catch((cause: Error) => setMessage(cause.message));
-  }, [getToken, mode]);
+      .catch((cause: Error) => active && setMessage(cause.message));
+    return () => {
+      active = false;
+    };
+  }, [eventId, getToken, mode]);
 
   async function register(action: "register" | "cancel", ticketTypeId = eventId) {
     setBusy(true);
@@ -181,6 +190,7 @@ function TicketActions({
           ? (result.status ?? "完了しました")
           : registrationError(response.status, result.error),
       );
+      if (response.ok && mode === "event") invalidatePublicEvent(eventId);
       await refreshTickets(response.ok, token, setItems);
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "通信に失敗しました");
@@ -202,17 +212,45 @@ function TicketActions({
             <RegisterButtons
               tickets={ticketTypes}
               eventEndsAt={eventEndsAt}
-              registrations={items}
+              registrations={currentItems}
+              registrationsReady={registrationsReady}
               busy={busy}
               register={register}
             />
           )}
-          {mode === "tickets" && <RegistrationList items={items} busy={busy} register={register} />}
+          {mode === "tickets" && (
+            <RegistrationList items={currentItems} busy={busy} register={register} />
+          )}
           <RegistrationMessage message={message} />
         </CardContent>
       </Card>
     </section>
   );
+}
+
+function registrationHistoryKey(mode: "tickets" | "event", eventId: number) {
+  return `${mode}:${eventId}`;
+}
+
+function isRegistrationHistoryReady(
+  loadedKey: string,
+  loadedGetter: TokenGetter | null,
+  currentKey: string,
+  currentGetter: TokenGetter,
+) {
+  return loadedKey === currentKey && loadedGetter === currentGetter;
+}
+
+async function loadRegistrations(
+  getToken: () => Promise<string | null>,
+): Promise<MyRegistration[]> {
+  const token = await getToken();
+  if (!token) throw new Error("申込状態を取得できません。ページを再読み込みしてください。");
+  const response = await fetch("/api/registrations", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error(`申込を取得できません (${response.status})`);
+  return response.json();
 }
 
 function registrationError(status: number, code?: string) {
@@ -227,16 +265,18 @@ function registrationError(status: number, code?: string) {
   return (code && messages[code]) || `${status}: ${code ?? "request_failed"}`;
 }
 
-function RegisterButtons({
+export function RegisterButtons({
   tickets,
   eventEndsAt,
   registrations,
+  registrationsReady,
   busy,
   register,
 }: {
   tickets: TicketType[];
   eventEndsAt: string | null;
   registrations: MyRegistration[];
+  registrationsReady: boolean;
   busy: boolean;
   register: (action: "register" | "cancel", ticketTypeId: number) => Promise<void>;
 }) {
@@ -247,7 +287,7 @@ function RegisterButtons({
       <Button
         style={{ margin: "0 10px 10px 0" }}
         key={ticket.id}
-        disabled={busy || state.disabled}
+        disabled={busy || !registrationsReady || state.disabled}
         onClick={() => void register("register", ticket.id)}
       >
         {state.label}
@@ -260,7 +300,7 @@ function ticketActionState(
   ticket: TicketType,
   eventEndsAt: string | null,
   registrations: MyRegistration[],
-  now: number,
+  now: number | null,
 ) {
   const active = registrations.some(
     (registration) => registration.ticket_type_id === ticket.id && registration.status === "active",
@@ -286,8 +326,9 @@ function registrationStatus(
   starts: string | null,
   ends: string | null,
   eventEnds: string | null,
-  now: number,
+  now: number | null,
 ) {
+  if (now === null) return "受付状態を確認中…";
   if (eventEnds && now >= Date.parse(eventEnds)) return "受付終了";
   if (!starts || !ends || now < Date.parse(starts)) return "受付前";
   if (now >= Date.parse(ends)) return "受付終了";
@@ -295,7 +336,7 @@ function registrationStatus(
 }
 
 function useCurrentTime() {
-  const [now, setNow] = useState(0);
+  const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     const update = () => setNow(Date.now());
     update();
@@ -366,43 +407,21 @@ async function refreshTickets(
 }
 
 export function TicketAvailability({
-  eventId,
-  ticketTypeId,
   registrationStartsAt,
   registrationEndsAt,
   eventEndsAt,
+  capacity,
+  reserved,
 }: {
-  eventId: number;
-  ticketTypeId: number;
   registrationStartsAt: string | null;
   registrationEndsAt: string | null;
   eventEndsAt: string | null;
+  capacity: number;
+  reserved: number;
 }) {
   const now = useCurrentTime();
-  const [availability, setAvailability] = useState<{ capacity: number; reserved: number } | null>(
-    null,
-  );
-  const [error, setError] = useState("");
-  useEffect(() => {
-    void fetch(`/api/events/${eventId}`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`残席を取得できません (${response.status})`);
-        const event: { ticket_types: { id: number; capacity: number; reserved: number }[] } =
-          await response.json();
-        const ticket = event.ticket_types.find((item) => item.id === ticketTypeId);
-        if (!ticket) throw new Error("チケット情報が見つかりません。");
-        setAvailability({ capacity: ticket.capacity, reserved: ticket.reserved });
-      })
-      .catch((cause: Error) => setError(cause.message));
-  }, [eventId, ticketTypeId]);
-  if (error) return <Alert variant="destructive">{error}</Alert>;
-  if (!availability)
-    return (
-      <Badge variant="outline" aria-live="polite">
-        残席を確認中…
-      </Badge>
-    );
-  const remaining = Math.max(0, availability.capacity - availability.reserved);
+  const remaining = Math.max(0, capacity - reserved);
+  if (now === null) return <Badge variant="outline">受付状態を確認中…（残席 {remaining}）</Badge>;
   const status = availabilityStatus(
     remaining,
     registrationStartsAt,
@@ -422,7 +441,7 @@ function availabilityStatus(
   starts: string | null,
   ends: string | null,
   eventEnds: string | null,
-  now: number,
+  now: number | null,
 ) {
   if (remaining === 0) return "満席";
   return registrationStatus(starts, ends, eventEnds, now);

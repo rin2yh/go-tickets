@@ -13,7 +13,8 @@
     "@go-tickets/ui": "workspace:*",
     "astro": "7.2.8",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
