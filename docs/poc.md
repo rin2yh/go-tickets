@@ -59,7 +59,7 @@ Go Wasm・D1・Clerk wrapperの組み合わせはローカル起動し、Wasmと
 
 2026-10-08にフロントエンドを`frontend/public` (Astro static + React Islands) と`frontend/admin` (React + Vite + TanStack Router) へ分割した。初回実装ではイベント情報もReact内で取得していたため、後述の追補でイベント名とチケット名をAstroの生成HTMLへ移した。既存スキーマにイベント名・チケット名以上の情報はないため、架空の説明文は加えていない。
 
-イベントAPI `GET /api/events`、`GET /api/events/{eventId}` と本人申込API `GET /registrations` をGoへ追加した。残席数は引き続き公開イベントAPIから取得する。実Clerkログイン・ログアウト、申込・キャンセル、Cloudflare上のremote Worker/D1動作は未検証である。
+イベントAPI `GET /api/events`、`GET /api/events/{eventId}` と本人申込API `GET /api/registrations` をGoへ追加した。残席数は引き続き公開イベントAPIから取得する。実Clerkログイン・ログアウト、申込・キャンセル、Cloudflare上のremote Worker/D1動作は未検証である。
 
 ## Public Astro / Admin SPAのローカル確認結果
 

@@ -82,7 +82,7 @@ func isPublicRead(r *http.Request) bool {
 	if r.Method != http.MethodGet {
 		return false
 	}
-	if r.URL.Path == "/health" || r.URL.Path == "/api/events" {
+	if r.URL.Path == "/health" || r.URL.Path == "/api/auth/config" || r.URL.Path == "/api/events" {
 		return true
 	}
 	if !strings.HasPrefix(r.URL.Path, "/api/events/") {

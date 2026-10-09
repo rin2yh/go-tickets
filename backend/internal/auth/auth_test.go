@@ -62,28 +62,29 @@ func TestAuthenticator(t *testing.T) {
 		want  int
 		user  string
 	}{
-		{name: "valid", token: validToken, path: "/registrations", want: http.StatusNoContent, user: "user_Valid123"},
-		{name: "missing token", path: "/registrations", want: http.StatusUnauthorized},
+		{name: "valid", token: validToken, path: "/api/registrations", want: http.StatusNoContent, user: "user_Valid123"},
+		{name: "missing token", path: "/api/registrations", want: http.StatusUnauthorized},
 		{name: "health is public", path: "/health", want: http.StatusNoContent},
 		{name: "event list is public", path: "/api/events", want: http.StatusNoContent},
 		{name: "event detail is public", path: "/api/events/1", want: http.StatusNoContent},
-		{name: "invalid signature", token: tamperedToken, path: "/registrations", want: http.StatusUnauthorized},
+		{name: "Clerk config is public", path: "/api/auth/config", want: http.StatusNoContent},
+		{name: "invalid signature", token: tamperedToken, path: "/api/registrations", want: http.StatusUnauthorized},
 		{name: "wrong party", token: signToken(t, key, keyID, map[string]any{
 			"iss": "https://sample.clerk.accounts.dev", "sub": "user_Valid123", "sid": "sess_test", "azp": "https://attacker.example",
 			"iat": time.Now().Unix(), "exp": time.Now().Add(time.Minute).Unix(),
-		}), path: "/registrations", want: http.StatusUnauthorized},
+		}), path: "/api/registrations", want: http.StatusUnauthorized},
 		{name: "expired", token: signToken(t, key, keyID, map[string]any{
 			"iss": "https://sample.clerk.accounts.dev", "sub": "user_Valid123", "sid": "sess_test", "azp": "http://localhost:8787",
 			"iat": time.Now().Add(-time.Hour).Unix(), "exp": time.Now().Add(-time.Minute).Unix(),
-		}), path: "/registrations", want: http.StatusUnauthorized},
+		}), path: "/api/registrations", want: http.StatusUnauthorized},
 		{name: "missing authorized party", token: signToken(t, key, keyID, map[string]any{
 			"iss": "https://sample.clerk.accounts.dev", "sub": "user_Valid123", "sid": "sess_test",
 			"iat": time.Now().Unix(), "exp": time.Now().Add(time.Minute).Unix(),
-		}), path: "/registrations", want: http.StatusUnauthorized},
+		}), path: "/api/registrations", want: http.StatusUnauthorized},
 		{name: "invalid subject", token: signToken(t, key, keyID, map[string]any{
 			"iss": "https://sample.clerk.accounts.dev", "sub": "not-a-clerk-user", "sid": "sess_test", "azp": "http://localhost:8787",
 			"iat": time.Now().Unix(), "exp": time.Now().Add(time.Minute).Unix(),
-		}), path: "/registrations", want: http.StatusUnauthorized},
+		}), path: "/api/registrations", want: http.StatusUnauthorized},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

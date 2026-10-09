@@ -20,7 +20,7 @@ async function start() {
   if (!rootElement) throw new Error("#root is missing");
   const root = createRoot(rootElement);
   try {
-    const response = await fetch("/auth/config");
+    const response = await fetch("/api/auth/config");
     if (!response.ok) throw new Error(`Clerk設定を取得できません (${response.status})`);
     const config: { publishableKey: string } = await response.json();
     root.render(

@@ -33,5 +33,5 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	workers.Serve(authenticator.Wrap(tickets.PublicHandler(tickets.SQLStore{DB: db}, auth.UserID)))
+	workers.Serve(authenticator.Wrap(tickets.PublicHandler(tickets.SQLStore{DB: db}, auth.UserID, cloudflare.Getenv("CLERK_PUBLISHABLE_KEY"))))
 }

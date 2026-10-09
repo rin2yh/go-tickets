@@ -15,9 +15,10 @@ func Health(mux *http.ServeMux) {
 	})
 }
 
-func PublicHandler(store Store, authenticatedUserID func(*http.Request) string) http.Handler {
+func PublicHandler(store Store, authenticatedUserID func(*http.Request) string, publishableKey string) http.Handler {
 	mux := http.NewServeMux()
 	Health(mux)
+	AuthConfig(mux, publishableKey)
 	mux.HandleFunc("GET /api/events", func(w http.ResponseWriter, r *http.Request) {
 		events, err := store.Events(r.Context())
 		if err != nil {
@@ -42,7 +43,7 @@ func PublicHandler(store Store, authenticatedUserID func(*http.Request) string) 
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
 		}
 	})
-	mux.HandleFunc("GET /registrations", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/registrations", func(w http.ResponseWriter, r *http.Request) {
 		userID := authenticatedUserID(r)
 		if userID == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
@@ -55,7 +56,7 @@ func PublicHandler(store Store, authenticatedUserID func(*http.Request) string) 
 		}
 		writeJSON(w, http.StatusOK, registrations)
 	})
-	mux.HandleFunc("POST /registrations", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/registrations", func(w http.ResponseWriter, r *http.Request) {
 		userID := authenticatedUserID(r)
 		if userID == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
@@ -78,7 +79,7 @@ func PublicHandler(store Store, authenticatedUserID func(*http.Request) string) 
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
 		}
 	})
-	mux.HandleFunc("POST /registrations/cancel", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/registrations/cancel", func(w http.ResponseWriter, r *http.Request) {
 		userID := authenticatedUserID(r)
 		if userID == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
@@ -104,10 +105,19 @@ func PublicHandler(store Store, authenticatedUserID func(*http.Request) string) 
 	return mux
 }
 
-func AdminHandler(store Store, authenticatedUserID func(*http.Request) string) http.Handler {
+func AdminHandler(store Store, authenticatedUserID func(*http.Request) string, publishableKey string) http.Handler {
 	mux := http.NewServeMux()
 	Health(mux)
-	mux.HandleFunc("GET /ticket-types/{id}/status", func(w http.ResponseWriter, r *http.Request) {
+	AuthConfig(mux, publishableKey)
+	mux.HandleFunc("GET /api/events", func(w http.ResponseWriter, r *http.Request) {
+		events, err := store.Events(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
+			return
+		}
+		writeJSON(w, http.StatusOK, events)
+	})
+	mux.HandleFunc("GET /api/ticket-types/{id}/status", func(w http.ResponseWriter, r *http.Request) {
 		userID := authenticatedUserID(r)
 		if userID == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
@@ -255,6 +265,12 @@ func AdminHandler(store Store, authenticatedUserID func(*http.Request) string) h
 		writeAdminMutationResult(w, err)
 	})
 	return mux
+}
+
+func AuthConfig(mux *http.ServeMux, publishableKey string) {
+	mux.HandleFunc("GET /api/auth/config", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"publishableKey": publishableKey})
+	})
 }
 
 func writeAdminMutationResult(w http.ResponseWriter, err error) {

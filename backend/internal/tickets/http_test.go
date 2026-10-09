@@ -59,13 +59,15 @@ func TestPublicHandler(t *testing.T) {
 	}{
 		{"events are public", http.MethodGet, "/api/events", ``, fakeStore{}, http.StatusOK},
 		{"event detail is public", http.MethodGet, "/api/events/1", ``, fakeStore{}, http.StatusOK},
-		{"my registrations", http.MethodGet, "/registrations", ``, fakeStore{}, http.StatusOK},
-		{"register ignores body user id", http.MethodPost, "/registrations", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusCreated},
-		{"sold out", http.MethodPost, "/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrSoldOut}, http.StatusConflict},
-		{"duplicate", http.MethodPost, "/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrDuplicate}, http.StatusConflict},
-		{"bad body", http.MethodPost, "/registrations", `{`, fakeStore{}, http.StatusBadRequest},
-		{"cancel", http.MethodPost, "/registrations/cancel", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusOK},
-		{"missing", http.MethodPost, "/registrations/cancel", `{"ticket_type_id":1}`, fakeStore{cancelErr: ErrNotFound}, http.StatusNotFound},
+		{"Clerk config is public", http.MethodGet, "/api/auth/config", ``, fakeStore{}, http.StatusOK},
+		{"my registrations", http.MethodGet, "/api/registrations", ``, fakeStore{}, http.StatusOK},
+		{"legacy registrations path is gone", http.MethodGet, "/registrations", ``, fakeStore{}, http.StatusNotFound},
+		{"register ignores body user id", http.MethodPost, "/api/registrations", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusCreated},
+		{"sold out", http.MethodPost, "/api/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrSoldOut}, http.StatusConflict},
+		{"duplicate", http.MethodPost, "/api/registrations", `{"ticket_type_id":1}`, fakeStore{registerErr: ErrDuplicate}, http.StatusConflict},
+		{"bad body", http.MethodPost, "/api/registrations", `{`, fakeStore{}, http.StatusBadRequest},
+		{"cancel", http.MethodPost, "/api/registrations/cancel", `{"ticket_type_id":1,"user_id":"user_Attacker"}`, fakeStore{}, http.StatusOK},
+		{"missing", http.MethodPost, "/api/registrations/cancel", `{"ticket_type_id":1}`, fakeStore{cancelErr: ErrNotFound}, http.StatusNotFound},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -73,7 +75,7 @@ func TestPublicHandler(t *testing.T) {
 			r := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 			r.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
 			w := httptest.NewRecorder()
-			PublicHandler(store, testAuthenticatedUserID).ServeHTTP(w, r)
+			PublicHandler(store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
 			}
@@ -86,9 +88,9 @@ func TestPublicHandler(t *testing.T) {
 		})
 	}
 	t.Run("unauthenticated", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/registrations", strings.NewReader(`{"ticket_type_id":1,"user_id":"user_Forged"}`))
+		r := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1,"user_id":"user_Forged"}`))
 		w := httptest.NewRecorder()
-		PublicHandler(&fakeStore{}, testAuthenticatedUserID).ServeHTTP(w, r)
+		PublicHandler(&fakeStore{}, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
 		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("status = %d, want 401", w.Code)
 		}
@@ -101,10 +103,12 @@ func TestAdminHandler(t *testing.T) {
 		store      fakeStore
 		want       int
 	}{
-		{"admin status", "/ticket-types/1/status", fakeStore{admin: true}, http.StatusOK},
-		{"invalid type", "/ticket-types/2/status", fakeStore{admin: true}, http.StatusBadRequest},
-		{"database error", "/ticket-types/1/status", fakeStore{admin: true, statusErr: errors.New("db")}, http.StatusInternalServerError},
-		{"general user", "/ticket-types/1/status", fakeStore{}, http.StatusForbidden},
+		{"events are public", "/api/events", fakeStore{}, http.StatusOK},
+		{"admin status", "/api/ticket-types/1/status", fakeStore{admin: true}, http.StatusOK},
+		{"invalid type", "/api/ticket-types/2/status", fakeStore{admin: true}, http.StatusBadRequest},
+		{"legacy status path is gone", "/ticket-types/1/status", fakeStore{admin: true}, http.StatusNotFound},
+		{"database error", "/api/ticket-types/1/status", fakeStore{admin: true, statusErr: errors.New("db")}, http.StatusInternalServerError},
+		{"general user", "/api/ticket-types/1/status", fakeStore{}, http.StatusForbidden},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -112,14 +116,14 @@ func TestAdminHandler(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, tc.path, nil)
 			r.Header.Set("X-Test-Authenticated-User", "user_ValidUser")
 			w := httptest.NewRecorder()
-			AdminHandler(store, testAuthenticatedUserID).ServeHTTP(w, r)
+			AdminHandler(store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d", w.Code, tc.want)
 			}
-			if store.adminUser != "user_ValidUser" {
+			if tc.name != "events are public" && tc.name != "legacy status path is gone" && store.adminUser != "user_ValidUser" {
 				t.Fatalf("admin lookup user = %q", store.adminUser)
 			}
-			if tc.want == http.StatusOK {
+			if tc.name == "admin status" {
 				var s Status
 				if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil || s.Reserved != 1 {
 					t.Fatalf("status body: %s: %v", w.Body.String(), err)
@@ -130,7 +134,7 @@ func TestAdminHandler(t *testing.T) {
 	t.Run("unauthenticated", func(t *testing.T) {
 		store := &fakeStore{admin: true}
 		w := httptest.NewRecorder()
-		AdminHandler(store, testAuthenticatedUserID).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ticket-types/1/status", nil))
+		AdminHandler(store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/ticket-types/1/status", nil))
 		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("status = %d, want 401", w.Code)
 		}
@@ -158,7 +162,7 @@ func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 			req.Header.Set("X-Test-Authenticated-User", "user_admin")
 			w := httptest.NewRecorder()
-			AdminHandler(store, testAuthenticatedUserID).ServeHTTP(w, req)
+			AdminHandler(store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, req)
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
 			}
@@ -169,7 +173,7 @@ func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/api/events", strings.NewReader(`{"name":"GoConf"}`))
 		req.Header.Set("X-Test-Authenticated-User", "user_regular")
 		w := httptest.NewRecorder()
-		AdminHandler(store, testAuthenticatedUserID).ServeHTTP(w, req)
+		AdminHandler(store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, req)
 		if w.Code != http.StatusForbidden {
 			t.Fatalf("status=%d, want 403", w.Code)
 		}

@@ -31,7 +31,7 @@ export function AdminStatus() {
     let active = true;
     void getToken()
       .then(async (token) => {
-        const response = await fetch("/ticket-types/1/status", {
+        const response = await fetch("/api/ticket-types/1/status", {
           headers: { Authorization: `Bearer ${token ?? ""}` },
         });
         const body: { error?: string; capacity?: number; reserved?: number } =

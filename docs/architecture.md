@@ -11,7 +11,7 @@
 
 Astroは`output: "static"`でビルドする。ビルドタスクはWrangler CLIでPublic Workerに設定したD1 databaseからイベント名とチケット種別を一度取得し、同じ結果をAstro一覧と`getStaticPaths()`へ渡す。ローカルビルドはlocal D1、デプロイ用ビルドは`PUBLIC_EVENTS_SOURCE=remote`でremote D1を使う。APIサーバー起動、Clerk認証、直接のD1 REST APIは不要であり、D1を別のデータファイルに複製しない。
 
-イベント名とチケット種別はAstroがHTMLへ出力するため、JavaScriptなしでも読める。残席数は変動情報のため、イベント詳細のReact Islandが公開Go APIの`GET /api/events/{eventId}`から取得する。Clerk標準UI、申込・キャンセル、`GET /registrations`によるマイチケット表示もReact Islandsに置く。SSGはビルド時点の公開情報を固定するため、イベントの作成・変更後はPublicを再ビルド・再デプロイする。
+イベント名とチケット種別はAstroがHTMLへ出力するため、JavaScriptなしでも読める。残席数は変動情報のため、イベント詳細のReact Islandが公開Go APIの`GET /api/events/{eventId}`から取得する。Clerk標準UI、申込・キャンセル、`GET /api/registrations`によるマイチケット表示もReact Islandsに置く。SSGはビルド時点の公開情報を固定するため、イベントの作成・変更後はPublicを再ビルド・再デプロイする。
 
 詳細ページはビルド時にD1に存在したIDだけ生成する。存在しないIDに汎用の詳細シェルを返さず404とする。WorkerはStatic AssetsのHTML自動redirectを無効にし、`/`、`/tickets`、`/events/{eventId}`を対応する`index.html`へ明示的に書き換える。Admin Workerは画面パスをSPAの`index.html`へ渡す。
 

@@ -34,9 +34,9 @@ mise run dev
 curl http://localhost:8787/health
 curl http://localhost:8787/api/events
 curl http://localhost:8787/api/events/1
-curl -i http://localhost:8787/registrations
+curl -i http://localhost:8787/api/registrations
 curl http://localhost:8788/
-curl -i http://localhost:8788/ticket-types/1/status
+curl -i http://localhost:8788/api/ticket-types/1/status
 ```
 
 健康確認と公開イベントGETは未認証で利用できる。本人の申込一覧、申込、キャンセルはClerk tokenを必要とする。Admin APIは直接リクエストでも認証とD1管理者照会を行う。一般ユーザーの応答は403、未認証は401となる。

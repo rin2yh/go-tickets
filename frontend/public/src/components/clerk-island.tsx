@@ -13,7 +13,7 @@ interface MyRegistration {
 }
 
 async function clerkKey(): Promise<string> {
-  const response = await fetch("/auth/config");
+  const response = await fetch("/api/auth/config");
   if (!response.ok) throw new Error(`認証設定を取得できません (${response.status})`);
   const config: { publishableKey: string } = await response.json();
   return config.publishableKey;
@@ -85,7 +85,7 @@ function TicketActions({
     void getToken()
       .then(async (token) => {
         if (!token) return;
-        const response = await fetch("/registrations", {
+        const response = await fetch("/api/registrations", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.ok) setItems(await response.json());
@@ -99,7 +99,7 @@ function TicketActions({
     try {
       const token = await getToken();
       const response = await fetch(
-        action === "register" ? "/registrations" : "/registrations/cancel",
+        action === "register" ? "/api/registrations" : "/api/registrations/cancel",
         {
           method: "POST",
           headers: { Authorization: `Bearer ${token ?? ""}`, "Content-Type": "application/json" },
@@ -162,7 +162,7 @@ async function refreshTickets(
   setItems: (items: MyRegistration[]) => void,
 ) {
   if (!shouldRefresh || !token) return;
-  const response = await fetch("/registrations", {
+  const response = await fetch("/api/registrations", {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (response.ok) setItems(await response.json());
