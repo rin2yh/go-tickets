@@ -15,12 +15,12 @@ func Health(mux *http.ServeMux) {
 	})
 }
 
-func PublicHandler(store Store, authenticatedUserID func(*http.Request) string, publishableKey string) http.Handler {
+func PublicHandler(queries Query, commands Command, authenticatedUserID func(*http.Request) string, publishableKey string) http.Handler {
 	mux := http.NewServeMux()
 	Health(mux)
 	AuthConfig(mux, publishableKey)
 	mux.HandleFunc("GET /api/events", func(w http.ResponseWriter, r *http.Request) {
-		events, err := store.Events(r.Context())
+		events, err := queries.Events(r.Context())
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
 			return
@@ -33,7 +33,7 @@ func PublicHandler(store Store, authenticatedUserID func(*http.Request) string, 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_event_id"})
 			return
 		}
-		event, err := store.Event(r.Context(), eventID)
+		event, err := queries.Event(r.Context(), eventID)
 		switch {
 		case err == nil:
 			writeJSON(w, http.StatusOK, event)
@@ -49,7 +49,7 @@ func PublicHandler(store Store, authenticatedUserID func(*http.Request) string, 
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
-		registrations, err := store.Registrations(r.Context(), userID)
+		registrations, err := queries.Registrations(r.Context(), userID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
 			return
@@ -69,7 +69,7 @@ func PublicHandler(store Store, authenticatedUserID func(*http.Request) string, 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_request"})
 			return
 		}
-		err := store.Register(r.Context(), input.TicketTypeID, userID)
+		err := commands.Register(r.Context(), input.TicketTypeID, userID)
 		switch {
 		case err == nil:
 			writeJSON(w, http.StatusCreated, map[string]string{"status": "registered"})
@@ -92,7 +92,7 @@ func PublicHandler(store Store, authenticatedUserID func(*http.Request) string, 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_request"})
 			return
 		}
-		err := store.Cancel(r.Context(), input.TicketTypeID, userID)
+		err := commands.Cancel(r.Context(), input.TicketTypeID, userID)
 		switch {
 		case err == nil:
 			writeJSON(w, http.StatusOK, map[string]string{"status": "cancelled"})
@@ -105,12 +105,12 @@ func PublicHandler(store Store, authenticatedUserID func(*http.Request) string, 
 	return mux
 }
 
-func AdminHandler(store Store, authenticatedUserID func(*http.Request) string, publishableKey string) http.Handler {
+func AdminHandler(queries Query, commands Command, authenticatedUserID func(*http.Request) string, publishableKey string) http.Handler {
 	mux := http.NewServeMux()
 	Health(mux)
 	AuthConfig(mux, publishableKey)
 	mux.HandleFunc("GET /api/events", func(w http.ResponseWriter, r *http.Request) {
-		events, err := store.Events(r.Context())
+		events, err := queries.Events(r.Context())
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
 			return
@@ -123,7 +123,7 @@ func AdminHandler(store Store, authenticatedUserID func(*http.Request) string, p
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
-		isAdmin, err := store.IsAdmin(r.Context(), userID)
+		isAdmin, err := queries.IsAdmin(r.Context(), userID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
 			return
@@ -136,7 +136,7 @@ func AdminHandler(store Store, authenticatedUserID func(*http.Request) string, p
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_ticket_type"})
 			return
 		}
-		status, err := store.Status(r.Context(), 1)
+		status, err := queries.Status(r.Context(), 1)
 		switch {
 		case err == nil:
 			writeJSON(w, http.StatusOK, status)
@@ -152,7 +152,7 @@ func AdminHandler(store Store, authenticatedUserID func(*http.Request) string, p
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return false
 		}
-		ok, err := store.IsAdmin(r.Context(), userID)
+		ok, err := queries.IsAdmin(r.Context(), userID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
 			return false
@@ -185,7 +185,7 @@ func AdminHandler(store Store, authenticatedUserID func(*http.Request) string, p
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_name"})
 			return
 		}
-		id, err := store.CreateEvent(r.Context(), strings.TrimSpace(in.Name))
+		id, err := commands.CreateEvent(r.Context(), strings.TrimSpace(in.Name))
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "database_error"})
 			return
@@ -211,7 +211,7 @@ func AdminHandler(store Store, authenticatedUserID func(*http.Request) string, p
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_name"})
 			return
 		}
-		err = store.UpdateEvent(r.Context(), id, strings.TrimSpace(in.Name))
+		err = commands.UpdateEvent(r.Context(), id, strings.TrimSpace(in.Name))
 		writeAdminMutationResult(w, err)
 	})
 	mux.HandleFunc("POST /api/events/{id}/ticket-types", func(w http.ResponseWriter, r *http.Request) {
@@ -234,7 +234,7 @@ func AdminHandler(store Store, authenticatedUserID func(*http.Request) string, p
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_ticket_type"})
 			return
 		}
-		id, err := store.CreateTicketType(r.Context(), eventID, strings.TrimSpace(in.Name), in.Capacity)
+		id, err := commands.CreateTicketType(r.Context(), eventID, strings.TrimSpace(in.Name), in.Capacity)
 		if err != nil {
 			writeAdminMutationResult(w, err)
 			return
@@ -261,7 +261,7 @@ func AdminHandler(store Store, authenticatedUserID func(*http.Request) string, p
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_ticket_type"})
 			return
 		}
-		err = store.UpdateTicketType(r.Context(), id, strings.TrimSpace(in.Name), in.Capacity)
+		err = commands.UpdateTicketType(r.Context(), id, strings.TrimSpace(in.Name), in.Capacity)
 		writeAdminMutationResult(w, err)
 	})
 	return mux

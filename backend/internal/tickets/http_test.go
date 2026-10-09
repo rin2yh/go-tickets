@@ -75,7 +75,7 @@ func TestPublicHandler(t *testing.T) {
 			r := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 			r.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
 			w := httptest.NewRecorder()
-			PublicHandler(store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
+			PublicHandler(store, store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
 			}
@@ -90,7 +90,7 @@ func TestPublicHandler(t *testing.T) {
 	t.Run("unauthenticated", func(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1,"user_id":"user_Forged"}`))
 		w := httptest.NewRecorder()
-		PublicHandler(&fakeStore{}, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
+		PublicHandler(&fakeStore{}, &fakeStore{}, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
 		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("status = %d, want 401", w.Code)
 		}
@@ -116,7 +116,7 @@ func TestAdminHandler(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, tc.path, nil)
 			r.Header.Set("X-Test-Authenticated-User", "user_ValidUser")
 			w := httptest.NewRecorder()
-			AdminHandler(store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
+			AdminHandler(store, store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, r)
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d", w.Code, tc.want)
 			}
@@ -134,7 +134,7 @@ func TestAdminHandler(t *testing.T) {
 	t.Run("unauthenticated", func(t *testing.T) {
 		store := &fakeStore{admin: true}
 		w := httptest.NewRecorder()
-		AdminHandler(store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/ticket-types/1/status", nil))
+		AdminHandler(store, store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/ticket-types/1/status", nil))
 		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("status = %d, want 401", w.Code)
 		}
@@ -162,7 +162,7 @@ func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 			req.Header.Set("X-Test-Authenticated-User", "user_admin")
 			w := httptest.NewRecorder()
-			AdminHandler(store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, req)
+			AdminHandler(store, store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, req)
 			if w.Code != tc.want {
 				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
 			}
@@ -173,7 +173,7 @@ func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/api/events", strings.NewReader(`{"name":"GoConf"}`))
 		req.Header.Set("X-Test-Authenticated-User", "user_regular")
 		w := httptest.NewRecorder()
-		AdminHandler(store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, req)
+		AdminHandler(store, store, testAuthenticatedUserID, "pk_test_example").ServeHTTP(w, req)
 		if w.Code != http.StatusForbidden {
 			t.Fatalf("status=%d, want 403", w.Code)
 		}
