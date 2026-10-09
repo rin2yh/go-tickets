@@ -77,9 +77,9 @@ Go Wasm・D1・Clerk wrapperの組み合わせはローカル起動し、Wasmと
 
 ChromeではClerk標準SignIn UIにGitHub、Google、メールアドレスの選択肢が表示され、Clerkのスクリプトと画面が読み込まれることを確認した。未認証の状態が安定して表示された。実Clerkアカウントによる認証は行っていないため、有効なtokenでの申込・キャンセル、ログアウト後の状態、管理者の403/成功は未検証である。401/403の区別はGo単体テストの範囲で確認した。
 
-## PublicイベントSSGの追補
+## PublicイベントSSGの追補（現行構成では不採用）
 
-2026-10-08、Astroのビルド前にWrangler CLIでD1の`events`と`ticket_types`をJOINし、そのJSON結果をAstroの一覧と`getStaticPaths()`へ渡す方式に変更した。ローカルではWrangler local D1、デプロイ用ビルドでは`PUBLIC_EVENTS_SOURCE=remote`により同じBindingのremote D1を読む。APIサーバーの事前起動や別のイベントデータファイルは不要である。remoteビルドにはWrangler認証が必要である。
+2026-10-08時点では、Astroのビルド前にWrangler CLIでD1の`events`と`ticket_types`をJOINし、そのJSON結果をAstroの一覧と`getStaticPaths()`へ渡す案を採用していた。現行構成ではこの方式を使わず、イベント一覧と詳細はブラウザからGo APIへ問い合わせる。以下は当時の検証記録である。
 
 ローカルD1のseed `Go Conference Local Test`、`Free Local Test`で生成HTMLを確認した。`index.html`にイベント名、`events/1/index.html`にイベント名とチケット種別名が含まれ、JavaScriptを実行しないHTMLにも情報が出力される。`events/999/index.html`は生成されない。残席数は詳細画面のReact Islandが`GET /api/events/{eventId}`から取得する。ルーティングのE2E検証はPlaywrightで扱う。
 

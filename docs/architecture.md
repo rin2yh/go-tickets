@@ -7,9 +7,9 @@
 - Admin APIはAdmin Workerのoriginで直接提供し、Go側でClerk JWTとD1の管理者情報を照合する。一般ユーザーは403、未認証は401である。
 - Wrangler設定はルートに置き、D1は既存の`go-tickets`を両Workerで共有する。
 
-## Public SSGとD1
+## Public配信とD1
 
-Astroは`output: "static"`でビルドする。イベント一覧と詳細はReact IslandがPublic Go APIから表示時に取得する。イベント作成・変更後にPublicを再ビルドする必要はない。未知のイベントIDにも共通の詳細HTMLを返し、イベント有無は`GET /api/events/{eventId}`の応答で判断する。D1をビルド成果物へ複製しない。
+Astroは`output: "static"`でビルドし、ページの外枠を静的配信する。イベント一覧はReactのCSR Islandとして動作し、イベント情報をPublic Go APIから取得する。イベント作成・変更後にPublicを再ビルドする必要はない。未知のイベントIDにも共通の詳細HTMLを返し、イベント有無は`GET /api/events/{eventId}`の応答で判断する。D1をビルド成果物へ複製しない。
 
 イベント名、チケット種別、残席数は表示時に公開Go APIの`GET /api/events`と`GET /api/events/{eventId}`から取得する。Clerk標準UI、申込・キャンセル、`GET /api/registrations`によるマイチケット表示もReact Islandsに置く。
 

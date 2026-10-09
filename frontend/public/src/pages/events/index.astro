@@ -4,5 +4,5 @@ import { PublicEventDetail } from "../../components/public-events";
 ---
 <SiteLayout title="イベント">
   <p><a href="/">← イベント一覧へ</a></p>
-  <PublicEventDetail client:load />
+  <PublicEventDetail client:only="react" />
 </SiteLayout>

@@ -74,7 +74,7 @@ mise run check
 
 - Clerk Secret KeyがないとGo Worker middlewareが起動できない。`.dev.vars`を設定してからWranglerを起動する。
 - Admin画面とAPIはAdmin Workerの`http://localhost:8788`から直接利用する。Public WorkerではAdminのパスを提供しない。
-- Astroの単独`pnpm run build:public`はD1データ取得を行わない。SSGデータを取得してからAstroを実行する`mise run build`を使う。
+- PublicのAstroビルドはD1データ取得を行わない。イベント情報はブラウザからGo APIへ問い合わせる。
 ## Git hooks
 
 `mise run init` はこの clone の `core.hooksPath` を `.githooks` に設定し、リポジトリの hooks を有効にします。
