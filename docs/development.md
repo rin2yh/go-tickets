@@ -75,3 +75,13 @@ mise run check
 - Clerk Secret KeyがないとGo Worker middlewareが起動できない。`.dev.vars`を設定してからWranglerを起動する。
 - Admin画面とAPIはAdmin Workerの`http://localhost:8788`から直接利用する。Public WorkerではAdminのパスを提供しない。
 - Astroの単独`pnpm run build:public`はD1データ取得を行わない。SSGデータを取得してからAstroを実行する`mise run build`を使う。
+## Git hooks
+
+`mise run init` はこの clone の `core.hooksPath` を `.githooks` に設定し、リポジトリの hooks を有効にします。
+
+コミット前に lint と format を確認し、コミット後に Go と frontend の unit test を実行します。
+push 前には CI 相当のチェック一式を実行します。post-commit の test が失敗してもコミットは
+作成済みです。問題を直してから再度コミットしてください。
+
+push 前のチェックでは E2E test も実行します。先にルートの `.dev.vars` に
+`CLERK_SECRET_KEY` を設定してください。E2E 専用のローカル D1 は `.wrangler/e2e` に用意します。

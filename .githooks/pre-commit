@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+
+(cd backend && mise exec -- golangci-lint run ./...)
+(cd frontend && mise exec -- pnpm run lint)
+(cd frontend && mise exec -- pnpm run format:check)

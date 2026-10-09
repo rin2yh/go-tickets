@@ -18,7 +18,12 @@ run = "go test ./..."
 
 [tasks.init]
 description = "Install local tools, dependencies, D1, Clerk settings, and Playwright"
-run = [{ task = "init-dependencies" }, { task = "d1-local-init" }, { task = "register-local-admin" }]
+run = [{ task = "init-git-hooks" }, { task = "init-dependencies" }, { task = "d1-local-init" }, { task = "register-local-admin" }]
+
+[tasks.init-git-hooks]
+description = "Configure this clone to use the repository Git hooks"
+hide = true
+run = "git config --local core.hooksPath .githooks"
 
 [tasks.e2e]
 description = "Run Playwright E2E tests with isolated local D1"

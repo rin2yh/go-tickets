@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+(cd backend && mise exec -- go test ./...)
+(cd frontend && mise exec -- pnpm test)
