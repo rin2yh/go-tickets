@@ -1,5 +1,11 @@
 #!/bin/sh
 set -eu
 
-(cd backend && mise exec -- go test ./...)
-(cd frontend && mise exec -- pnpm test)
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+echo "The commit is already created; post-commit checks cannot undo it."
+mise run lint-architecture
+mise run audit-frontend
+mise run typecheck-frontend
+mise run dry

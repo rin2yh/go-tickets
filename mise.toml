@@ -16,6 +16,11 @@ description = "Run Go tests"
 dir = "backend"
 run = "go test ./..."
 
+[tasks.audit-frontend]
+description = "Audit frontend dependencies"
+dir = "frontend"
+run = "pnpm audit --audit-level=high"
+
 [tasks.init]
 description = "Install local tools, dependencies, D1, Clerk settings, and Playwright"
 run = [{ task = "init-git-hooks" }, { task = "init-dependencies" }, { task = "d1-local-init" }, { task = "register-local-admin" }]
@@ -109,6 +114,7 @@ wait
 [tasks.e2e-prepare]
 description = "Recreate only the isolated local D1 used by E2E tests"
 hide = true
+env = { E2E_D1_PERSIST = "../.wrangler/e2e" }
 run = '''
 set -eu
 node -e 'const net = require("node:net"); (async () => { for (const port of [8787, 8788]) await new Promise((resolve, reject) => { const server = net.createServer(); server.once("error", () => reject(new Error(`E2E requires port ${port} to be free; stop the existing listener and retry.`))); server.listen(port, "127.0.0.1", () => server.close(resolve)); }); })().catch(error => { console.error(error.message); process.exit(1); });'

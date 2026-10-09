@@ -1,7 +1,6 @@
 #!/bin/sh
 set -eu
 
-(cd backend && mise exec -- golangci-lint run ./...)
-(cd backend && mise exec -- go tool go-arch-lint check --project-path .)
-(cd frontend && mise exec -- pnpm run lint)
-(cd frontend && mise exec -- pnpm run format:check)
+root=$(git rev-parse --show-toplevel)
+(cd "$root/backend" && mise run test)
+(cd "$root/frontend" && mise exec -- pnpm test)

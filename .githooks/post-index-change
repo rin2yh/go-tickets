@@ -1,0 +1,57 @@
+#!/bin/bash
+set -euo pipefail
+
+# Git passes: worktree-updated, index-updated (skip-worktree bits may change).
+# Check only writes that changed the index; this hook cannot reject that write.
+[[ ${2:-0} == 1 ]] || exit 0
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+staged=$(mktemp)
+trap 'rm -f "$staged"' EXIT
+git diff --cached --name-only --diff-filter=ACMR -z > "$staged"
+
+declare -a go_dirs=()
+declare -a frontend_lint_files=()
+declare -a frontend_format_files=()
+while IFS= read -r -d '' path; do
+  case "$path" in
+    backend/*.go)
+      [[ -f "$path" ]] || continue
+      formatted=$(gofmt -d "$path")
+      if [[ -n "$formatted" ]]; then
+        printf '%s\n' "$formatted" >&2
+        echo "Run gofmt on $path, then stage the result." >&2
+        exit 1
+      fi
+      dir=$(dirname "$path")
+      case " ${go_dirs[*]} " in *" $dir "*) ;; *) go_dirs+=("$dir");; esac
+      ;;
+    frontend/*)
+      case "$path" in
+        *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx)
+          [[ -f "$path" ]] && frontend_lint_files+=("${path#frontend/}")
+          ;;
+      esac
+      case "$path" in
+        *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.astro|*.json|*.css|*.md|*.yaml|*.yml|*.html)
+          [[ -f "$path" ]] && frontend_format_files+=("${path#frontend/}")
+          ;;
+      esac
+      ;;
+  esac
+done < "$staged"
+
+if ((${#go_dirs[@]})); then
+  for dir in "${go_dirs[@]}"; do
+    (cd backend && mise exec -- golangci-lint run "./${dir#backend/}")
+  done
+fi
+
+if ((${#frontend_lint_files[@]})); then
+  (cd frontend && mise exec -- pnpm exec oxlint "${frontend_lint_files[@]}")
+fi
+if ((${#frontend_format_files[@]})); then
+  (cd frontend && mise exec -- pnpm exec oxfmt --check "${frontend_format_files[@]}")
+fi
