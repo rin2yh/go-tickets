@@ -18,8 +18,10 @@ import { ClerkIsland } from "../components/clerk-island";
   <body>
     <div class="public-shell">
       <header class="public-header"><a href="/">Go Tickets</a><nav><a href="/tickets">自分のチケット</a></nav></header>
-      <main class="public-content"><slot /></main>
-      <ClerkIsland client:load transition:persist="clerk-auth" />
+      <main class="public-content">
+        <slot />
+        <ClerkIsland client:load transition:persist="clerk-auth" />
+      </main>
     </div>
   </body>
 </html>
