@@ -1,5 +1,6 @@
 import { clerk } from "@clerk/testing/playwright";
 import { expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { test } from "../fixtures/clerk-fixtures";
 import { EventDetailPage } from "../pages/event-detail-page";
 import { EventListPage } from "../pages/event-list-page";
@@ -7,15 +8,12 @@ import { MyTicketsPage } from "../pages/my-tickets-page";
 
 declare global {
   interface Window {
-    __authUxUnexpected?: string[];
-    __authUxObserver?: MutationObserver;
+    e2eAuthUxUnexpected?: string[];
+    e2eAuthUxObserver?: MutationObserver;
   }
 }
 
-async function expectAuthenticatedSurface(
-  page: import("@playwright/test").Page,
-  requirePersistedNode = true,
-) {
+async function expectAuthenticatedSurface(page: Page, requirePersistedNode = true) {
   const main = page.getByRole("main");
   const persistedIsland = page.locator('astro-island[data-astro-transition-persist="clerk-auth"]');
   await expect(main.getByText("ログイン中")).toBeVisible();
@@ -87,9 +85,9 @@ test("participant registers for a ticket and sees the result in My Tickets", asy
           }
         }
       };
-      window.__authUxUnexpected = unexpected;
-      window.__authUxObserver = new MutationObserver(inspect);
-      window.__authUxObserver.observe(document.querySelector("main")!, {
+      window.e2eAuthUxUnexpected = unexpected;
+      window.e2eAuthUxObserver = new MutationObserver(inspect);
+      window.e2eAuthUxObserver.observe(document.querySelector("main")!, {
         childList: true,
         subtree: true,
         characterData: true,
@@ -110,8 +108,8 @@ test("participant registers for a ticket and sees the result in My Tickets", asy
     await expect(eventDetail.heading(eventName)).toBeVisible();
     await expectAuthenticatedSurface(page);
     expect(authConfigRequests).toBe(1);
-    expect(await page.evaluate(() => window.__authUxUnexpected)).toEqual([]);
-    await page.evaluate(() => window.__authUxObserver?.disconnect());
+    expect(await page.evaluate(() => window.e2eAuthUxUnexpected)).toEqual([]);
+    await page.evaluate(() => window.e2eAuthUxObserver?.disconnect());
     await eventDetail.registerButton(ticketName).click();
     await expect(page.getByText("registered")).toBeVisible();
     await eventDetail.registerButton(ticketName).click();
