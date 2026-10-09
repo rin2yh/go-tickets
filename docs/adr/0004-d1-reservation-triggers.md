@@ -10,4 +10,4 @@
 
 ## Consequences
 
-残席更新と申込結果は同じSQL statementの成否に従い、アプリケーション側の複数statement transactionを必要としない。整合性の重要な処理はmigration内のtrigger・制約と対応するテストを保つ必要がある。
+残席更新と申込結果は同じSQL statementの成否に従い、アプリケーション側の複数statement transactionを必要としない。予約数の整合性はmigration内のtriggerと制約に依存するため、これらの変更は予約処理の振る舞いに影響する。
