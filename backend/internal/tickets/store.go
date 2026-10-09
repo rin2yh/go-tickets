@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/stephenafamo/bob"
+	"github.com/stephenafamo/bob/dialect/sqlite"
 	sqdialect "github.com/stephenafamo/bob/dialect/sqlite/dialect"
 	"github.com/stephenafamo/bob/dialect/sqlite/im"
 	"github.com/stephenafamo/bob/dialect/sqlite/sm"
 	"github.com/stephenafamo/bob/dialect/sqlite/um"
-	"github.com/stephenafamo/bob/expr"
 )
 
 var (
@@ -63,36 +63,6 @@ type Store interface {
 
 type SQLStore struct{ DB *sql.DB }
 
-var sqliteExpr = expr.Builder[sqdialect.Expression, sqdialect.Expression]{}
-
-func arg(values ...any) sqdialect.Expression               { return sqliteExpr.Arg(values...) }
-func quote(names ...string) sqdialect.Expression           { return sqliteExpr.Quote(names...) }
-func raw(query string, values ...any) sqdialect.Expression { return sqliteExpr.Raw(query, values...) }
-func str(value string) sqdialect.Expression                { return sqliteExpr.S(value) }
-func and(values ...bob.Expression) sqdialect.Expression    { return sqliteExpr.And(values...) }
-
-func selectQuery(mods ...bob.Mod[*sqdialect.SelectQuery]) bob.BaseQuery[*sqdialect.SelectQuery] {
-	q := &sqdialect.SelectQuery{}
-	for _, mod := range mods {
-		mod.Apply(q)
-	}
-	return bob.BaseQuery[*sqdialect.SelectQuery]{Expression: q, Dialect: sqdialect.Dialect, QueryType: bob.QueryTypeSelect}
-}
-func insertQuery(mods ...bob.Mod[*sqdialect.InsertQuery]) bob.BaseQuery[*sqdialect.InsertQuery] {
-	q := &sqdialect.InsertQuery{}
-	for _, mod := range mods {
-		mod.Apply(q)
-	}
-	return bob.BaseQuery[*sqdialect.InsertQuery]{Expression: q, Dialect: sqdialect.Dialect, QueryType: bob.QueryTypeInsert}
-}
-func updateQuery(mods ...bob.Mod[*sqdialect.UpdateQuery]) bob.BaseQuery[*sqdialect.UpdateQuery] {
-	q := &sqdialect.UpdateQuery{}
-	for _, mod := range mods {
-		mod.Apply(q)
-	}
-	return bob.BaseQuery[*sqdialect.UpdateQuery]{Expression: q, Dialect: sqdialect.Dialect, QueryType: bob.QueryTypeUpdate}
-}
-
 // SQLStore keeps database/sql as the executor so the workers-go D1 Connector
 // remains usable. Bob builds each statement and its positional arguments.
 func (s SQLStore) exec(ctx context.Context, query bob.Query) (sql.Result, error) {
@@ -104,7 +74,7 @@ func (s SQLStore) exec(ctx context.Context, query bob.Query) (sql.Result, error)
 }
 
 func (s SQLStore) CreateEvent(ctx context.Context, name string) (int64, error) {
-	result, err := s.exec(ctx, insertQuery(im.Into("events", "name"), im.Values(arg(name))))
+	result, err := s.exec(ctx, sqlite.Insert(im.Into("events", "name"), im.Values(sqlite.Arg(name))))
 	if err != nil {
 		return 0, fmt.Errorf("create event: %w", err)
 	}
@@ -112,7 +82,7 @@ func (s SQLStore) CreateEvent(ctx context.Context, name string) (int64, error) {
 }
 
 func (s SQLStore) UpdateEvent(ctx context.Context, id int64, name string) error {
-	result, err := s.exec(ctx, updateQuery(um.Table("events"), um.Set(um.SetCol("name").ToArg(name)), um.Where(quote("id").EQ(arg(id)))))
+	result, err := s.exec(ctx, sqlite.Update(um.Table("events"), um.Set(um.SetCol("name").ToArg(name)), um.Where(sqlite.Quote("id").EQ(sqlite.Arg(id)))))
 	if err != nil {
 		return fmt.Errorf("update event: %w", err)
 	}
@@ -127,7 +97,7 @@ func (s SQLStore) UpdateEvent(ctx context.Context, id int64, name string) error 
 }
 
 func (s SQLStore) CreateTicketType(ctx context.Context, eventID int64, name string, capacity int64) (int64, error) {
-	result, err := s.exec(ctx, insertQuery(im.Into("ticket_types", "event_id", "name", "capacity"), im.Values(arg(eventID, name, capacity))))
+	result, err := s.exec(ctx, sqlite.Insert(im.Into("ticket_types", "event_id", "name", "capacity"), im.Values(sqlite.Arg(eventID, name, capacity))))
 	if err != nil {
 		return 0, fmt.Errorf("create ticket type: %w", err)
 	}
@@ -135,7 +105,7 @@ func (s SQLStore) CreateTicketType(ctx context.Context, eventID int64, name stri
 }
 
 func (s SQLStore) UpdateTicketType(ctx context.Context, id int64, name string, capacity int64) error {
-	result, err := s.exec(ctx, updateQuery(um.Table("ticket_types"), um.Set(um.SetCol("name").ToArg(name), um.SetCol("capacity").ToArg(capacity)), um.Where(quote("id").EQ(arg(id)))))
+	result, err := s.exec(ctx, sqlite.Update(um.Table("ticket_types"), um.Set(um.SetCol("name").ToArg(name), um.SetCol("capacity").ToArg(capacity)), um.Where(sqlite.Quote("id").EQ(sqlite.Arg(id)))))
 	if err != nil {
 		return fmt.Errorf("update ticket type: %w", err)
 	}
@@ -152,7 +122,7 @@ func (s SQLStore) UpdateTicketType(ctx context.Context, id int64, name string, c
 func (s SQLStore) Register(ctx context.Context, typeID int64, userID string) error {
 	// The trigger performs the conditional counter update in the same SQLite statement.
 	// RAISE(ABORT) rolls the INSERT back when the UPDATE affects zero rows.
-	_, err := s.exec(ctx, insertQuery(im.Into("registrations", "ticket_type_id", "user_id"), im.Values(arg(typeID, userID))))
+	_, err := s.exec(ctx, sqlite.Insert(im.Into("registrations", "ticket_type_id", "user_id"), im.Values(sqlite.Arg(typeID, userID))))
 	if err != nil {
 		if strings.Contains(err.Error(), "sold_out") {
 			return ErrSoldOut
@@ -166,9 +136,9 @@ func (s SQLStore) Register(ctx context.Context, typeID int64, userID string) err
 }
 
 func (s SQLStore) Cancel(ctx context.Context, typeID int64, userID string) error {
-	result, err := s.exec(ctx, updateQuery(
-		um.Table("registrations"), um.Set(um.SetCol("status").To(str("cancelled"))),
-		um.Where(and(quote("ticket_type_id").EQ(arg(typeID)), quote("user_id").EQ(arg(userID)), quote("status").EQ(str("active")))),
+	result, err := s.exec(ctx, sqlite.Update(
+		um.Table("registrations"), um.Set(um.SetCol("status").To(sqlite.S("cancelled"))),
+		um.Where(sqlite.And(sqlite.Quote("ticket_type_id").EQ(sqlite.Arg(typeID)), sqlite.Quote("user_id").EQ(sqlite.Arg(userID)), sqlite.Quote("status").EQ(sqlite.S("active")))),
 	))
 	if err != nil {
 		return fmt.Errorf("cancel: %w", err)
@@ -184,7 +154,7 @@ func (s SQLStore) Cancel(ctx context.Context, typeID int64, userID string) error
 }
 
 func (s SQLStore) Status(ctx context.Context, typeID int64) (Status, error) {
-	query := selectQuery(sm.Columns("id", "capacity", "reserved"), sm.From("ticket_types"), sm.Where(quote("id").EQ(arg(typeID))))
+	query := sqlite.Select(sm.Columns("id", "capacity", "reserved"), sm.From("ticket_types"), sm.Where(sqlite.Quote("id").EQ(sqlite.Arg(typeID))))
 	sqlText, args, err := bob.Build(ctx, query)
 	if err != nil {
 		return Status{}, fmt.Errorf("status: %w", err)
@@ -198,7 +168,11 @@ func (s SQLStore) Status(ctx context.Context, typeID int64) (Status, error) {
 }
 
 func (s SQLStore) IsAdmin(ctx context.Context, userID string) (bool, error) {
-	query := selectQuery(sm.Columns(raw("EXISTS(SELECT 1 FROM administrators WHERE clerk_user_id = ?)", userID)))
+	query := sqlite.Select(sm.Columns(sqlite.Exists(sqlite.Select(
+		sm.Columns("1"),
+		sm.From("administrators"),
+		sm.Where(sqlite.Quote("clerk_user_id").EQ(sqlite.Arg(userID))),
+	))))
 	sqlText, args, err := bob.Build(ctx, query)
 	if err != nil {
 		return false, fmt.Errorf("admin lookup: %w", err)
@@ -221,16 +195,16 @@ type eventRow struct {
 
 func eventsQuery(eventID *int64) bob.BaseQuery[*sqdialect.SelectQuery] {
 	mods := []bob.Mod[*sqdialect.SelectQuery]{
-		sm.Columns(quote("e", "id"), quote("e", "name"), quote("t", "id"), quote("t", "name"), quote("t", "capacity"), quote("t", "reserved")),
+		sm.Columns(sqlite.Quote("e", "id"), sqlite.Quote("e", "name"), sqlite.Quote("t", "id"), sqlite.Quote("t", "name"), sqlite.Quote("t", "capacity"), sqlite.Quote("t", "reserved")),
 		sm.From("events").As("e"),
-		sm.LeftJoin("ticket_types").As("t").OnEQ(quote("t", "event_id"), quote("e", "id")),
+		sm.LeftJoin("ticket_types").As("t").OnEQ(sqlite.Quote("t", "event_id"), sqlite.Quote("e", "id")),
 	}
 	if eventID != nil {
-		mods = append(mods, sm.Where(quote("e", "id").EQ(arg(*eventID))), sm.OrderBy(quote("t", "id")).Asc())
+		mods = append(mods, sm.Where(sqlite.Quote("e", "id").EQ(sqlite.Arg(*eventID))), sm.OrderBy(sqlite.Quote("t", "id")).Asc())
 	} else {
-		mods = append(mods, sm.OrderBy(quote("e", "id")).Asc(), sm.OrderBy(quote("t", "id")).Asc())
+		mods = append(mods, sm.OrderBy(sqlite.Quote("e", "id")).Asc(), sm.OrderBy(sqlite.Quote("t", "id")).Asc())
 	}
-	return selectQuery(mods...)
+	return sqlite.Select(mods...)
 }
 
 func (s SQLStore) readEvents(ctx context.Context, query bob.Query) ([]Event, error) {
@@ -282,13 +256,13 @@ func (s SQLStore) Event(ctx context.Context, eventID int64) (Event, error) {
 }
 
 func (s SQLStore) Registrations(ctx context.Context, userID string) ([]Registration, error) {
-	query := selectQuery(
-		sm.Columns(quote("r", "ticket_type_id"), quote("e", "name"), quote("t", "name"), quote("r", "status")),
+	query := sqlite.Select(
+		sm.Columns(sqlite.Quote("r", "ticket_type_id"), sqlite.Quote("e", "name"), sqlite.Quote("t", "name"), sqlite.Quote("r", "status")),
 		sm.From("registrations").As("r"),
-		sm.InnerJoin("ticket_types").As("t").OnEQ(quote("t", "id"), quote("r", "ticket_type_id")),
-		sm.InnerJoin("events").As("e").OnEQ(quote("e", "id"), quote("t", "event_id")),
-		sm.Where(quote("r", "user_id").EQ(arg(userID))),
-		sm.OrderBy(quote("e", "id")).Asc(), sm.OrderBy(quote("t", "id")).Asc(),
+		sm.InnerJoin("ticket_types").As("t").OnEQ(sqlite.Quote("t", "id"), sqlite.Quote("r", "ticket_type_id")),
+		sm.InnerJoin("events").As("e").OnEQ(sqlite.Quote("e", "id"), sqlite.Quote("t", "event_id")),
+		sm.Where(sqlite.Quote("r", "user_id").EQ(sqlite.Arg(userID))),
+		sm.OrderBy(sqlite.Quote("e", "id")).Asc(), sm.OrderBy(sqlite.Quote("t", "id")).Asc(),
 	)
 	sqlText, args, err := bob.Build(ctx, query)
 	if err != nil {
