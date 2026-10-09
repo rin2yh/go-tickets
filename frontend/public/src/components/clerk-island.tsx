@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { ClerkProvider, SignIn, UserButton, useAuth, useUser } from "@clerk/react";
+import { Alert } from "@go-tickets/ui/components/alert";
+import { Badge } from "@go-tickets/ui/components/badge";
+import { Button } from "@go-tickets/ui/components/button";
+import { Card, CardContent } from "@go-tickets/ui/components/card";
 
 interface TicketType {
   id: number;
@@ -40,8 +44,15 @@ export function ClerkIsland({
     };
   }, []);
 
-  if (error) return <p role="alert">{error}</p>;
-  if (!key) return <p aria-live="polite">認証を読み込んでいます</p>;
+  if (error) return <Alert variant="destructive">{error}</Alert>;
+  if (!key)
+    return (
+      <Card>
+        <CardContent>
+          <p aria-live="polite">認証を読み込んでいます…</p>
+        </CardContent>
+      </Card>
+    );
   return (
     <ClerkProvider publishableKey={key}>
       <AuthenticatedContent mode={mode} eventId={eventId} ticketTypes={ticketTypes} />
@@ -59,8 +70,22 @@ function AuthenticatedContent({
   ticketTypes: TicketType[];
 }) {
   const { isLoaded, isSignedIn } = useAuth();
-  if (!isLoaded) return <p aria-live="polite">ログイン状態を確認しています</p>;
-  if (!isSignedIn) return <SignIn routing="hash" />;
+  if (!isLoaded)
+    return (
+      <Card>
+        <CardContent>
+          <p aria-live="polite">ログイン状態を確認しています…</p>
+        </CardContent>
+      </Card>
+    );
+  if (!isSignedIn)
+    return (
+      <Card>
+        <CardContent>
+          <SignIn routing="hash" />
+        </CardContent>
+      </Card>
+    );
   return <TicketActions mode={mode} eventId={eventId} ticketTypes={ticketTypes} />;
 }
 
@@ -121,38 +146,91 @@ function TicketActions({
   }
 
   return (
-    <section>
-      <p>ログイン中: {userName}</p>
-      <UserButton />
-      {mode === "event" &&
-        ticketTypes.map((ticket) => (
-          <button
-            key={ticket.id}
-            disabled={busy}
-            onClick={() => void register("register", ticket.id)}
-          >
-            {ticket.name}に申込
-          </button>
-        ))}
-      {mode === "tickets" && (
-        <ul>
-          {items.map((item) => (
-            <li key={item.ticket_type_id}>
-              {item.event_name} / {item.ticket_name} / {item.status}
-              {item.status === "active" && (
-                <button
-                  disabled={busy}
-                  onClick={() => void register("cancel", item.ticket_type_id)}
-                >
-                  キャンセル
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      <p aria-live="polite">{message}</p>
+    <section style={{ marginTop: 28 }}>
+      <Card>
+        <CardContent>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+            <Badge>ログイン中</Badge>
+            <span>{userName}</span>
+            <UserButton />
+          </div>
+          {mode === "event" && (
+            <RegisterButtons tickets={ticketTypes} busy={busy} register={register} />
+          )}
+          {mode === "tickets" && <RegistrationList items={items} busy={busy} register={register} />}
+          <RegistrationMessage message={message} />
+        </CardContent>
+      </Card>
     </section>
+  );
+}
+
+function RegisterButtons({
+  tickets,
+  busy,
+  register,
+}: {
+  tickets: TicketType[];
+  busy: boolean;
+  register: (action: "register" | "cancel", ticketTypeId: number) => Promise<void>;
+}) {
+  return tickets.map((ticket) => (
+    <Button
+      style={{ margin: "0 10px 10px 0" }}
+      key={ticket.id}
+      disabled={busy}
+      onClick={() => void register("register", ticket.id)}
+    >
+      {ticket.name}に申込
+    </Button>
+  ));
+}
+
+function RegistrationList({
+  items,
+  busy,
+  register,
+}: {
+  items: MyRegistration[];
+  busy: boolean;
+  register: (action: "register" | "cancel", ticketTypeId: number) => Promise<void>;
+}) {
+  return (
+    <ul className="public-ticket-list">
+      {items.map((item) => (
+        <li className="public-ticket-row" key={item.ticket_type_id}>
+          <span>
+            {item.event_name} / {item.ticket_name}
+          </span>
+          <Badge variant={item.status === "active" ? "default" : "secondary"}>
+            {item.status === "active" ? "申込中" : "キャンセル済み"}
+          </Badge>
+          {item.status === "active" && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => void register("cancel", item.ticket_type_id)}
+            >
+              キャンセル
+            </Button>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function RegistrationMessage({ message }: { message: string }) {
+  if (!message) return null;
+  return (
+    <Alert
+      variant={message.includes(":") ? "destructive" : "default"}
+      style={{ marginTop: 16 }}
+      aria-live="polite"
+    >
+      {message}
+    </Alert>
   );
 }
 
@@ -191,7 +269,17 @@ export function TicketAvailability({
       })
       .catch((cause: Error) => setError(cause.message));
   }, [eventId, ticketTypeId]);
-  if (error) return <span role="alert">{error}</span>;
-  if (!availability) return <span aria-live="polite">残席を確認中</span>;
-  return <span>残席 {Math.max(0, availability.capacity - availability.reserved)}</span>;
+  if (error) return <Alert variant="destructive">{error}</Alert>;
+  if (!availability)
+    return (
+      <Badge variant="outline" aria-live="polite">
+        残席を確認中…
+      </Badge>
+    );
+  const remaining = Math.max(0, availability.capacity - availability.reserved);
+  return (
+    <Badge variant={remaining > 0 ? "default" : "secondary"}>
+      {remaining > 0 ? `残席 ${remaining}` : "満席"}
+    </Badge>
+  );
 }

@@ -1,6 +1,8 @@
 ---
 interface Props { title: string }
 const { title } = Astro.props;
+// oxlint-disable-next-line import/no-unassigned-import
+import "@go-tickets/ui/styles.css";
 ---
 <!doctype html>
 <html lang="ja">
@@ -11,7 +13,9 @@ const { title } = Astro.props;
     <title>{title} | Go Tickets</title>
   </head>
   <body>
-    <header><a href="/">Go Tickets</a><nav><a href="/tickets">自分のチケット</a></nav></header>
-    <main><slot /></main>
+    <div class="public-shell">
+      <header class="public-header"><a href="/">Go Tickets</a><nav><a href="/tickets">自分のチケット</a></nav></header>
+      <main class="public-content"><slot /></main>
+    </div>
   </body>
 </html>

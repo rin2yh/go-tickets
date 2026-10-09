@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@clerk/react": "6.17.4",
+    "@go-tickets/ui": "workspace:*",
     "@tanstack/react-router": "^1.120.5",
     "react": "19.3.0",
     "react-dom": "19.3.0"

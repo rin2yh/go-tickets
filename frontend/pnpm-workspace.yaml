@@ -5,6 +5,7 @@ minimumReleaseAgeIgnoreMissingTime: false
 packages:
   - public
   - admin
+  - ui
   - e2e
 
 allowBuilds:

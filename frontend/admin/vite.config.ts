@@ -3,11 +3,13 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import babel from "@rolldown/plugin-babel";
 import reactCompiler from "babel-plugin-react-compiler";
+import { tailwindcss } from "@go-tickets/ui/vite";
 
 export default defineConfig({
   base: "/",
   plugins: [
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
+    tailwindcss(),
     react(),
     babel({
       include: /\.[jt]sx?$/,

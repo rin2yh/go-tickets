@@ -5,6 +5,7 @@
   "scripts": {
     "build:public": "pnpm --filter @go-tickets/public build",
     "build:admin": "pnpm --filter @go-tickets/admin build",
+    "shadcn:add": "pnpm dlx shadcn@latest add -c ui",
     "lint": "oxlint . && pnpm run format:check && pnpm run typecheck",
     "test": "pnpm --filter @go-tickets/public test",
     "typecheck": "pnpm --filter @go-tickets/public typecheck && pnpm --filter @go-tickets/admin typecheck",

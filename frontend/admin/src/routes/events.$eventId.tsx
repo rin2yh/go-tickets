@@ -1,6 +1,18 @@
 import { useAuth } from "@clerk/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { Alert } from "@go-tickets/ui/components/alert";
+import { Badge } from "@go-tickets/ui/components/badge";
+import { Button } from "@go-tickets/ui/components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@go-tickets/ui/components/card";
+import { Input } from "@go-tickets/ui/components/input";
+import { Label } from "@go-tickets/ui/components/label";
 interface TicketType {
   id: number;
   name: string;
@@ -61,118 +73,172 @@ function EventPage() {
   }
   if (!event)
     return (
-      <main>
-        <h2>イベント</h2>
-        <p role="alert">イベントが見つかりません。</p>
-        <Link to="/events">イベント一覧へ</Link>
+      <main className="admin-main">
+        <Alert variant="destructive">イベントが見つかりません。</Alert>
+        <p>
+          <Link to="/events">イベント一覧へ</Link>
+        </p>
       </main>
     );
   return (
-    <main>
+    <main className="admin-main">
       <p>
-        <Link to="/events">イベント一覧へ</Link>
+        <Link to="/events">← イベント一覧へ</Link>
       </p>
-      <h2>イベント編集</h2>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save(`/api/events/${event.id}`, "PUT", { name: eventName });
-        }}
-      >
-        <label>
-          イベント名{" "}
-          <input
-            value={eventName}
-            maxLength={200}
-            required
-            onChange={(e) => setEventName(e.target.value)}
-          />
-        </label>
-        <button disabled={busy}>イベントを保存</button>
-      </form>
-      <h3>チケット種別</h3>
-      {event.ticket_types.length === 0 && <p>チケット種別はありません。</p>}
-      {event.ticket_types.map((t) => {
-        const value = editing[t.id] ?? { name: t.name, capacity: String(t.capacity) };
-        return (
+      <div className="page-heading">
+        <div>
+          <p className="page-eyebrow">EVENT SETTINGS</p>
+          <h1>イベント編集</h1>
+        </div>
+        <Badge variant="outline">イベント #{event.id}</Badge>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>基本情報</CardTitle>
+          <CardDescription>イベントの表示名を編集します。</CardDescription>
+        </CardHeader>
+        <CardContent>
           <form
-            key={t.id}
+            className="form-stack"
             onSubmit={(e) => {
               e.preventDefault();
-              void save(`/api/ticket-types/${t.id}`, "PUT", {
-                name: value.name,
-                capacity: Number(value.capacity),
+              void save(`/api/events/${event.id}`, "PUT", { name: eventName });
+            }}
+          >
+            <Label>
+              イベント名
+              <Input
+                value={eventName}
+                maxLength={200}
+                required
+                onChange={(e) => setEventName(e.target.value)}
+              />
+            </Label>
+            <div>
+              <Button disabled={busy}>イベントを保存</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+      <div className="page-heading" style={{ marginTop: 38 }}>
+        <div>
+          <p className="page-eyebrow">TICKETS</p>
+          <h2>チケット種別</h2>
+        </div>
+        <Badge variant="secondary">{event.ticket_types.length} 件</Badge>
+      </div>
+      {event.ticket_types.length === 0 && (
+        <Card>
+          <CardContent>
+            <p>チケット種別はありません。</p>
+          </CardContent>
+        </Card>
+      )}
+      <div className="ticket-grid">
+        {event.ticket_types.map((t) => {
+          const value = editing[t.id] ?? { name: t.name, capacity: String(t.capacity) };
+          return (
+            <form
+              key={t.id}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void save(`/api/ticket-types/${t.id}`, "PUT", {
+                  name: value.name,
+                  capacity: Number(value.capacity),
+                });
+              }}
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t.name}</CardTitle>
+                  <CardDescription>
+                    申込済み {t.reserved} 件 / 定員 {t.capacity} 件
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="ticket-form">
+                    <Label>
+                      種別名
+                      <Input
+                        value={value.name}
+                        maxLength={200}
+                        required
+                        onChange={(e) =>
+                          setEditing({ ...editing, [t.id]: { ...value, name: e.target.value } })
+                        }
+                      />
+                    </Label>
+                    <Label>
+                      定員
+                      <Input
+                        type="number"
+                        min={t.reserved}
+                        step="1"
+                        value={value.capacity}
+                        required
+                        onChange={(e) =>
+                          setEditing({ ...editing, [t.id]: { ...value, capacity: e.target.value } })
+                        }
+                      />
+                    </Label>
+                    <Button disabled={busy}>保存</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </form>
+          );
+        })}
+      </div>
+      <Card style={{ marginTop: 20 }}>
+        <CardHeader>
+          <CardTitle>チケット種別を追加</CardTitle>
+          <CardDescription>販売するチケットの名前と定員を設定します。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="ticket-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void save(`/api/events/${event.id}/ticket-types`, "POST", {
+                name: newName,
+                capacity: Number(capacity),
+              }).then((ok) => {
+                if (ok) {
+                  setNewName("");
+                  setCapacity("0");
+                }
               });
             }}
           >
-            <h4>{t.name}</h4>
-            <label>
-              種別名{" "}
-              <input
-                value={value.name}
+            <Label>
+              種別名
+              <Input
+                value={newName}
                 maxLength={200}
                 required
-                onChange={(e) =>
-                  setEditing({ ...editing, [t.id]: { ...value, name: e.target.value } })
-                }
+                onChange={(e) => setNewName(e.target.value)}
               />
-            </label>
-            <label>
-              定員{" "}
-              <input
+            </Label>
+            <Label>
+              定員
+              <Input
                 type="number"
-                min={t.reserved}
+                min="0"
                 step="1"
-                value={value.capacity}
+                value={capacity}
                 required
-                onChange={(e) =>
-                  setEditing({ ...editing, [t.id]: { ...value, capacity: e.target.value } })
-                }
+                onChange={(e) => setCapacity(e.target.value)}
               />
-            </label>
-            <p>申込済み: {t.reserved}</p>
-            <button disabled={busy}>チケット種別を保存</button>
+            </Label>
+            <Button disabled={busy}>種別を作成</Button>
           </form>
-        );
-      })}
-      <h3>チケット種別を追加</h3>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save(`/api/events/${event.id}/ticket-types`, "POST", {
-            name: newName,
-            capacity: Number(capacity),
-          }).then((ok) => {
-            if (ok) {
-              setNewName("");
-              setCapacity("0");
-            }
-          });
-        }}
-      >
-        <label>
-          種別名{" "}
-          <input
-            value={newName}
-            maxLength={200}
-            required
-            onChange={(e) => setNewName(e.target.value)}
-          />
-        </label>
-        <label>
-          定員{" "}
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={capacity}
-            required
-            onChange={(e) => setCapacity(e.target.value)}
-          />
-        </label>
-        <button disabled={busy}>種別を作成</button>
-      </form>
-      {error && <p role="alert">{error}</p>}
+        </CardContent>
+      </Card>
+      {error && (
+        <Alert variant="destructive" style={{ marginTop: 16 }}>
+          {error}
+        </Alert>
+      )}
     </main>
   );
 }

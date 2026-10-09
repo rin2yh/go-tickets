@@ -3,6 +3,10 @@ import SiteLayout from "../layouts/site-layout.astro";
 import { PublicEventList } from "../components/public-events";
 ---
 <SiteLayout title="イベント一覧">
-  <h1>イベント一覧</h1>
+  <div class="public-hero">
+    <p class="page-eyebrow">GO TICKETS / EVENTS</p>
+    <h1>イベントを見つける</h1>
+    <p>気になるイベントを選んで、チケットをお申し込みください。</p>
+  </div>
   <PublicEventList client:load />
 </SiteLayout>

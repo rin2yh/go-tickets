@@ -2,6 +2,8 @@ import { ClerkProvider } from "@clerk/react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+// oxlint-disable-next-line import/no-unassigned-import
+import "@go-tickets/ui/styles.css";
 
 const router = createRouter({
   routeTree,

@@ -1,6 +1,18 @@
 import { useAuth } from "@clerk/react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { Alert } from "@go-tickets/ui/components/alert";
+import { Badge } from "@go-tickets/ui/components/badge";
+import { Button } from "@go-tickets/ui/components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@go-tickets/ui/components/card";
+import { Input } from "@go-tickets/ui/components/input";
+import { Label } from "@go-tickets/ui/components/label";
 interface Event {
   id: number;
   name: string;
@@ -47,29 +59,65 @@ function Events() {
     }
   }
   return (
-    <main>
-      <h2>イベント</h2>
-      <form onSubmit={create}>
-        <label>
-          イベント名{" "}
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required />
-        </label>
-        <button disabled={busy}>イベントを作成</button>
-      </form>
-      {error && <p role="alert">{error}</p>}
+    <main className="admin-main">
+      <div className="page-heading">
+        <div>
+          <p className="page-eyebrow">EVENT MANAGEMENT</p>
+          <h1>イベント</h1>
+        </div>
+        <Badge variant="outline">{events.length} 件</Badge>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>イベントを作成</CardTitle>
+          <CardDescription>イベント名を登録して、チケット種別を設定しましょう。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={create} className="form-stack">
+            <Label>
+              イベント名
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={200}
+                placeholder="例: 春のカンファレンス"
+                required
+              />
+            </Label>
+            <div>
+              <Button disabled={busy}>{busy ? "作成中…" : "イベントを作成"}</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+      {error && (
+        <Alert variant="destructive" style={{ marginTop: 16 }}>
+          {error}
+        </Alert>
+      )}
       {events.length === 0 ? (
-        <p>イベントはありません。</p>
+        <Card style={{ marginTop: 20 }}>
+          <CardContent>
+            <p>イベントはまだありません。上のフォームから最初のイベントを作成してください。</p>
+          </CardContent>
+        </Card>
       ) : (
-        <ul>
+        <div className="event-list">
           {events.map((event) => (
-            <li key={event.id}>
-              <Link to="/events/$eventId" params={{ eventId: String(event.id) }}>
-                {event.name}
-              </Link>
-              （チケット種別 {event.ticket_types.length} 件）
-            </li>
+            <Link
+              className="event-row"
+              key={event.id}
+              to="/events/$eventId"
+              params={{ eventId: String(event.id) }}
+            >
+              <span className="event-row-name">{event.name}</span>
+              <span className="event-row-meta">
+                <Badge variant="secondary">チケット種別 {event.ticket_types.length} 件</Badge>
+                <span>詳細を編集 →</span>
+              </span>
+            </Link>
           ))}
-        </ul>
+        </div>
       )}
     </main>
   );

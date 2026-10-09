@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { ClerkIsland, TicketAvailability } from "./clerk-island";
+import { Alert } from "@go-tickets/ui/components/alert";
+import { Badge } from "@go-tickets/ui/components/badge";
+import { Card, CardContent } from "@go-tickets/ui/components/card";
 
 interface TicketType {
   id: number;
@@ -27,15 +30,35 @@ export function PublicEventList() {
       .catch((cause: Error) => setError(cause.message));
   }, []);
 
-  if (error) return <p role="alert">{error}</p>;
-  if (!events) return <p aria-live="polite">イベントを読み込み中です。</p>;
-  if (events.length === 0) return <p>現在、公開中のイベントはありません。</p>;
+  if (error) return <Alert variant="destructive">{error}</Alert>;
+  if (!events)
+    return (
+      <Card>
+        <CardContent>
+          <p aria-live="polite">イベントを読み込み中です。</p>
+        </CardContent>
+      </Card>
+    );
+  if (events.length === 0)
+    return (
+      <Card>
+        <CardContent>
+          <p>現在、公開中のイベントはありません。</p>
+        </CardContent>
+      </Card>
+    );
 
   return (
-    <ul>
+    <ul className="public-event-list">
       {events.map((event) => (
         <li key={event.id}>
-          <a href={`/events/${event.id}`}>{event.name}</a>
+          <Card>
+            <a className="public-event-card" href={`/events/${event.id}`}>
+              <Badge>受付中</Badge>
+              <h2>{event.name}</h2>
+              <p>イベント詳細とチケットを見る　→</p>
+            </a>
+          </Card>
         </li>
       ))}
     </ul>
@@ -49,12 +72,11 @@ export function PublicEventDetail() {
 
   useEffect(() => {
     const eventId = window.location.pathname.match(/^\/events\/(\d+)\/?$/)?.[1];
-    if (!eventId) {
-      setError("イベントが見つかりません。");
-      setLoaded(true);
-      return;
-    }
-    void fetch(`/api/events/${eventId}`, { cache: "no-store" })
+    void Promise.resolve()
+      .then(() => {
+        if (!eventId) throw new Error("イベントが見つかりません。");
+        return fetch(`/api/events/${eventId}`, { cache: "no-store" });
+      })
       .then(async (response) => {
         if (response.status === 404) throw new Error("イベントが見つかりません。");
         if (!response.ok) throw new Error(`イベントを取得できません (${response.status})`);
@@ -64,21 +86,36 @@ export function PublicEventDetail() {
       .finally(() => setLoaded(true));
   }, []);
 
-  if (!loaded) return <p aria-live="polite">イベントを読み込み中です。</p>;
-  if (error) return <p role="alert">{error}</p>;
-  if (!event) return <p role="alert">イベントが見つかりません。</p>;
+  if (!loaded)
+    return (
+      <Card>
+        <CardContent>
+          <p aria-live="polite">イベントを読み込み中です。</p>
+        </CardContent>
+      </Card>
+    );
+  if (error) return <Alert variant="destructive">{error}</Alert>;
+  if (!event) return <Alert variant="destructive">イベントが見つかりません。</Alert>;
 
   return (
     <>
-      <h1>{event.name}</h1>
+      <div className="public-hero">
+        <Badge>イベント詳細</Badge>
+        <h1 style={{ marginTop: 12 }}>{event.name}</h1>
+        <p>ご希望のチケットを選択してお申し込みください。</p>
+      </div>
       <h2>チケット</h2>
       {event.ticket_types.length === 0 ? (
-        <p>申込可能なチケットはありません。</p>
+        <Card>
+          <CardContent>
+            <p>申込可能なチケットはありません。</p>
+          </CardContent>
+        </Card>
       ) : (
-        <ul>
+        <ul className="public-ticket-list">
           {event.ticket_types.map((ticket) => (
-            <li key={ticket.id}>
-              <strong>{ticket.name}</strong>{" "}
+            <li className="public-ticket-row" key={ticket.id}>
+              <strong>{ticket.name}</strong>
               <TicketAvailability eventId={event.id} ticketTypeId={ticket.id} />
             </li>
           ))}
