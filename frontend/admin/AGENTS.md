@@ -12,4 +12,4 @@
 - ルートツリーを使う結合テストも画面実装の隣に置き、共通の認証モックと描画基盤は `test/event-page.tsx` を使う。
 - widgets・features の導入や共通化は、実際の再利用と責務に基づいて判断する。
 - `routeTree.gen.ts` は自動生成する。
-- FSD のレイヤー依存・slice 境界・Public API は Oxlint で検証する。違反を許すための lint 無効化を追加しない。
+- Oxlint のルールは無効化しない。

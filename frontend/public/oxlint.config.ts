@@ -1,8 +1,7 @@
 import { resolve } from "node:path";
-import { defineConfig } from "oxlint";
-import common from "../oxlint.config.ts";
+import common from "../.oxlintrc.json" with { type: "json" };
 
-export default defineConfig({
+export default {
   ...common,
   jsPlugins: ["eslint-plugin-boundaries"],
   settings: {
@@ -74,4 +73,4 @@ export default defineConfig({
       },
     ],
   },
-});
+};
