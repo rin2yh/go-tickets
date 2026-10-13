@@ -1,25 +1,47 @@
 import { queryOptions } from "@tanstack/react-query";
-import { createContext, useContext } from "react";
+import type { Event, EventInput, EventSummary } from "../model/event";
 
-export interface TicketType {
-  id: number;
-  name: string;
-  capacity: number;
-  reserved: number;
-  registration_starts_at: string | null;
-  registration_ends_at: string | null;
+export async function fetchEvents(getToken: () => Promise<string | null>) {
+  const token = await getToken();
+  const response = await fetch("/api/admin/events", {
+    headers: { Authorization: `Bearer ${token ?? ""}` },
+  });
+  if (!response.ok) throw new Error("イベントを読み込めません");
+  const events: EventSummary[] = await response.json();
+  return events;
 }
 
-export interface Event {
-  id: number;
-  name: string;
-  description: string;
-  starts_at: string | null;
-  ends_at: string | null;
-  venue_name: string | null;
-  venue_address: string | null;
-  publication_status: "draft" | "published";
-  ticket_types: TicketType[];
+export function buildEventsQueryOptions(getToken: () => Promise<string | null>) {
+  return queryOptions({
+    queryKey: ["admin", "events"] as const,
+    queryFn: () => fetchEvents(getToken),
+    retry: false,
+  });
+}
+
+export async function createEvent(getToken: () => Promise<string | null>, input: EventInput) {
+  const token = await getToken();
+  const response = await fetch("/api/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
+    body: JSON.stringify(input),
+  });
+  const body: { error?: string; id?: number } = await response.json();
+  if (!response.ok) throw new Error(createErrorMessage(body.error));
+  if (!body.id) throw new Error("イベントを作成できません");
+  return body.id;
+}
+
+function createErrorMessage(code?: string) {
+  const messages: Record<string, string> = {
+    forbidden: "管理者権限がありません",
+    invalid_name: "イベント名は200文字以内で入力してください",
+    description_required: "公開するイベントには説明が必要です",
+    event_datetime_required: "公開するイベントには開催開始・終了日時が必要です",
+    invalid_event_period: "開催終了日時は開始日時より後にしてください",
+    invalid_datetime: "日時を正しく入力してください",
+  };
+  return (code && messages[code]) || "イベントを作成できません";
 }
 
 export class EventRequestError extends Error {
@@ -46,16 +68,6 @@ export function buildEventQueryOptions(eventId: string, getToken: () => Promise<
   });
 }
 
-const eventContext = createContext<Event | null>(null);
-
-export const EventProvider = eventContext.Provider;
-
-export function useEvent() {
-  const event = useContext(eventContext);
-  if (!event) throw new Error("Event context is unavailable");
-  return event;
-}
-
 export async function saveEventChange(
   getToken: () => Promise<string | null>,
   path: string,
@@ -70,24 +82,6 @@ export async function saveEventChange(
   });
   const result: { error?: string } = await response.json();
   if (!response.ok) throw new Error(saveErrorMessage(result.error));
-}
-
-export function formatJST(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "Asia/Tokyo",
-  }).format(new Date(value));
-}
-
-export function toLocal(value: string | null) {
-  return value
-    ? new Date(new Date(value).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 16)
-    : "";
-}
-
-export function toUTC(value: string) {
-  return value ? new Date(`${value}+09:00`).toISOString() : null;
 }
 
 export function saveErrorMessage(code?: string) {

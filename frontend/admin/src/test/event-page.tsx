@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import type * as Clerk from "@clerk/react";
 import { afterEach, vi } from "vitest";
-import { routeTree } from "../../routeTree.gen";
+import { routeTree } from "../routeTree.gen";
 
 const auth = vi.hoisted(() => ({ getToken: vi.fn(async () => "token") }));
 

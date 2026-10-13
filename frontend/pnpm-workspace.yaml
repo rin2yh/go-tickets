@@ -27,9 +27,16 @@ allowBuilds:
   browser-tabs-lock: false
   core-js: false
   sharp: false
+  unrs-resolver: true
 
 minimumReleaseAgeExclude:
   - http-cache-semantics@4.3.0
 
 overrides:
+  handlebars: 4.7.10
   http-cache-semantics@<=4.2.0: 4.3.0
+
+# `eslint-plugin-boundaries` consumes only repository-defined patterns; braces has no patched release.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vfj7-8cjw-p6xm

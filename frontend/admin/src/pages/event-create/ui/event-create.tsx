@@ -14,6 +14,8 @@ import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
 import { NativeSelect, NativeSelectOption } from "@go-tickets/ui/components/native-select";
 import { Textarea } from "@go-tickets/ui/components/textarea";
+import { toUTC } from "../../../shared/lib/datetime";
+import { createEvent } from "../../../entities/event";
 export function Events() {
   const { getToken } = useAuth();
   const navigate = useNavigate();
@@ -31,27 +33,19 @@ export function Events() {
     setBusy(true);
     setError("");
     try {
-      const token = await getToken();
-      const r = await fetch("/api/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
-        body: JSON.stringify({
-          name,
-          description,
-          starts_at: toUTC(startsAt),
-          ends_at: toUTC(endsAt),
-          venue_name: venueName || null,
-          venue_address: venueAddress || null,
-          publication_status: publicationStatus,
-        }),
+      const eventId = await createEvent(getToken, {
+        name,
+        description,
+        starts_at: toUTC(startsAt),
+        ends_at: toUTC(endsAt),
+        venue_name: venueName || null,
+        venue_address: venueAddress || null,
+        publication_status: publicationStatus,
       });
-      const body: { error?: string; id?: number } = await r.json();
-      if (!r.ok) throw new Error(createErrorMessage(body.error));
-      if (!body.id) throw new Error("イベントを作成できません");
       await navigate({
         to: "/events/$eventId",
-        params: { eventId: String(body.id) },
-        search: { tab: "basic" },
+        params: { eventId: String(eventId) },
+        search: { tab: "basic", status: "active", ticket: "all", page: 1 },
       });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "作成に失敗しました");
@@ -161,20 +155,4 @@ export function Events() {
       )}
     </main>
   );
-}
-
-function toUTC(value: string) {
-  return value ? new Date(`${value}+09:00`).toISOString() : null;
-}
-
-function createErrorMessage(code?: string) {
-  const messages: Record<string, string> = {
-    forbidden: "管理者権限がありません",
-    invalid_name: "イベント名は200文字以内で入力してください",
-    description_required: "公開するイベントには説明が必要です",
-    event_datetime_required: "公開するイベントには開催開始・終了日時が必要です",
-    invalid_event_period: "開催終了日時は開始日時より後にしてください",
-    invalid_datetime: "日時を正しく入力してください",
-  };
-  return (code && messages[code]) || "イベントを作成できません";
 }

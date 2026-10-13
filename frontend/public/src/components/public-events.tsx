@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { TicketAvailability } from "./clerk-island";
-import { fetchPublicEvent, type PublicEvent } from "../lib/public-event";
+import { fetchPublicEvent, type PublicEvent } from "../lib";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Card, CardContent } from "@go-tickets/ui/components/card";

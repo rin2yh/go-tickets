@@ -30,12 +30,3 @@ export function buildRegistrationsQueryOptions(
     retry: false,
   });
 }
-
-export function formatRegistrationDate(value: string) {
-  const normalized = /Z$|[+-]\d\d:\d\d$/.test(value) ? value : `${value.replace(" ", "T")}Z`;
-  return new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Tokyo",
-  }).format(new Date(normalized));
-}
