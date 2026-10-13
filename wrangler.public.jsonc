@@ -15,10 +15,27 @@
     "run_worker_first": true,
     "html_handling": "none"
   },
-  "d1_databases": [{
-    "binding": "DB",
-    "database_name": "go-tickets",
-    "database_id": "5af5f125-7b2b-4f3e-8879-829a0f4e9369",
-    "migrations_dir": "backend/migrations"
-  }]
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "go-tickets",
+      "database_id": "5af5f125-7b2b-4f3e-8879-829a0f4e9369",
+      "migrations_dir": "backend/migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    },
+    "issues": {
+      "enabled": true
+    }
+  }
 }
