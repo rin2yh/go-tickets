@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import type * as Clerk from "@clerk/react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -46,7 +47,12 @@ it("keeps the registration capacity values when capacity is zero", async () => {
     }),
   });
   await router.load();
-  render(<RouterProvider router={router} />);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 
   const progress = await screen.findByRole("progressbar", { name: "参加者の申込状況" });
   expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual(

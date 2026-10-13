@@ -14,14 +14,7 @@ import {
 } from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
-import {
-  eventQueryKey,
-  refreshEvent,
-  saveEventChange,
-  toLocal,
-  toUTC,
-  useEvent,
-} from "./events.$eventId";
+import { eventQueryOptions, saveEventChange, toLocal, toUTC, useEvent } from "./-event-detail";
 
 interface TicketForm {
   name: string;
@@ -60,13 +53,17 @@ function Tickets() {
         setNewRegistrationStarts("");
         setNewRegistrationEnds("");
       }
-      await queryClient.invalidateQueries({ queryKey: eventQueryKey(eventId) });
-      const refreshed = await refreshEvent(queryClient, eventId, getToken);
-      setRefreshWarning(
-        refreshed
-          ? ""
-          : "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",
-      );
+      try {
+        await queryClient.invalidateQueries(
+          { queryKey: eventQueryOptions(eventId, getToken).queryKey, exact: true },
+          { throwOnError: true },
+        );
+        setRefreshWarning("");
+      } catch {
+        setRefreshWarning(
+          "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",
+        );
+      }
     },
   });
   const updateTicket = (id: number, value: TicketForm) =>

@@ -13,14 +13,9 @@ import {
 } from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
-import {
-  eventQueryKey,
-  refreshEvent,
-  saveEventChange,
-  toLocal,
-  toUTC,
-  useEvent,
-} from "./events.$eventId";
+import { NativeSelect } from "@go-tickets/ui/components/native-select";
+import { Textarea } from "@go-tickets/ui/components/textarea";
+import { eventQueryOptions, saveEventChange, toLocal, toUTC, useEvent } from "./-event-detail";
 
 interface BasicForm {
   name: string;
@@ -55,13 +50,17 @@ function BasicInformation() {
       saveEventChange(getToken, `/api/events/${event.id}`, "PUT", body),
     onSuccess: async () => {
       setNotice("変更を保存しました。");
-      await queryClient.invalidateQueries({ queryKey: eventQueryKey(eventId) });
-      const refreshed = await refreshEvent(queryClient, eventId, getToken);
-      setRefreshWarning(
-        refreshed
-          ? ""
-          : "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",
-      );
+      try {
+        await queryClient.invalidateQueries(
+          { queryKey: eventQueryOptions(eventId, getToken).queryKey, exact: true },
+          { throwOnError: true },
+        );
+        setRefreshWarning("");
+      } catch {
+        setRefreshWarning(
+          "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",
+        );
+      }
     },
   });
   const update = <K extends keyof BasicForm>(key: K, value: BasicForm[K]) =>
@@ -106,10 +105,10 @@ function BasicInformation() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="event-description">イベント説明（Markdown）</Label>
-              <textarea
+              <Textarea
                 id="event-description"
                 value={form.description}
-                className="min-h-[300px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="min-h-[300px] resize-y leading-6"
                 onChange={(e) => update("description", e.target.value)}
               />
             </div>
@@ -151,9 +150,8 @@ function BasicInformation() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="event-publication-status">公開状態</Label>
-              <select
+              <NativeSelect
                 id="event-publication-status"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 value={form.publicationStatus}
                 onChange={(e) =>
                   update(
@@ -164,7 +162,7 @@ function BasicInformation() {
               >
                 <option value="draft">下書き</option>
                 <option value="published">公開</option>
-              </select>
+              </NativeSelect>
             </div>
             <div className="pt-1">
               <Button disabled={mutation.isPending}>イベントを保存</Button>
