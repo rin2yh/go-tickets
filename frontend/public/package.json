@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "astro build",
+    "lint": "oxlint .",
     "test": "vitest run",
     "typecheck": "astro-check"
   },

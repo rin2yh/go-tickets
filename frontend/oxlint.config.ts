@@ -1,208 +1,305 @@
 import { defineConfig } from "oxlint";
-import base from "./.oxlint-base.json" with { type: "json" };
-const { rules: baseRules, ...baseConfig } = base;
-
-const adminElements = [
-  {
-    type: "admin-page",
-    pattern: "admin/src/pages/*",
-    partialMatch: false,
-    capture: ["slice"],
-  },
-  {
-    type: "admin-widget",
-    pattern: "admin/src/widgets/*",
-    partialMatch: false,
-    capture: ["slice"],
-  },
-  {
-    type: "admin-feature",
-    pattern: "admin/src/features/*",
-    partialMatch: false,
-    capture: ["slice"],
-  },
-  {
-    type: "admin-entity",
-    pattern: "admin/src/entities/*",
-    partialMatch: false,
-    capture: ["slice"],
-  },
-  {
-    type: "admin-shared",
-    pattern: "admin/src/shared/*/*",
-    partialMatch: false,
-    capture: ["segment", "slice"],
-  },
-  { type: "admin-test", pattern: "admin/src/test", partialMatch: false },
-  { type: "admin-app", pattern: "admin/src", partialMatch: false },
-];
-
-const publicElements = [
-  {
-    type: "public-page",
-    pattern: "public/src/pages/*",
-    partialMatch: false,
-    capture: ["slice"],
-  },
-  {
-    type: "public-widget",
-    pattern: "public/src/layouts/*",
-    partialMatch: false,
-    capture: ["slice"],
-  },
-  {
-    type: "public-feature",
-    pattern: "public/src/components",
-    partialMatch: false,
-  },
-  {
-    type: "public-shared",
-    pattern: "public/src/lib",
-    partialMatch: false,
-  },
-  { type: "public-app", pattern: "public/src", partialMatch: false },
-];
 
 export default defineConfig({
-  ...baseConfig,
-  jsPlugins: ["eslint-plugin-boundaries"],
-  settings: {
-    "boundaries/root-path": ".",
-    "boundaries/include": ["admin/src/**/*.{ts,tsx}", "public/src/**/*.{ts,tsx}"],
-    "boundaries/elements": [...adminElements, ...publicElements],
-    "boundaries/files": [{ pattern: "admin/src/**/*.test.{ts,tsx}", category: "admin-test" }],
-    "import/resolver": {
-      typescript: {
-        alwaysTryTypes: true,
-        project: ["./admin/tsconfig.json", "./public/tsconfig.json"],
-      },
-      node: true,
-    },
+  plugins: ["typescript", "unicorn", "oxc", "import", "react", "jsx-a11y"],
+  env: {
+    es2024: true,
+    node: true,
+    browser: true,
   },
+  categories: {
+    correctness: "error",
+    suspicious: "warn",
+  },
+  ignorePatterns: ["**/dist/**", "**/build/**", "**/coverage/**", "**/routeTree.gen.ts"],
   rules: {
-    ...baseRules,
-    "boundaries/no-unknown-dependencies": "error",
-    "boundaries/dependencies": [
+    "typescript/consistent-type-assertions": [
       "error",
       {
-        default: "disallow",
-        policies: [
-          // App files can enter slices only through their public API.
-          {
-            from: { element: { type: "admin-app" } },
-            allow: {
-              to: {
-                element: {
-                  type: [
-                    "admin-page",
-                    "admin-widget",
-                    "admin-feature",
-                    "admin-entity",
-                    "admin-shared",
-                  ],
-                  fileInternalPath: "index.ts",
-                },
-              },
-            },
+        assertionStyle: "never",
+      },
+    ],
+    "typescript/consistent-type-imports": "error",
+    "typescript/consistent-type-definitions": ["error", "interface"],
+    "unicorn/consistent-function-scoping": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-restricted-types": [
+      "error",
+      {
+        types: {
+          unknown: {
+            message:
+              "Avoid `unknown`. Use a concrete type; if a value is truly untyped, narrow it with a Zod schema or a type guard instead.",
           },
+        },
+      },
+    ],
+    "no-console": "warn",
+    "no-var": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        paths: [
           {
-            from: { element: { type: "public-app" } },
-            allow: {
-              to: {
-                element: {
-                  type: ["public-page", "public-widget", "public-feature", "public-shared"],
-                  fileInternalPath: "index.ts",
-                },
-              },
-            },
-          },
-          // Admin tests may use the shared test renderer and generated route tree.
-          {
-            from: { file: { categories: "admin-test" } },
-            allow: {
-              to: [
-                { element: { type: "admin-test" } },
-                { element: { type: "admin-app", fileInternalPath: "routeTree.gen.ts" } },
-              ],
-            },
-          },
-          {
-            from: { element: { type: "admin-test" } },
-            allow: {
-              to: { element: { type: "admin-app", fileInternalPath: "routeTree.gen.ts" } },
-            },
-          },
-          // FSD dependency direction. `default: disallow` also blocks cross-slice imports
-          // within the same layer; files inside one slice are treated as internal.
-          {
-            from: { element: { type: "admin-page" } },
-            allow: {
-              to: {
-                element: {
-                  type: ["admin-widget", "admin-feature", "admin-entity", "admin-shared"],
-                  fileInternalPath: "index.ts",
-                },
-              },
-            },
-          },
-          {
-            from: { element: { type: "admin-widget" } },
-            allow: {
-              to: {
-                element: {
-                  type: ["admin-feature", "admin-entity", "admin-shared"],
-                  fileInternalPath: "index.ts",
-                },
-              },
-            },
-          },
-          {
-            from: { element: { type: "admin-feature" } },
-            allow: {
-              to: {
-                element: {
-                  type: ["admin-entity", "admin-shared"],
-                  fileInternalPath: "index.ts",
-                },
-              },
-            },
-          },
-          {
-            from: { element: { type: "admin-entity" } },
-            allow: {
-              to: { element: { type: "admin-shared", fileInternalPath: "index.ts" } },
-            },
-          },
-          {
-            from: { element: { type: "public-page" } },
-            allow: {
-              to: {
-                element: {
-                  type: ["public-widget", "public-feature", "public-shared"],
-                  fileInternalPath: "index.ts",
-                },
-              },
-            },
-          },
-          {
-            from: { element: { type: "public-widget" } },
-            allow: {
-              to: {
-                element: {
-                  type: ["public-feature", "public-shared"],
-                  fileInternalPath: "index.ts",
-                },
-              },
-            },
-          },
-          {
-            from: { element: { type: "public-feature" } },
-            allow: {
-              to: { element: { type: "public-shared", fileInternalPath: "index.ts" } },
-            },
+            name: "react",
+            importNames: ["memo", "useCallback", "useMemo"],
+            message:
+              "React Compiler handles memoization automatically. Remove this manual memoization.",
           },
         ],
       },
     ],
+    "no-restricted-properties": [
+      "error",
+      {
+        object: "React",
+        property: "memo",
+        message:
+          "React Compiler handles memoization automatically. Remove this manual memoization.",
+      },
+      {
+        object: "React",
+        property: "useCallback",
+        message:
+          "React Compiler handles memoization automatically. Remove this manual memoization.",
+      },
+      {
+        object: "React",
+        property: "useMemo",
+        message:
+          "React Compiler handles memoization automatically. Remove this manual memoization.",
+      },
+    ],
+    "react/forbid-dom-props": [
+      "error",
+      {
+        forbid: [
+          {
+            propName: "data-testid",
+            message: "Do not add test-only DOM attributes.",
+          },
+          {
+            propName: "data-test",
+            message: "Do not add test-only DOM attributes.",
+          },
+          {
+            propName: "data-test-id",
+            message: "Do not add test-only DOM attributes.",
+          },
+          {
+            propName: "data-e2e",
+            message: "Do not add test-only DOM attributes.",
+          },
+          {
+            propName: "data-e2e-id",
+            message: "Do not add test-only DOM attributes.",
+          },
+          {
+            propName: "data-e2e-test",
+            message: "Do not add test-only DOM attributes.",
+          },
+          {
+            propName: "data-e2e-testid",
+            message: "Do not add test-only DOM attributes.",
+          },
+        ],
+      },
+    ],
+    complexity: ["error", 10],
+    eqeqeq: [
+      "error",
+      "always",
+      {
+        null: "ignore",
+      },
+    ],
+    "no-unused-vars": [
+      "error",
+      {
+        args: "none",
+        caughtErrors: "none",
+        varsIgnorePattern: "^_",
+      },
+    ],
+    "react/react-in-jsx-scope": "off",
+    "jsx-a11y/prefer-tag-over-role": "off",
   },
+  overrides: [
+    {
+      files: ["e2e/**/*.ts", "e2e/**/*.tsx"],
+      rules: {
+        "no-restricted-properties": [
+          "error",
+          {
+            property: "getByTestId",
+            message: "Use a user-facing role, label, or text locator.",
+          },
+          {
+            property: "locator",
+            message:
+              "Use a user-facing role, label, or text locator instead of CSS/XPath selectors.",
+          },
+          {
+            property: "frameLocator",
+            message: "Use a user-facing locator instead of DOM selectors.",
+          },
+          {
+            property: "evaluate",
+            message: "Do not inspect or manipulate the DOM from an E2E test.",
+          },
+          {
+            property: "$",
+            message: "Use a user-facing locator instead of CSS/XPath selectors.",
+          },
+          {
+            property: "$$",
+            message: "Use a user-facing locator instead of CSS/XPath selectors.",
+          },
+          {
+            property: "$eval",
+            message: "Do not inspect or manipulate the DOM from an E2E test.",
+          },
+          {
+            property: "$$eval",
+            message: "Do not inspect or manipulate the DOM from an E2E test.",
+          },
+          {
+            property: "waitForSelector",
+            message: "Wait for a user-facing locator instead of a CSS/XPath selector.",
+          },
+          {
+            property: "waitForFunction",
+            message: "Do not evaluate DOM state from an E2E test.",
+          },
+          {
+            object: "page",
+            property: "click",
+            message: "Call click on a user-facing locator, not on Page with a CSS/XPath selector.",
+          },
+          {
+            object: "page",
+            property: "fill",
+            message: "Call fill on a user-facing locator, not on Page with a CSS/XPath selector.",
+          },
+          {
+            object: "page",
+            property: "check",
+            message: "Call check on a user-facing locator, not on Page with a CSS/XPath selector.",
+          },
+          {
+            object: "page",
+            property: "uncheck",
+            message:
+              "Call uncheck on a user-facing locator, not on Page with a CSS/XPath selector.",
+          },
+          {
+            object: "page",
+            property: "selectOption",
+            message: "Use a user-facing locator for selectOption.",
+          },
+          {
+            object: "page",
+            property: "hover",
+            message: "Call hover on a user-facing locator, not on Page with a CSS/XPath selector.",
+          },
+          {
+            object: "page",
+            property: "focus",
+            message: "Call focus on a user-facing locator, not on Page with a CSS/XPath selector.",
+          },
+          {
+            object: "page",
+            property: "press",
+            message: "Call press on a user-facing locator, not on Page with a CSS/XPath selector.",
+          },
+          {
+            object: "page",
+            property: "type",
+            message: "Call type on a user-facing locator, not on Page with a CSS/XPath selector.",
+          },
+          {
+            object: "page",
+            property: "dblclick",
+            message:
+              "Call dblclick on a user-facing locator, not on Page with a CSS/XPath selector.",
+          },
+          {
+            object: "page",
+            property: "tap",
+            message: "Call tap on a user-facing locator, not on Page with a CSS/XPath selector.",
+          },
+          {
+            object: "page",
+            property: "dispatchEvent",
+            message: "Do not dispatch DOM events directly from an E2E test.",
+          },
+          {
+            property: "querySelector",
+            message: "Use a user-facing Playwright locator.",
+          },
+          {
+            property: "querySelectorAll",
+            message: "Use a user-facing Playwright locator.",
+          },
+          {
+            property: "getElementById",
+            message: "Use a user-facing Playwright locator.",
+          },
+          {
+            property: "getElementsByClassName",
+            message: "Use a user-facing Playwright locator.",
+          },
+          {
+            property: "getElementsByTagName",
+            message: "Use a user-facing Playwright locator.",
+          },
+          {
+            property: "matches",
+            message: "Do not inspect DOM nodes from an E2E test.",
+          },
+          {
+            property: "closest",
+            message: "Do not inspect DOM structure from an E2E test.",
+          },
+          {
+            property: "setAttribute",
+            message: "Do not add test-only attributes to DOM nodes.",
+          },
+          {
+            property: "getAttribute",
+            message: "Do not inspect DOM attributes from an E2E test.",
+          },
+          {
+            property: "removeAttribute",
+            message: "Do not manipulate DOM attributes from an E2E test.",
+          },
+          {
+            property: "textContent",
+            message: "Use a user-facing text locator instead of reading DOM text.",
+          },
+          {
+            property: "innerHTML",
+            message: "Do not inspect DOM markup from an E2E test.",
+          },
+          {
+            property: "outerHTML",
+            message: "Do not inspect DOM markup from an E2E test.",
+          },
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            checkGlobalObject: true,
+            globals: [
+              {
+                name: "MutationObserver",
+                message:
+                  "Assert the resulting user-visible state instead of observing DOM mutations.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
 });

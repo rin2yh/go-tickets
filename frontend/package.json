@@ -6,9 +6,8 @@
     "build:public": "pnpm --filter @go-tickets/public build",
     "build:admin": "pnpm --filter @go-tickets/admin build",
     "shadcn:add": "pnpm dlx shadcn@latest add -c ui",
-    "lint": "oxlint . && pnpm run format:check && pnpm run typecheck",
-    "test": "pnpm --filter @go-tickets/public test && pnpm --filter @go-tickets/admin test && pnpm --filter @go-tickets/ui test && pnpm run test:boundaries",
-    "test:boundaries": "pnpm --filter @go-tickets/admin exec vitest run --environment node --root .. oxlint.config.test.ts",
+    "lint": "pnpm --filter @go-tickets/admin lint && pnpm --filter @go-tickets/public lint && pnpm --filter @go-tickets/ui lint && oxlint e2e && pnpm run format:check && pnpm run typecheck",
+    "test": "pnpm --filter @go-tickets/public test && pnpm --filter @go-tickets/admin test && pnpm --filter @go-tickets/ui test",
     "typecheck": "pnpm --filter @go-tickets/public typecheck && pnpm --filter @go-tickets/admin typecheck",
     "format": "oxfmt .",
     "format:check": "oxfmt --check ."
