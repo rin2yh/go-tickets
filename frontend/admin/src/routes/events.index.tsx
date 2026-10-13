@@ -4,190 +4,89 @@ import { useEffect, useState } from "react";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Button } from "@go-tickets/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@go-tickets/ui/components/card";
-import { Input } from "@go-tickets/ui/components/input";
-import { Label } from "@go-tickets/ui/components/label";
+
 interface Event {
   id: number;
   name: string;
+  starts_at: string | null;
   publication_status: "draft" | "published";
-  ticket_types: { id: number; name: string; capacity: number; reserved: number }[];
 }
-export const Route = createFileRoute("/events/")({
-  component: Events,
-});
+export const Route = createFileRoute("/events/")({ component: Events });
 function Events() {
   const { getToken } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [endsAt, setEndsAt] = useState("");
-  const [venueName, setVenueName] = useState("");
-  const [venueAddress, setVenueAddress] = useState("");
-  const [publicationStatus, setPublicationStatus] = useState<"draft" | "published">("draft");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    void getToken()
-      .then(async (token) => {
+    let cancelled = false;
+    async function loadEvents() {
+      try {
+        const token = await getToken();
         const response = await fetch("/api/admin/events", {
           headers: { Authorization: `Bearer ${token ?? ""}` },
         });
-        if (response.ok) setEvents(await response.json());
-        else setError("イベントを読み込めません");
-      })
-      .catch(() => setError("イベントを読み込めません"));
-  }, [getToken]);
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const token = await getToken();
-      const r = await fetch("/api/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
-        body: JSON.stringify({
-          name,
-          description,
-          starts_at: toUTC(startsAt),
-          ends_at: toUTC(endsAt),
-          venue_name: venueName || null,
-          venue_address: venueAddress || null,
-          publication_status: publicationStatus,
-        }),
-      });
-      const body: { error?: string } = await r.json();
-      if (!r.ok) throw new Error(createErrorMessage(body.error));
-      setName("");
-      setDescription("");
-      setStartsAt("");
-      setEndsAt("");
-      setVenueName("");
-      setVenueAddress("");
-      setPublicationStatus("draft");
-      const response2 = await fetch("/api/admin/events", {
-        headers: { Authorization: `Bearer ${token ?? ""}` },
-      });
-      if (response2.ok) setEvents(await response2.json());
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "作成に失敗しました");
-    } finally {
-      setBusy(false);
+        if (!response.ok) throw new Error("イベントを読み込めません");
+        const result: Event[] = await response.json();
+        if (!cancelled) setEvents(result);
+      } catch {
+        if (!cancelled) setError("イベントを読み込めません");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }
+
+    void loadEvents();
+    return () => {
+      cancelled = true;
+    };
+  }, [getToken]);
   return (
-    <main className="admin-main">
-      <div className="page-heading">
-        <div>
-          <p className="page-eyebrow">EVENT MANAGEMENT</p>
-          <h1>イベント</h1>
-        </div>
-        <Badge variant="outline">{events.length} 件</Badge>
+    <main className="mx-auto w-full max-w-[1120px] px-4 py-8 sm:px-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-3xl font-semibold tracking-tight">イベント</h1>
+        <Button asChild>
+          <Link to="/events/create">＋ イベントを作成</Link>
+        </Button>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>イベントを作成</CardTitle>
-          <CardDescription>下書きは未入力項目を後から設定できます。</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={create} className="form-stack">
-            <Label>
-              イベント名
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={200}
-                placeholder="例: 春のカンファレンス"
-              />
-            </Label>
-            <Label>
-              イベント説明（Markdown）
-              <textarea
-                aria-label="イベント説明（Markdown）"
-                value={description}
-                rows={5}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </Label>
-            <Label>
-              開催開始日時（JST）
-              <Input
-                type="datetime-local"
-                value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
-              />
-            </Label>
-            <Label>
-              開催終了日時（JST）
-              <Input
-                type="datetime-local"
-                value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
-              />
-            </Label>
-            <Label>
-              会場名
-              <Input value={venueName} onChange={(e) => setVenueName(e.target.value)} />
-            </Label>
-            <Label>
-              会場住所
-              <Input value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} />
-            </Label>
-            <Label>
-              公開状態
-              <select
-                aria-label="公開状態"
-                value={publicationStatus}
-                onChange={(e) =>
-                  setPublicationStatus(e.target.value === "published" ? "published" : "draft")
-                }
-              >
-                <option value="draft">下書き</option>
-                <option value="published">公開</option>
-              </select>
-            </Label>
-            <div>
-              <Button disabled={busy}>{busy ? "作成中…" : "イベントを作成"}</Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-      {error && (
-        <Alert variant="destructive" style={{ marginTop: 16 }}>
+      {loading ? (
+        <p
+          className="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground"
+          role="status"
+        >
+          イベントを読み込んでいます…
+        </p>
+      ) : error ? (
+        <Alert className="max-w-2xl" variant="destructive">
           {error}
         </Alert>
-      )}
-      {events.length === 0 ? (
-        <Card style={{ marginTop: 20 }}>
-          <CardContent>
-            <p>イベントはまだありません。上のフォームから最初のイベントを作成してください。</p>
-          </CardContent>
-        </Card>
+      ) : events.length === 0 ? (
+        <section className="rounded-xl border bg-card px-5 py-10 text-center sm:px-8">
+          <h2 className="text-lg font-semibold">イベントはまだありません</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            イベントを作成して、開催情報やチケットを設定しましょう。
+          </p>
+          <Button className="mt-5" asChild>
+            <Link to="/events/create">イベントを作成</Link>
+          </Button>
+        </section>
       ) : (
-        <div className="event-list">
+        <div className="grid gap-2">
           {events.map((event) => (
             <Link
-              className="event-row"
+              className="group flex min-w-0 flex-col gap-2 rounded-lg border bg-card px-4 py-4 text-card-foreground no-underline transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center sm:justify-between sm:gap-4"
               key={event.id}
               to="/events/$eventId"
               params={{ eventId: String(event.id) }}
               search={{ tab: "basic" }}
             >
-              <span className="event-row-name">{event.name}</span>
-              <span className="event-row-meta">
+              <span className="min-w-0 break-words font-medium group-hover:text-primary">
+                {event.name}
+              </span>
+              <span className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                <span>{event.starts_at ? formatDate(event.starts_at) : "開催日時未設定"}</span>
                 <Badge variant={event.publication_status === "published" ? "default" : "secondary"}>
                   {event.publication_status === "published" ? "公開中" : "下書き"}
                 </Badge>
-                <Badge variant="secondary">チケット種別 {event.ticket_types.length} 件</Badge>
-                <span>詳細を編集 →</span>
               </span>
             </Link>
           ))}
@@ -196,19 +95,10 @@ function Events() {
     </main>
   );
 }
-
-function toUTC(value: string) {
-  return value ? new Date(`${value}+09:00`).toISOString() : null;
-}
-
-function createErrorMessage(code?: string) {
-  const messages: Record<string, string> = {
-    forbidden: "管理者権限がありません",
-    invalid_name: "イベント名は200文字以内で入力してください",
-    description_required: "公開するイベントには説明が必要です",
-    event_datetime_required: "公開するイベントには開催開始・終了日時が必要です",
-    invalid_event_period: "開催終了日時は開始日時より後にしてください",
-    invalid_datetime: "日時を正しく入力してください",
-  };
-  return (code && messages[code]) || "イベントを作成できません";
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Tokyo",
+  }).format(new Date(value));
 }

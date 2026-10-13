@@ -32,6 +32,11 @@ interface Event {
   publication_status: "draft" | "published";
   ticket_types: TicketType[];
 }
+type EventLoadState =
+  | { eventId: string; status: "loading" }
+  | { eventId: string; status: "not-found" }
+  | { eventId: string; status: "error" }
+  | { eventId: string; status: "success"; event: Event };
 export const Route = createFileRoute("/events/$eventId")({
   // oxlint-disable-next-line no-restricted-types
   validateSearch: (search: Record<string, unknown>) => ({
@@ -43,9 +48,11 @@ export const Route = createFileRoute("/events/$eventId")({
 function EventPage() {
   const { eventId } = Route.useParams();
   const { tab } = Route.useSearch();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isRegistrationPage = useRouterState({
+    select: (s) => s.matches.some((match) => match.routeId.endsWith("/registrations")),
+  });
   const { getToken } = useAuth();
-  const [event, setEvent] = useState<Event | null>(null);
+  const [eventLoad, setEventLoad] = useState<EventLoadState>({ eventId, status: "loading" });
   const [eventName, setEventName] = useState("");
   const [description, setDescription] = useState("");
   const [startsAt, setStartsAt] = useState("");
@@ -61,17 +68,25 @@ function EventPage() {
     Record<number, { name: string; capacity: string; starts: string; ends: string }>
   >({});
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [refreshWarning, setRefreshWarning] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (pathname.endsWith("/registrations")) return;
-    void getToken()
-      .then(async (token) => {
+    if (isRegistrationPage) return;
+    let live = true;
+    void (async () => {
+      try {
+        const token = await getToken();
         const response = await fetch(`/api/admin/events/${eventId}`, {
           headers: { Authorization: `Bearer ${token ?? ""}` },
         });
-        if (!response.ok) throw new Error("イベントを読み込めません");
+        if (!live) return;
+        if (!response.ok) {
+          setEventLoad({ status: response.status === 404 ? "not-found" : "error", eventId });
+          return;
+        }
         const item: Event = await response.json();
-        setEvent(item);
+        if (!live) return;
         setEventName(item.name);
         setDescription(item.description);
         setStartsAt(toLocal(item.starts_at));
@@ -79,26 +94,46 @@ function EventPage() {
         setVenueName(item.venue_name ?? "");
         setVenueAddress(item.venue_address ?? "");
         setPublicationStatus(item.publication_status);
-      })
-      .catch((cause: Error) => setError(cause.message));
-  }, [eventId, getToken, pathname]);
-  if (pathname.endsWith("/registrations")) return <Outlet />;
+        setEventLoad({ status: "success", eventId, event: item });
+      } catch {
+        if (live) setEventLoad({ status: "error", eventId });
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [eventId, getToken, isRegistrationPage]);
+  if (isRegistrationPage) return <Outlet />;
+  const currentEventLoad: EventLoadState =
+    eventLoad.eventId === eventId ? eventLoad : { status: "loading" as const, eventId };
   async function save(path: string, method: string, body: Record<string, string | number | null>) {
     setBusy(true);
     setError("");
+    setNotice("");
+    setRefreshWarning("");
     try {
       const token = await getToken();
-      const r = await fetch(path, {
+      const response = await fetch(path, {
         method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
         body: JSON.stringify(body),
       });
-      const result: { error?: string } = await r.json();
-      if (!r.ok) throw new Error(saveErrorMessage(result.error));
-      const response = await fetch(`/api/admin/events/${eventId}`, {
-        headers: { Authorization: `Bearer ${token ?? ""}` },
-      });
-      if (response.ok) setEvent(await response.json());
+      const result: { error?: string } = await response.json();
+      if (!response.ok) throw new Error(saveErrorMessage(result.error));
+
+      setNotice("変更を保存しました。");
+      try {
+        const latestResponse = await fetch(`/api/admin/events/${eventId}`, {
+          headers: { Authorization: `Bearer ${token ?? ""}` },
+        });
+        if (!latestResponse.ok) throw new Error("イベント情報を再取得できません");
+        const latestEvent: Event = await latestResponse.json();
+        setEventLoad({ status: "success", eventId, event: latestEvent });
+      } catch {
+        setRefreshWarning(
+          "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",
+        );
+      }
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "保存に失敗しました");
@@ -107,43 +142,65 @@ function EventPage() {
       setBusy(false);
     }
   }
-  if (!event && !error)
+  if (currentEventLoad.status === "loading")
     return (
-      <main className="admin-main">
+      <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
         <p aria-live="polite">イベントを読み込み中です。</p>
       </main>
     );
-  if (!event)
+  if (currentEventLoad.status === "not-found")
     return (
-      <main className="admin-main">
+      <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
         <Alert variant="destructive">イベントが見つかりません。</Alert>
         <p>
           <Link to="/events">イベント一覧へ</Link>
         </p>
       </main>
     );
+  if (currentEventLoad.status === "error")
+    return (
+      <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
+        <Alert variant="destructive">イベントを読み込めませんでした。</Alert>
+        <p>
+          <Link to="/events">イベント一覧へ</Link>
+        </p>
+      </main>
+    );
+  const event = currentEventLoad.event;
   return (
-    <main className="admin-main">
-      <p>
+    <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
+      <p className="mb-4 text-sm">
         <Link to="/events">← イベント一覧</Link>
       </p>
-      <div className="page-heading">
-        <div>
-          <h1>{event.name}</h1>
-          <p className="event-meta">
-            <Badge variant="outline">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              {event.name}
+            </h1>
+            <Badge variant={event.publication_status === "published" ? "default" : "secondary"}>
               {event.publication_status === "published" ? "公開中" : "下書き"}
             </Badge>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
             {event.starts_at ? formatJST(event.starts_at) : "開催日時未設定"}
           </p>
         </div>
       </div>
-      <nav className="event-tabs" aria-label="イベント内ナビゲーション">
+      <nav
+        className="mb-7 flex gap-6 overflow-x-auto border-b border-border"
+        aria-label="イベント内ナビゲーション"
+      >
         <Link
           to="/events/$eventId"
           params={{ eventId }}
           search={{ tab: "basic" }}
-          className={tab === "basic" ? "active" : ""}
+          activeOptions={{ exact: true }}
+          className={
+            tab === "basic" && !isRegistrationPage
+              ? "shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary"
+              : "shrink-0 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
+          }
         >
           基本情報
         </Link>
@@ -151,7 +208,12 @@ function EventPage() {
           to="/events/$eventId"
           params={{ eventId }}
           search={{ tab: "tickets" }}
-          className={tab === "tickets" ? "active" : ""}
+          activeOptions={{ exact: true }}
+          className={
+            tab === "tickets" && !isRegistrationPage
+              ? "shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary"
+              : "shrink-0 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
+          }
         >
           チケット設定
         </Link>
@@ -159,14 +221,19 @@ function EventPage() {
           to="/events/$eventId/registrations"
           params={{ eventId }}
           search={{ tab: "basic", status: "active", ticket: "all", page: 1 }}
-          className=""
+          activeOptions={{ exact: true }}
+          className={
+            isRegistrationPage
+              ? "shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary"
+              : "shrink-0 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
+          }
         >
           参加者
         </Link>
       </nav>
       {tab === "basic" && (
         <>
-          <Card>
+          <Card className="mx-auto w-full max-w-3xl">
             <CardHeader>
               <CardTitle>基本情報</CardTitle>
               <CardDescription>
@@ -175,7 +242,7 @@ function EventPage() {
             </CardHeader>
             <CardContent>
               <form
-                className="form-stack"
+                className="mx-auto grid w-full max-w-[720px] gap-5"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void save(`/api/events/${event.id}`, "PUT", {
@@ -189,52 +256,66 @@ function EventPage() {
                   });
                 }}
               >
-                <Label>
-                  イベント名
+                <div className="grid gap-2">
+                  <Label htmlFor="event-name">イベント名</Label>
                   <Input
+                    id="event-name"
                     value={eventName}
                     maxLength={200}
                     required
                     onChange={(e) => setEventName(e.target.value)}
                   />
-                </Label>
-                <Label>
-                  イベント説明（Markdown）
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="event-description">イベント説明（Markdown）</Label>
                   <textarea
-                    aria-label="イベント説明（Markdown）"
+                    id="event-description"
                     value={description}
-                    rows={8}
+                    className="min-h-[300px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     onChange={(e) => setDescription(e.target.value)}
                   />
-                </Label>
-                <Label>
-                  開催開始日時（JST）
+                </div>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div className="grid min-w-0 gap-2">
+                    <Label htmlFor="event-starts-at">開催開始日時（JST）</Label>
+                    <Input
+                      id="event-starts-at"
+                      type="datetime-local"
+                      value={startsAt}
+                      onChange={(e) => setStartsAt(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid min-w-0 gap-2">
+                    <Label htmlFor="event-ends-at">開催終了日時（JST）</Label>
+                    <Input
+                      id="event-ends-at"
+                      type="datetime-local"
+                      value={endsAt}
+                      onChange={(e) => setEndsAt(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="event-venue-name">会場名</Label>
                   <Input
-                    type="datetime-local"
-                    value={startsAt}
-                    onChange={(e) => setStartsAt(e.target.value)}
+                    id="event-venue-name"
+                    value={venueName}
+                    onChange={(e) => setVenueName(e.target.value)}
                   />
-                </Label>
-                <Label>
-                  開催終了日時（JST）
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="event-venue-address">会場住所</Label>
                   <Input
-                    type="datetime-local"
-                    value={endsAt}
-                    onChange={(e) => setEndsAt(e.target.value)}
+                    id="event-venue-address"
+                    value={venueAddress}
+                    onChange={(e) => setVenueAddress(e.target.value)}
                   />
-                </Label>
-                <Label>
-                  会場名
-                  <Input value={venueName} onChange={(e) => setVenueName(e.target.value)} />
-                </Label>
-                <Label>
-                  会場住所
-                  <Input value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} />
-                </Label>
-                <Label>
-                  公開状態
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="event-publication-status">公開状態</Label>
                   <select
-                    aria-label="公開状態"
+                    id="event-publication-status"
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     value={publicationStatus}
                     onChange={(e) =>
                       setPublicationStatus(e.target.value === "published" ? "published" : "draft")
@@ -243,8 +324,8 @@ function EventPage() {
                     <option value="draft">下書き</option>
                     <option value="published">公開</option>
                   </select>
-                </Label>
-                <div>
+                </div>
+                <div className="pt-1">
                   <Button disabled={busy}>イベントを保存</Button>
                 </div>
               </form>
@@ -254,21 +335,18 @@ function EventPage() {
       )}
       {tab === "tickets" && (
         <>
-          <div className="page-heading" style={{ marginTop: 38 }}>
-            <div>
-              <p className="page-eyebrow">TICKETS</p>
-              <h2>チケット種別</h2>
-            </div>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h2 className="text-xl font-semibold tracking-tight">チケット種別</h2>
             <Badge variant="secondary">{event.ticket_types.length} 件</Badge>
           </div>
           {event.ticket_types.length === 0 && (
-            <Card>
+            <Card className="mb-4">
               <CardContent>
-                <p>チケット種別はありません。</p>
+                <p className="text-sm text-muted-foreground">チケット種別はありません。</p>
               </CardContent>
             </Card>
           )}
-          <div className="ticket-grid">
+          <div className="space-y-4">
             {event.ticket_types.map((t) => {
               const value = editing[t.id] ?? {
                 name: t.name,
@@ -297,10 +375,11 @@ function EventPage() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="ticket-form">
-                        <Label>
-                          種別名
+                      <div className="mx-auto grid w-full max-w-[720px] gap-5">
+                        <div className="grid gap-2">
+                          <Label htmlFor={`ticket-name-${t.id}`}>種別名</Label>
                           <Input
+                            id={`ticket-name-${t.id}`}
                             value={value.name}
                             maxLength={200}
                             required
@@ -308,10 +387,11 @@ function EventPage() {
                               setEditing({ ...editing, [t.id]: { ...value, name: e.target.value } })
                             }
                           />
-                        </Label>
-                        <Label>
-                          定員
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor={`ticket-capacity-${t.id}`}>定員</Label>
                           <Input
+                            id={`ticket-capacity-${t.id}`}
                             type="number"
                             min={t.reserved}
                             step="1"
@@ -324,31 +404,40 @@ function EventPage() {
                               })
                             }
                           />
-                        </Label>
-                        <Label>
-                          受付開始日時（JST）
-                          <Input
-                            type="datetime-local"
-                            value={value.starts}
-                            onChange={(e) =>
-                              setEditing({
-                                ...editing,
-                                [t.id]: { ...value, starts: e.target.value },
-                              })
-                            }
-                          />
-                        </Label>
-                        <Label>
-                          受付終了日時（JST）
-                          <Input
-                            type="datetime-local"
-                            value={value.ends}
-                            onChange={(e) =>
-                              setEditing({ ...editing, [t.id]: { ...value, ends: e.target.value } })
-                            }
-                          />
-                        </Label>
-                        <Button disabled={busy}>保存</Button>
+                        </div>
+                        <div className="grid gap-5 md:grid-cols-2">
+                          <div className="grid min-w-0 gap-2">
+                            <Label htmlFor={`ticket-starts-${t.id}`}>受付開始日時（JST）</Label>
+                            <Input
+                              id={`ticket-starts-${t.id}`}
+                              type="datetime-local"
+                              value={value.starts}
+                              onChange={(e) =>
+                                setEditing({
+                                  ...editing,
+                                  [t.id]: { ...value, starts: e.target.value },
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="grid min-w-0 gap-2">
+                            <Label htmlFor={`ticket-ends-${t.id}`}>受付終了日時（JST）</Label>
+                            <Input
+                              id={`ticket-ends-${t.id}`}
+                              type="datetime-local"
+                              value={value.ends}
+                              onChange={(e) =>
+                                setEditing({
+                                  ...editing,
+                                  [t.id]: { ...value, ends: e.target.value },
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="pt-1">
+                          <Button disabled={busy}>保存</Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -356,14 +445,14 @@ function EventPage() {
               );
             })}
           </div>
-          <Card style={{ marginTop: 20 }}>
+          <Card className="mt-6">
             <CardHeader>
               <CardTitle>チケット種別を追加</CardTitle>
               <CardDescription>販売するチケットの名前と定員を設定します。</CardDescription>
             </CardHeader>
             <CardContent>
               <form
-                className="ticket-form"
+                className="mx-auto grid w-full max-w-[720px] gap-5"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void save(`/api/events/${event.id}/ticket-types`, "POST", {
@@ -381,34 +470,40 @@ function EventPage() {
                   });
                 }}
               >
-                <Label>
-                  種別名
+                <div className="grid gap-2">
+                  <Label htmlFor="new-ticket-name">種別名</Label>
                   <Input
+                    id="new-ticket-name"
                     value={newName}
                     maxLength={200}
                     required
                     onChange={(e) => setNewName(e.target.value)}
                   />
-                </Label>
-                <Label>
-                  受付開始日時（JST）
+                </div>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div className="grid min-w-0 gap-2">
+                    <Label htmlFor="new-ticket-starts">受付開始日時（JST）</Label>
+                    <Input
+                      id="new-ticket-starts"
+                      type="datetime-local"
+                      value={newRegistrationStarts}
+                      onChange={(e) => setNewRegistrationStarts(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid min-w-0 gap-2">
+                    <Label htmlFor="new-ticket-ends">受付終了日時（JST）</Label>
+                    <Input
+                      id="new-ticket-ends"
+                      type="datetime-local"
+                      value={newRegistrationEnds}
+                      onChange={(e) => setNewRegistrationEnds(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="new-ticket-capacity">定員</Label>
                   <Input
-                    type="datetime-local"
-                    value={newRegistrationStarts}
-                    onChange={(e) => setNewRegistrationStarts(e.target.value)}
-                  />
-                </Label>
-                <Label>
-                  受付終了日時（JST）
-                  <Input
-                    type="datetime-local"
-                    value={newRegistrationEnds}
-                    onChange={(e) => setNewRegistrationEnds(e.target.value)}
-                  />
-                </Label>
-                <Label>
-                  定員
-                  <Input
+                    id="new-ticket-capacity"
                     type="number"
                     min="0"
                     step="1"
@@ -416,16 +511,28 @@ function EventPage() {
                     required
                     onChange={(e) => setCapacity(e.target.value)}
                   />
-                </Label>
-                <Button disabled={busy}>種別を作成</Button>
+                </div>
+                <div className="pt-1">
+                  <Button disabled={busy}>種別を作成</Button>
+                </div>
               </form>
             </CardContent>
           </Card>
         </>
       )}
       {error && (
-        <Alert variant="destructive" style={{ marginTop: 16 }}>
+        <Alert className="mt-4" variant="destructive">
           {error}
+        </Alert>
+      )}
+      {notice && (
+        <p className="mt-4 text-sm font-medium text-primary" role="status">
+          {notice}
+        </p>
+      )}
+      {refreshWarning && (
+        <Alert className="mt-4" variant="destructive" role="alert">
+          {refreshWarning}
         </Alert>
       )}
     </main>
