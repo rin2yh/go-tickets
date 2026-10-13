@@ -14,8 +14,8 @@ import { Route as CheckInRouteImport } from './routes/check-in'
 import { Route as EventsIndexRouteImport } from './routes/events.index'
 import { Route as EventsEventIdRouteImport } from './routes/events.$eventId'
 import { Route as EventsCreateRouteImport } from './routes/events.create'
-import { Route as EventsEventIdRegistrationsRouteImport } from './routes/events.$eventId.registrations'
 import { Route as EventsEventIdIndexRouteImport } from './routes/events.$eventId.index'
+import { Route as EventsEventIdRegistrationsRouteImport } from './routes/events.$eventId.registrations'
 import { Route as EventsEventIdTicketsRouteImport } from './routes/events.$eventId.tickets'
 
 const IndexRoute = IndexRouteImport.update({
@@ -43,17 +43,17 @@ const EventsCreateRoute = EventsCreateRouteImport.update({
   path: '/events/create',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EventsEventIdIndexRoute = EventsEventIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => EventsEventIdRoute,
+} as any)
 const EventsEventIdRegistrationsRoute =
   EventsEventIdRegistrationsRouteImport.update({
     id: '/registrations',
     path: '/registrations',
     getParentRoute: () => EventsEventIdRoute,
   } as any)
-const EventsEventIdIndexRoute = EventsEventIdIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => EventsEventIdRoute,
-} as any)
 const EventsEventIdTicketsRoute = EventsEventIdTicketsRouteImport.update({
   id: '/tickets',
   path: '/tickets',
@@ -73,12 +73,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/check-in': typeof CheckInRoute
-  '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/events/create': typeof EventsCreateRoute
   '/events': typeof EventsIndexRoute
   '/events/$eventId/registrations': typeof EventsEventIdRegistrationsRoute
   '/events/$eventId/tickets': typeof EventsEventIdTicketsRoute
-  '/events/$eventId/': typeof EventsEventIdIndexRoute
+  '/events/$eventId': typeof EventsEventIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,12 +105,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/check-in'
-    | '/events/$eventId'
     | '/events/create'
     | '/events'
     | '/events/$eventId/registrations'
     | '/events/$eventId/tickets'
-    | '/events/$eventId/'
+    | '/events/$eventId'
   id:
     | '__root__'
     | '/'
@@ -169,18 +167,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventsCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/events/$eventId/registrations': {
-      id: '/events/$eventId/registrations'
-      path: '/registrations'
-      fullPath: '/events/$eventId/registrations'
-      preLoaderRoute: typeof EventsEventIdRegistrationsRouteImport
-      parentRoute: typeof EventsEventIdRoute
-    }
     '/events/$eventId/': {
       id: '/events/$eventId/'
       path: '/'
       fullPath: '/events/$eventId/'
       preLoaderRoute: typeof EventsEventIdIndexRouteImport
+      parentRoute: typeof EventsEventIdRoute
+    }
+    '/events/$eventId/registrations': {
+      id: '/events/$eventId/registrations'
+      path: '/registrations'
+      fullPath: '/events/$eventId/registrations'
+      preLoaderRoute: typeof EventsEventIdRegistrationsRouteImport
       parentRoute: typeof EventsEventIdRoute
     }
     '/events/$eventId/tickets': {
@@ -195,14 +193,14 @@ declare module '@tanstack/react-router' {
 
 interface EventsEventIdRouteChildren {
   EventsEventIdRegistrationsRoute: typeof EventsEventIdRegistrationsRoute
-  EventsEventIdIndexRoute: typeof EventsEventIdIndexRoute
   EventsEventIdTicketsRoute: typeof EventsEventIdTicketsRoute
+  EventsEventIdIndexRoute: typeof EventsEventIdIndexRoute
 }
 
 const EventsEventIdRouteChildren: EventsEventIdRouteChildren = {
   EventsEventIdRegistrationsRoute: EventsEventIdRegistrationsRoute,
-  EventsEventIdIndexRoute: EventsEventIdIndexRoute,
   EventsEventIdTicketsRoute: EventsEventIdTicketsRoute,
+  EventsEventIdIndexRoute: EventsEventIdIndexRoute,
 }
 
 const EventsEventIdRouteWithChildren = EventsEventIdRoute._addFileChildren(

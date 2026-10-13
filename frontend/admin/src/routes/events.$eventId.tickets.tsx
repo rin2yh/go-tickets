@@ -5,13 +5,36 @@ import { useState } from "react";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Button } from "@go-tickets/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@go-tickets/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
-import { eventQueryKey, refreshEvent, saveEventChange, toLocal, toUTC, useEvent } from "./events.$eventId";
+import {
+  eventQueryKey,
+  refreshEvent,
+  saveEventChange,
+  toLocal,
+  toUTC,
+  useEvent,
+} from "./events.$eventId";
 
-type TicketForm = { name: string; capacity: string; starts: string; ends: string };
-type Change = { path: string; method: "PUT" | "POST"; body: Record<string, string | number | null> };
+interface TicketForm {
+  name: string;
+  capacity: string;
+  starts: string;
+  ends: string;
+}
+
+interface Change {
+  path: string;
+  method: "PUT" | "POST";
+  body: Record<string, string | number | null>;
+}
 
 export const Route = createFileRoute("/events/$eventId/tickets")({ component: Tickets });
 
@@ -56,7 +79,11 @@ function Tickets() {
         <Badge variant="secondary">{event.ticket_types.length} 件</Badge>
       </div>
       {event.ticket_types.length === 0 && (
-        <Card className="mb-4"><CardContent><p className="text-sm text-muted-foreground">チケット種別はありません。</p></CardContent></Card>
+        <Card className="mb-4">
+          <CardContent>
+            <p className="text-sm text-muted-foreground">チケット種別はありません。</p>
+          </CardContent>
+        </Card>
       )}
       <div className="space-y-4">
         {event.ticket_types.map((ticket) => {
@@ -88,29 +115,65 @@ function Tickets() {
               <Card>
                 <CardHeader>
                   <CardTitle>{ticket.name}</CardTitle>
-                  <CardDescription>申込済み {ticket.reserved} 件 / 定員 {ticket.capacity} 件</CardDescription>
+                  <CardDescription>
+                    申込済み {ticket.reserved} 件 / 定員 {ticket.capacity} 件
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="mx-auto grid w-full max-w-[720px] gap-5">
                     <div className="grid gap-2">
                       <Label htmlFor={`ticket-name-${ticket.id}`}>種別名</Label>
-                      <Input id={`ticket-name-${ticket.id}`} value={value.name} maxLength={200} required onChange={(e) => updateTicket(ticket.id, { ...value, name: e.target.value })} />
+                      <Input
+                        id={`ticket-name-${ticket.id}`}
+                        value={value.name}
+                        maxLength={200}
+                        required
+                        onChange={(e) =>
+                          updateTicket(ticket.id, { ...value, name: e.target.value })
+                        }
+                      />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor={`ticket-capacity-${ticket.id}`}>定員</Label>
-                      <Input id={`ticket-capacity-${ticket.id}`} type="number" min={ticket.reserved} step="1" value={value.capacity} required onChange={(e) => updateTicket(ticket.id, { ...value, capacity: e.target.value })} />
+                      <Input
+                        id={`ticket-capacity-${ticket.id}`}
+                        type="number"
+                        min={ticket.reserved}
+                        step="1"
+                        value={value.capacity}
+                        required
+                        onChange={(e) =>
+                          updateTicket(ticket.id, { ...value, capacity: e.target.value })
+                        }
+                      />
                     </div>
                     <div className="grid gap-5 md:grid-cols-2">
                       <div className="grid min-w-0 gap-2">
                         <Label htmlFor={`ticket-starts-${ticket.id}`}>受付開始日時（JST）</Label>
-                        <Input id={`ticket-starts-${ticket.id}`} type="datetime-local" value={value.starts} onChange={(e) => updateTicket(ticket.id, { ...value, starts: e.target.value })} />
+                        <Input
+                          id={`ticket-starts-${ticket.id}`}
+                          type="datetime-local"
+                          value={value.starts}
+                          onChange={(e) =>
+                            updateTicket(ticket.id, { ...value, starts: e.target.value })
+                          }
+                        />
                       </div>
                       <div className="grid min-w-0 gap-2">
                         <Label htmlFor={`ticket-ends-${ticket.id}`}>受付終了日時（JST）</Label>
-                        <Input id={`ticket-ends-${ticket.id}`} type="datetime-local" value={value.ends} onChange={(e) => updateTicket(ticket.id, { ...value, ends: e.target.value })} />
+                        <Input
+                          id={`ticket-ends-${ticket.id}`}
+                          type="datetime-local"
+                          value={value.ends}
+                          onChange={(e) =>
+                            updateTicket(ticket.id, { ...value, ends: e.target.value })
+                          }
+                        />
                       </div>
                     </div>
-                    <div className="pt-1"><Button disabled={mutation.isPending}>保存</Button></div>
+                    <div className="pt-1">
+                      <Button disabled={mutation.isPending}>保存</Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -144,29 +207,67 @@ function Tickets() {
           >
             <div className="grid gap-2">
               <Label htmlFor="new-ticket-name">種別名</Label>
-              <Input id="new-ticket-name" value={newName} maxLength={200} required onChange={(e) => setNewName(e.target.value)} />
+              <Input
+                id="new-ticket-name"
+                value={newName}
+                maxLength={200}
+                required
+                onChange={(e) => setNewName(e.target.value)}
+              />
             </div>
             <div className="grid gap-5 md:grid-cols-2">
               <div className="grid min-w-0 gap-2">
                 <Label htmlFor="new-ticket-starts">受付開始日時（JST）</Label>
-                <Input id="new-ticket-starts" type="datetime-local" value={newRegistrationStarts} onChange={(e) => setNewRegistrationStarts(e.target.value)} />
+                <Input
+                  id="new-ticket-starts"
+                  type="datetime-local"
+                  value={newRegistrationStarts}
+                  onChange={(e) => setNewRegistrationStarts(e.target.value)}
+                />
               </div>
               <div className="grid min-w-0 gap-2">
                 <Label htmlFor="new-ticket-ends">受付終了日時（JST）</Label>
-                <Input id="new-ticket-ends" type="datetime-local" value={newRegistrationEnds} onChange={(e) => setNewRegistrationEnds(e.target.value)} />
+                <Input
+                  id="new-ticket-ends"
+                  type="datetime-local"
+                  value={newRegistrationEnds}
+                  onChange={(e) => setNewRegistrationEnds(e.target.value)}
+                />
               </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="new-ticket-capacity">定員</Label>
-              <Input id="new-ticket-capacity" type="number" min="0" step="1" value={capacity} required onChange={(e) => setCapacity(e.target.value)} />
+              <Input
+                id="new-ticket-capacity"
+                type="number"
+                min="0"
+                step="1"
+                value={capacity}
+                required
+                onChange={(e) => setCapacity(e.target.value)}
+              />
             </div>
-            <div className="pt-1"><Button disabled={mutation.isPending}>種別を作成</Button></div>
+            <div className="pt-1">
+              <Button disabled={mutation.isPending}>種別を作成</Button>
+            </div>
           </form>
         </CardContent>
       </Card>
-      {mutation.isError && <Alert className="mt-4" variant="destructive">{mutation.error.message}</Alert>}
-      {notice && <p className="mt-4 text-sm font-medium text-primary" role="status">{notice}</p>}
-      {refreshWarning && <Alert className="mt-4" variant="destructive" role="alert">{refreshWarning}</Alert>}
+      {mutation.isError && (
+        <Alert className="mt-4" variant="destructive">
+          {mutation.error.message}
+        </Alert>
+      )}
+      {notice && (
+        <p className="mt-4 text-sm font-medium text-primary" role="status">
+          {notice}
+        </p>
+      )}
+      {refreshWarning && (
+        <Alert className="mt-4" variant="destructive" role="alert">
+          {refreshWarning}
+        </Alert>
+      )}
     </>
   );
 }

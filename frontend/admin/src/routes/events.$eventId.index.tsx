@@ -13,9 +13,16 @@ import {
 } from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
-import { eventQueryKey, refreshEvent, saveEventChange, toLocal, toUTC, useEvent } from "./events.$eventId";
+import {
+  eventQueryKey,
+  refreshEvent,
+  saveEventChange,
+  toLocal,
+  toUTC,
+  useEvent,
+} from "./events.$eventId";
 
-type BasicForm = {
+interface BasicForm {
   name: string;
   description: string;
   startsAt: string;
@@ -23,7 +30,7 @@ type BasicForm = {
   venueName: string;
   venueAddress: string;
   publicationStatus: "draft" | "published";
-};
+}
 
 export const Route = createFileRoute("/events/$eventId/")({ component: BasicInformation });
 
@@ -89,7 +96,13 @@ function BasicInformation() {
           >
             <div className="grid gap-2">
               <Label htmlFor="event-name">イベント名</Label>
-              <Input id="event-name" value={form.name} maxLength={200} required onChange={(e) => update("name", e.target.value)} />
+              <Input
+                id="event-name"
+                value={form.name}
+                maxLength={200}
+                required
+                onChange={(e) => update("name", e.target.value)}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="event-description">イベント説明（Markdown）</Label>
@@ -103,20 +116,38 @@ function BasicInformation() {
             <div className="grid gap-5 md:grid-cols-2">
               <div className="grid min-w-0 gap-2">
                 <Label htmlFor="event-starts-at">開催開始日時（JST）</Label>
-                <Input id="event-starts-at" type="datetime-local" value={form.startsAt} onChange={(e) => update("startsAt", e.target.value)} />
+                <Input
+                  id="event-starts-at"
+                  type="datetime-local"
+                  value={form.startsAt}
+                  onChange={(e) => update("startsAt", e.target.value)}
+                />
               </div>
               <div className="grid min-w-0 gap-2">
                 <Label htmlFor="event-ends-at">開催終了日時（JST）</Label>
-                <Input id="event-ends-at" type="datetime-local" value={form.endsAt} onChange={(e) => update("endsAt", e.target.value)} />
+                <Input
+                  id="event-ends-at"
+                  type="datetime-local"
+                  value={form.endsAt}
+                  onChange={(e) => update("endsAt", e.target.value)}
+                />
               </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="event-venue-name">会場名</Label>
-              <Input id="event-venue-name" value={form.venueName} onChange={(e) => update("venueName", e.target.value)} />
+              <Input
+                id="event-venue-name"
+                value={form.venueName}
+                onChange={(e) => update("venueName", e.target.value)}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="event-venue-address">会場住所</Label>
-              <Input id="event-venue-address" value={form.venueAddress} onChange={(e) => update("venueAddress", e.target.value)} />
+              <Input
+                id="event-venue-address"
+                value={form.venueAddress}
+                onChange={(e) => update("venueAddress", e.target.value)}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="event-publication-status">公開状態</Label>
@@ -124,7 +155,12 @@ function BasicInformation() {
                 id="event-publication-status"
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 value={form.publicationStatus}
-                onChange={(e) => update("publicationStatus", e.target.value === "published" ? "published" : "draft")}
+                onChange={(e) =>
+                  update(
+                    "publicationStatus",
+                    e.target.value === "published" ? "published" : "draft",
+                  )
+                }
               >
                 <option value="draft">下書き</option>
                 <option value="published">公開</option>
@@ -136,9 +172,21 @@ function BasicInformation() {
           </form>
         </CardContent>
       </Card>
-      {mutation.isError && <Alert className="mx-auto mt-4 max-w-3xl" variant="destructive">{mutation.error.message}</Alert>}
-      {notice && <p className="mx-auto mt-4 max-w-3xl text-sm font-medium text-primary" role="status">{notice}</p>}
-      {refreshWarning && <Alert className="mx-auto mt-4 max-w-3xl" variant="destructive" role="alert">{refreshWarning}</Alert>}
+      {mutation.isError && (
+        <Alert className="mx-auto mt-4 max-w-3xl" variant="destructive">
+          {mutation.error.message}
+        </Alert>
+      )}
+      {notice && (
+        <p className="mx-auto mt-4 max-w-3xl text-sm font-medium text-primary" role="status">
+          {notice}
+        </p>
+      )}
+      {refreshWarning && (
+        <Alert className="mx-auto mt-4 max-w-3xl" variant="destructive" role="alert">
+          {refreshWarning}
+        </Alert>
+      )}
     </>
   );
 }

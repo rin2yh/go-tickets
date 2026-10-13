@@ -43,7 +43,8 @@ export async function fetchEvent(eventId: string, getToken: () => Promise<string
     headers: { Authorization: `Bearer ${token ?? ""}` },
   });
   if (!response.ok) throw new EventRequestError(response.status);
-  return (await response.json()) as Event;
+  const event: Event = await response.json();
+  return event;
 }
 
 export const eventContext = createContext<Event | null>(null);
@@ -62,6 +63,7 @@ export const Route = createFileRoute("/events/$eventId")({
   component: EventLayout,
 });
 
+// oxlint-disable-next-line complexity
 function EventLayout() {
   const { eventId } = Route.useParams();
   const { tab } = Route.useSearch();
@@ -136,7 +138,10 @@ function EventLayout() {
             params={{ eventId }}
             search={{ tab: "basic" }}
             activeOptions={{ exact: true }}
-            activeProps={{ className: "shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary" }}
+            activeProps={{
+              className:
+                "shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary",
+            }}
             className="shrink-0 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
           >
             基本情報
@@ -146,7 +151,10 @@ function EventLayout() {
             params={{ eventId }}
             search={{ tab: "basic" }}
             activeOptions={{ exact: true }}
-            activeProps={{ className: "shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary" }}
+            activeProps={{
+              className:
+                "shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary",
+            }}
             className="shrink-0 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
           >
             チケット設定
@@ -156,7 +164,10 @@ function EventLayout() {
             params={{ eventId }}
             search={{ tab: "basic", status: "active", ticket: "all", page: 1 }}
             activeOptions={{ exact: true }}
-            activeProps={{ className: "shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary" }}
+            activeProps={{
+              className:
+                "shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary",
+            }}
             className="shrink-0 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
           >
             参加者
