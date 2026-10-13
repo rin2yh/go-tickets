@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "node --test src/lib/load-event.test.mjs",
+    "test": "vitest run --environment node",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -23,6 +23,7 @@
     "@vitejs/plugin-react": "6.1.0",
     "babel-plugin-react-compiler": "1.0.0",
     "typescript": "7.0.2",
-    "vite": "8.3.1"
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }
