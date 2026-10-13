@@ -22,6 +22,12 @@ export interface PublicEvent {
 const eventCache = new Map<number, { expiresAt: number; request: Promise<PublicEvent> }>();
 const cacheDurationMs = 15_000;
 
+export async function fetchPublicEvents(): Promise<PublicEvent[]> {
+  const response = await fetch("/api/events", { cache: "no-store" });
+  if (!response.ok) throw new Error(`イベントを取得できません (${response.status})`);
+  return response.json();
+}
+
 export function fetchPublicEvent(eventId: number): Promise<PublicEvent> {
   const cached = eventCache.get(eventId);
   if (cached && cached.expiresAt > Date.now()) return cached.request;

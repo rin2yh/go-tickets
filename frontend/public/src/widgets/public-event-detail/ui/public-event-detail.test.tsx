@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Markdown } from "./public-events";
+import { Markdown } from "./public-event-detail";
 
 afterEach(cleanup);
 

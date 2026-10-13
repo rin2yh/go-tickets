@@ -7,7 +7,7 @@
     "build:admin": "pnpm --filter @go-tickets/admin build",
     "shadcn:add": "pnpm dlx shadcn@latest add -c ui",
     "lint": "oxlint . && pnpm run format:check && pnpm run typecheck",
-    "test": "pnpm --filter @go-tickets/public test && pnpm --filter @go-tickets/admin test",
+    "test": "pnpm --filter @go-tickets/public test && pnpm --filter @go-tickets/admin test && node --test scripts/public-boundaries.test.mjs",
     "typecheck": "pnpm --filter @go-tickets/public typecheck && pnpm --filter @go-tickets/admin typecheck",
     "format": "oxfmt .",
     "format:check": "oxfmt --check ."
