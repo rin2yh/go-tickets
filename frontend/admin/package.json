@@ -24,7 +24,7 @@
     "@vitejs/plugin-react": "6.1.0",
     "babel-plugin-react-compiler": "catalog:",
     "jsdom": "catalog:",
-    "typescript": "catalog:",
+    "typescript": "7.0.2",
     "vite": "catalog:",
     "vitest": "catalog:"
   }

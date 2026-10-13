@@ -25,7 +25,7 @@
     "@types/react-dom": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
     "jsdom": "catalog:",
-    "typescript": "catalog:",
+    "typescript": "6.0.3",
     "vite": "catalog:",
     "vitest": "catalog:"
   }
