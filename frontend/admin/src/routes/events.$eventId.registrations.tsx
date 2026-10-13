@@ -5,6 +5,17 @@ import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Button } from "@go-tickets/ui/components/button";
 import { Label } from "@go-tickets/ui/components/label";
+import { NativeSelect, NativeSelectOption } from "@go-tickets/ui/components/native-select";
+import { Progress } from "@go-tickets/ui/components/progress";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@go-tickets/ui/components/table";
+import { EventTabs } from "../components/event-tabs";
 interface Event {
   id: number;
   name: string;
@@ -97,56 +108,18 @@ function Registrations() {
           {event.starts_at ? fmt(event.starts_at) : "開催日時未設定"}
         </p>
       </header>
-      <nav
-        className="mb-7 flex gap-6 overflow-x-auto border-b border-border"
-        aria-label="イベント内ナビゲーション"
-      >
-        <Link
-          to="/events/$eventId"
-          params={{ eventId }}
-          search={{ tab: "basic" }}
-          className="shrink-0 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          基本情報
-        </Link>
-        <Link
-          to="/events/$eventId"
-          params={{ eventId }}
-          search={{ tab: "tickets" }}
-          className="shrink-0 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          チケット設定
-        </Link>
-        <Link
-          to="/events/$eventId/registrations"
-          params={{ eventId }}
-          search={{ tab: "basic", status, ticket, page }}
-          className="shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary"
-          aria-current="page"
-        >
-          参加者
-        </Link>
-      </nav>
+      <EventTabs
+        eventId={eventId}
+        activeTab="registrations"
+        registrationSearch={{ tab: "basic", status, ticket, page }}
+      />
       <section className="space-y-5">
         <h2 className="text-xl font-semibold tracking-tight">参加者</h2>
         <div className="max-w-md space-y-2">
           <strong className="block text-sm font-semibold">
             {data.active} / {data.capacity}名
           </strong>
-          <div
-            className="h-2 overflow-hidden rounded-full bg-muted"
-            role="progressbar"
-            aria-valuenow={data.active}
-            aria-valuemin={0}
-            aria-valuemax={data.capacity}
-          >
-            <span
-              className="block h-full rounded-full bg-primary"
-              style={{
-                width: `${data.capacity ? Math.min(100, (data.active / data.capacity) * 100) : 0}%`,
-              }}
-            />
-          </div>
+          <Progress value={data.active} max={data.capacity} aria-label="参加者の申込状況" />
         </div>
         <div className="flex gap-2 border-b border-border" role="group" aria-label="申込ステータス">
           <button
@@ -174,54 +147,55 @@ function Registrations() {
         </div>
         <div className="grid w-full max-w-sm gap-2">
           <Label htmlFor="ticket-filter">チケット種別</Label>
-          <select
+          <NativeSelect
             id="ticket-filter"
             value={ticket}
             onChange={(e) => setSearch({ ticket: e.target.value, page: 1 })}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
-            <option value="all">すべてのチケット</option>
+            <NativeSelectOption value="all">すべてのチケット</NativeSelectOption>
             {event.ticket_types.map((t) => (
-              <option key={t.id} value={t.id}>
+              <NativeSelectOption key={t.id} value={t.id}>
                 {t.name}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
-        <div className="overflow-x-auto rounded-lg border bg-card">
-          <table className="w-full min-w-[600px] border-collapse text-left text-sm">
-            <thead className="bg-muted/60 text-xs text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">参加者名</th>
-                <th className="px-4 py-3 font-medium">チケット種別</th>
-                <th className="px-4 py-3 font-medium">申込日時</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="overflow-hidden rounded-lg border bg-card">
+          <Table className="min-w-[600px] border-collapse text-left">
+            <TableHeader className="bg-muted/60 text-xs text-muted-foreground">
+              <TableRow>
+                <TableHead className="h-auto px-4 py-3 font-medium">参加者名</TableHead>
+                <TableHead className="h-auto px-4 py-3 font-medium">チケット種別</TableHead>
+                <TableHead className="h-auto px-4 py-3 font-medium">申込日時</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {data.items.length ? (
                 data.items.map((row, i) => (
-                  <tr key={`${row.ticket_type_id}-${row.created_at}-${i}`}>
-                    <td className="border-t border-border px-4 py-3 font-medium">
+                  <TableRow key={`${row.ticket_type_id}-${row.created_at}-${i}`}>
+                    <TableCell className="border-t border-border px-4 py-3 font-medium">
                       {row.name || "名前未設定"}
-                    </td>
-                    <td className="border-t border-border px-4 py-3">{row.ticket_name}</td>
-                    <td className="border-t border-border px-4 py-3 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="border-t border-border px-4 py-3">
+                      {row.ticket_name}
+                    </TableCell>
+                    <TableCell className="border-t border-border px-4 py-3 text-muted-foreground">
                       {fmt(row.created_at)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               ) : (
-                <tr>
-                  <td
+                <TableRow>
+                  <TableCell
                     colSpan={3}
                     className="border-t border-border px-4 py-10 text-center text-muted-foreground"
                   >
                     該当する参加者はいません
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         <footer className="flex flex-col items-start justify-between gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center">
           <span className="tabular-nums">

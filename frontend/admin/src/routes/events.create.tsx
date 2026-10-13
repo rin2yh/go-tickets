@@ -12,6 +12,8 @@ import {
 } from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
+import { NativeSelect, NativeSelectOption } from "@go-tickets/ui/components/native-select";
+import { Textarea } from "@go-tickets/ui/components/textarea";
 export const Route = createFileRoute("/events/create")({
   component: Events,
 });
@@ -93,12 +95,12 @@ function Events() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="event-description">イベント説明（Markdown）</Label>
-              <textarea
+              <Textarea
                 id="event-description"
                 value={description}
                 rows={8}
                 onChange={(e) => setDescription(e.target.value)}
-                className="min-h-[300px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-base leading-relaxed shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
+                className="min-h-[300px] resize-y leading-relaxed"
               />
             </div>
             <div className="grid gap-5 md:grid-cols-2">
@@ -139,17 +141,16 @@ function Events() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="event-publication-status">公開状態</Label>
-              <select
+              <NativeSelect
                 id="event-publication-status"
                 value={publicationStatus}
                 onChange={(e) =>
                   setPublicationStatus(e.target.value === "published" ? "published" : "draft")
                 }
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
               >
-                <option value="draft">下書き</option>
-                <option value="published">公開</option>
-              </select>
+                <NativeSelectOption value="draft">下書き</NativeSelectOption>
+                <NativeSelectOption value="published">公開</NativeSelectOption>
+              </NativeSelect>
             </div>
             <div className="pt-1">
               <Button disabled={busy}>{busy ? "作成中…" : "イベントを作成"}</Button>

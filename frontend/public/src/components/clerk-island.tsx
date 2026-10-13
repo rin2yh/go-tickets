@@ -4,6 +4,7 @@ import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Button } from "@go-tickets/ui/components/button";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
+import { Input } from "@go-tickets/ui/components/input";
 import {
   fetchPublicEvent,
   invalidatePublicEvent,
@@ -220,9 +221,10 @@ function ParticipantNameForm({
           <p className="m-0 leading-relaxed text-muted-foreground">
             イベントの参加者一覧などで使う名前です。実名・ハンドルネームのどちらでも構いません。あとから変更できます。
           </p>
-          <label className="grid gap-2 font-semibold">
+          <label className="grid gap-2 font-semibold" htmlFor="participant-name">
             参加者名
-            <input
+            <Input
+              id="participant-name"
               className="h-10.5 rounded-md border border-border px-3"
               value={name}
               maxLength={100}
