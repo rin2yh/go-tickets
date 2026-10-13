@@ -15,8 +15,3 @@ export function toLocal(value: string | null) {
 export function toUTC(value: string) {
   return value ? new Date(`${value}+09:00`).toISOString() : null;
 }
-
-export function formatRegistrationDate(value: string) {
-  const normalized = /Z$|[+-]\d\d:\d\d$/.test(value) ? value : `${value.replace(" ", "T")}Z`;
-  return formatJST(normalized, "medium");
-}

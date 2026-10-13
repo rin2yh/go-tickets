@@ -3,8 +3,8 @@ export { EventProvider, useEvent } from "./model/context";
 export {
   EventRequestError,
   buildEventQueryOptions,
+  buildEventsQueryOptions,
   saveEventChange,
-  fetchEvents,
   createEvent,
 } from "./api/event";
 export { buildRegistrationsQueryOptions } from "./api/registrations";

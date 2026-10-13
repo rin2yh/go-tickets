@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { event, renderEventPage } from "../../../test/event-page";
 
@@ -74,7 +74,7 @@ describe("イベント詳細の読み込みと遷移", () => {
     await router.navigate({
       to: "/events/$eventId",
       params: { eventId: "43" },
-      search: { tab: "basic" },
+      search: { tab: "basic", status: "active", ticket: "all", page: 1 },
     });
     await waitFor(() => expect(screen.getByRole("heading", { name: "別イベント" })).toBeTruthy());
   });
@@ -84,8 +84,45 @@ describe("イベント詳細の読み込みと遷移", () => {
       "fetch",
       vi.fn(async () => Response.json(event)),
     );
-    const router = await renderEventPage("/events/42?tab=tickets");
+    const router = await renderEventPage(
+      "/events/42?tab=tickets&status=cancelled&ticket=vip&page=3",
+    );
     expect(await screen.findByRole("heading", { name: "チケット種別" })).toBeTruthy();
     await waitFor(() => expect(router.state.location.pathname).toBe("/events/42/tickets"));
+    expect(router.state.location.search).toMatchObject({
+      status: "cancelled",
+      ticket: "vip",
+      page: 3,
+    });
+  });
+
+  it("チケットタブは直接遷移し、参加者フィルターを保つ", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(event)),
+    );
+    const router = await renderEventPage(
+      "/events/42/registrations?status=cancelled&ticket=vip&page=3",
+    );
+    await screen.findByRole("heading", { name: event.name });
+
+    const ticketsLink = screen.getByRole("link", { name: "チケット設定" });
+    expect(ticketsLink.getAttribute("href")).toContain("/events/42/tickets");
+    expect(ticketsLink.getAttribute("href")).not.toContain("tab=tickets");
+    fireEvent.click(ticketsLink);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/events/42/tickets"));
+    expect(router.state.location.search).toMatchObject({
+      status: "cancelled",
+      ticket: "vip",
+      page: 3,
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "参加者" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/events/42/registrations"));
+    expect(router.state.location.search).toMatchObject({
+      status: "cancelled",
+      ticket: "vip",
+      page: 3,
+    });
   });
 });

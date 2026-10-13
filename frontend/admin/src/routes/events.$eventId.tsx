@@ -1,27 +1,28 @@
 import { createFileRoute, Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
-import { EventLayout } from "../pages/event-detail";
-import { EventTabs } from "./-event-tabs";
+import { EventLayout, EventTabs } from "../pages/event-detail";
 
 export const Route = createFileRoute("/events/$eventId")({
   // oxlint-disable-next-line no-restricted-types
   validateSearch: (search: Record<string, unknown>) => ({
     tab: search.tab === "tickets" ? ("tickets" as const) : ("basic" as const),
+    status: search.status === "cancelled" ? ("cancelled" as const) : ("active" as const),
+    ticket: typeof search.ticket === "string" ? search.ticket : "all",
+    page: Math.max(1, Number(search.page) || 1),
   }),
   component: EventDetailRoute,
 });
 
 function EventDetailRoute() {
   const { eventId } = Route.useParams();
-  const { tab } = Route.useSearch();
+  const search = Route.useSearch();
   const routeId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
-  const search = useRouterState({ select: (state) => state.location.search });
 
-  if (tab === "tickets") {
+  if (search.tab === "tickets") {
     return (
       <Navigate
         to="/events/$eventId/tickets"
         params={{ eventId }}
-        search={{ tab: "basic" }}
+        search={{ ...search, tab: "basic" }}
         replace
       />
     );
@@ -41,9 +42,9 @@ function EventDetailRoute() {
           }
           registrationSearch={{
             tab: "basic",
-            status: search.status === "cancelled" ? "cancelled" : "active",
-            ticket: typeof search.ticket === "string" ? search.ticket : "all",
-            page: typeof search.page === "number" ? search.page : 1,
+            status: search.status,
+            ticket: search.ticket,
+            page: search.page,
           }}
         />
         <Outlet key={eventId} />

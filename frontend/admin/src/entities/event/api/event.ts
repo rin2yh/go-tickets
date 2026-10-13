@@ -11,6 +11,14 @@ export async function fetchEvents(getToken: () => Promise<string | null>) {
   return events;
 }
 
+export function buildEventsQueryOptions(getToken: () => Promise<string | null>) {
+  return queryOptions({
+    queryKey: ["admin", "events"] as const,
+    queryFn: () => fetchEvents(getToken),
+    retry: false,
+  });
+}
+
 export async function createEvent(getToken: () => Promise<string | null>, input: EventInput) {
   const token = await getToken();
   const response = await fetch("/api/events", {

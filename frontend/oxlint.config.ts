@@ -1,63 +1,6 @@
 import { defineConfig } from "oxlint";
 import base from "./.oxlint-base.json" with { type: "json" };
-
-const adminLayers = ["admin-page", "admin-widget", "admin-feature", "admin-entity", "admin-shared"];
-const publicLayers = ["public-page", "public-widget", "public-feature", "public-shared"];
-
-function layerPolicies(layers: string[]) {
-  const policies = [
-    {
-      from: { file: { categories: "test" } },
-      allow: {
-        to: [
-          { element: { type: "admin-test", fileInternalPath: "event-page.tsx" } },
-          { element: { type: "admin-app", fileInternalPath: "routeTree.gen.ts" } },
-        ],
-      },
-    },
-    {
-      from: { element: { type: "admin-test" } },
-      allow: {
-        to: {
-          element: { type: "admin-app", fileInternalPath: "routeTree.gen.ts" },
-        },
-      },
-    },
-    {
-      from: { element: { type: "admin-app" } },
-      allow: {
-        to: {
-          element: {
-            type: layers,
-            fileInternalPath: "index.ts",
-          },
-        },
-      },
-    },
-  ];
-
-  for (const [index, layer] of layers.entries()) {
-    const downstream = layers.slice(index + 1);
-    if (downstream.length === 0) continue;
-
-    policies.push({
-      from: { element: { type: layer } },
-      allow: {
-        to: {
-          element: {
-            type: downstream,
-            fileInternalPath: "index.ts",
-          },
-        },
-      },
-    });
-  }
-
-  // Each FSD layer is modeled as separate slice elements, so same-layer
-  // dependencies remain disallowed by default. Internal files within a slice
-  // are ignored by the rule's default `checkInternals: false` behavior.
-  return policies;
-}
+const { rules: baseRules, ...baseConfig } = base;
 
 const adminElements = [
   {
@@ -121,16 +64,13 @@ const publicElements = [
 ];
 
 export default defineConfig({
-  ...base,
+  ...baseConfig,
   jsPlugins: ["eslint-plugin-boundaries"],
   settings: {
     "boundaries/root-path": ".",
     "boundaries/include": ["admin/src/**/*.{ts,tsx}", "public/src/**/*.{ts,tsx}"],
     "boundaries/elements": [...adminElements, ...publicElements],
-    "boundaries/files": [
-      { pattern: "admin/src/**/*.test.{ts,tsx}", category: "test" },
-      { pattern: "public/src/**/*.test.{ts,tsx}", category: "test" },
-    ],
+    "boundaries/files": [{ pattern: "admin/src/**/*.test.{ts,tsx}", category: "admin-test" }],
     "import/resolver": {
       typescript: {
         alwaysTryTypes: true,
@@ -140,13 +80,128 @@ export default defineConfig({
     },
   },
   rules: {
-    ...base.rules,
+    ...baseRules,
     "boundaries/no-unknown-dependencies": "error",
     "boundaries/dependencies": [
       "error",
       {
         default: "disallow",
-        policies: [...layerPolicies(adminLayers), ...layerPolicies(publicLayers)],
+        policies: [
+          // App files can enter slices only through their public API.
+          {
+            from: { element: { type: "admin-app" } },
+            allow: {
+              to: {
+                element: {
+                  type: [
+                    "admin-page",
+                    "admin-widget",
+                    "admin-feature",
+                    "admin-entity",
+                    "admin-shared",
+                  ],
+                  fileInternalPath: "index.ts",
+                },
+              },
+            },
+          },
+          {
+            from: { element: { type: "public-app" } },
+            allow: {
+              to: {
+                element: {
+                  type: ["public-page", "public-widget", "public-feature", "public-shared"],
+                  fileInternalPath: "index.ts",
+                },
+              },
+            },
+          },
+          // Admin tests may use the shared test renderer and generated route tree.
+          {
+            from: { file: { categories: "admin-test" } },
+            allow: {
+              to: [
+                { element: { type: "admin-test" } },
+                { element: { type: "admin-app", fileInternalPath: "routeTree.gen.ts" } },
+              ],
+            },
+          },
+          {
+            from: { element: { type: "admin-test" } },
+            allow: {
+              to: { element: { type: "admin-app", fileInternalPath: "routeTree.gen.ts" } },
+            },
+          },
+          // FSD dependency direction. `default: disallow` also blocks cross-slice imports
+          // within the same layer; files inside one slice are treated as internal.
+          {
+            from: { element: { type: "admin-page" } },
+            allow: {
+              to: {
+                element: {
+                  type: ["admin-widget", "admin-feature", "admin-entity", "admin-shared"],
+                  fileInternalPath: "index.ts",
+                },
+              },
+            },
+          },
+          {
+            from: { element: { type: "admin-widget" } },
+            allow: {
+              to: {
+                element: {
+                  type: ["admin-feature", "admin-entity", "admin-shared"],
+                  fileInternalPath: "index.ts",
+                },
+              },
+            },
+          },
+          {
+            from: { element: { type: "admin-feature" } },
+            allow: {
+              to: {
+                element: {
+                  type: ["admin-entity", "admin-shared"],
+                  fileInternalPath: "index.ts",
+                },
+              },
+            },
+          },
+          {
+            from: { element: { type: "admin-entity" } },
+            allow: {
+              to: { element: { type: "admin-shared", fileInternalPath: "index.ts" } },
+            },
+          },
+          {
+            from: { element: { type: "public-page" } },
+            allow: {
+              to: {
+                element: {
+                  type: ["public-widget", "public-feature", "public-shared"],
+                  fileInternalPath: "index.ts",
+                },
+              },
+            },
+          },
+          {
+            from: { element: { type: "public-widget" } },
+            allow: {
+              to: {
+                element: {
+                  type: ["public-feature", "public-shared"],
+                  fileInternalPath: "index.ts",
+                },
+              },
+            },
+          },
+          {
+            from: { element: { type: "public-feature" } },
+            allow: {
+              to: { element: { type: "public-shared", fileInternalPath: "index.ts" } },
+            },
+          },
+        ],
       },
     ],
   },

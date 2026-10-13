@@ -45,7 +45,7 @@ export function Events() {
       await navigate({
         to: "/events/$eventId",
         params: { eventId: String(eventId) },
-        search: { tab: "basic" },
+        search: { tab: "basic", status: "active", ticket: "all", page: 1 },
       });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "作成に失敗しました");
