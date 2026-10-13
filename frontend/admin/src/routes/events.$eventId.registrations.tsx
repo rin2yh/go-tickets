@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Registrations } from "../pages/event-registrations/ui/event-registrations";
+import { Registrations } from "../pages/event-registrations";
 
 export const Route = createFileRoute("/events/$eventId/registrations")({
   // oxlint-disable-next-line no-restricted-types

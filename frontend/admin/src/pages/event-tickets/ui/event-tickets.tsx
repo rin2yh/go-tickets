@@ -13,13 +13,8 @@ import {
 } from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
-import {
-  buildEventQueryOptions,
-  saveEventChange,
-  toLocal,
-  toUTC,
-  useEvent,
-} from "../../../features/event/event-detail";
+import { buildEventQueryOptions, saveEventChange, useEvent } from "../../../entities/event";
+import { toLocal, toUTC } from "../../../shared/lib/datetime";
 
 interface TicketForm {
   name: string;

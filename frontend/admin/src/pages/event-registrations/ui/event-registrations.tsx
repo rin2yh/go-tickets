@@ -13,11 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@go-tickets/ui/components/table";
-import { useEvent } from "../../../features/event/event-detail";
-import {
-  formatRegistrationDate,
-  buildRegistrationsQueryOptions,
-} from "../../../features/event/registrations";
+import { useEvent, buildRegistrationsQueryOptions } from "../../../entities/event";
+import { formatRegistrationDate } from "../../../shared/lib/datetime";
 // oxlint-disable-next-line complexity
 export interface RegistrationsProps {
   eventId: string;

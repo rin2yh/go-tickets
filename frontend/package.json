@@ -6,7 +6,7 @@
     "build:public": "pnpm --filter @go-tickets/public build",
     "build:admin": "pnpm --filter @go-tickets/admin build",
     "shadcn:add": "pnpm dlx shadcn@latest add -c ui",
-    "lint": "oxlint . && pnpm run format:check && pnpm run typecheck",
+    "lint": "oxlint . && node --test scripts/admin-architecture.test.mjs && pnpm run format:check && pnpm run typecheck",
     "test": "pnpm --filter @go-tickets/public test && pnpm --filter @go-tickets/admin test",
     "typecheck": "pnpm --filter @go-tickets/public typecheck && pnpm --filter @go-tickets/admin typecheck",
     "format": "oxfmt .",

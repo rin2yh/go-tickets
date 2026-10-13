@@ -5,27 +5,19 @@ import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Button } from "@go-tickets/ui/components/button";
 
-interface Event {
-  id: number;
-  name: string;
-  starts_at: string | null;
-  publication_status: "draft" | "published";
-}
+import { fetchEvents } from "../../../entities/event";
+import type { EventSummary } from "../../../entities/event";
+import { formatJST } from "../../../shared/lib/datetime";
 export function Events() {
   const { getToken } = useAuth();
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<EventSummary[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
     async function loadEvents() {
       try {
-        const token = await getToken();
-        const response = await fetch("/api/admin/events", {
-          headers: { Authorization: `Bearer ${token ?? ""}` },
-        });
-        if (!response.ok) throw new Error("イベントを読み込めません");
-        const result: Event[] = await response.json();
+        const result = await fetchEvents(getToken);
         if (!cancelled) setEvents(result);
       } catch {
         if (!cancelled) setError("イベントを読み込めません");
@@ -82,7 +74,9 @@ export function Events() {
                 {event.name}
               </span>
               <span className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                <span>{event.starts_at ? formatDate(event.starts_at) : "開催日時未設定"}</span>
+                <span>
+                  {event.starts_at ? formatJST(event.starts_at, "medium") : "開催日時未設定"}
+                </span>
                 <Badge variant={event.publication_status === "published" ? "default" : "secondary"}>
                   {event.publication_status === "published" ? "公開中" : "下書き"}
                 </Badge>
@@ -93,11 +87,4 @@ export function Events() {
       )}
     </main>
   );
-}
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Tokyo",
-  }).format(new Date(value));
 }

@@ -1,41 +1,22 @@
 import { useAuth } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
-import { EventTabs } from "../../../components/event-tabs";
-import {
-  EventProvider,
-  EventRequestError,
-  buildEventQueryOptions,
-  formatJST,
-} from "../../../features/event/event-detail";
+import { EventProvider, EventRequestError, buildEventQueryOptions } from "../../../entities/event";
+import { formatJST } from "../../../shared/lib/datetime";
 
 export interface EventLayoutProps {
   eventId: string;
-  tab: "basic" | "tickets";
+  renderBackLink: (label: string) => ReactNode;
+  navigation: ReactNode;
+  children: ReactNode;
 }
 
-// oxlint-disable-next-line complexity
 export function EventLayout(props: EventLayoutProps) {
-  const { eventId, tab } = props;
+  const { eventId, renderBackLink, navigation, children } = props;
   const { getToken } = useAuth();
   const eventQuery = useQuery(buildEventQueryOptions(eventId, getToken));
-  const routeId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
-  const registrationStatus = useRouterState({ select: (state) => state.location.search.status });
-  const registrationTicket = useRouterState({ select: (state) => state.location.search.ticket });
-  const registrationPage = useRouterState({ select: (state) => state.location.search.page });
-
-  if (tab === "tickets") {
-    return (
-      <Navigate
-        to="/events/$eventId/tickets"
-        params={{ eventId }}
-        search={{ tab: "basic" }}
-        replace
-      />
-    );
-  }
   if (eventQuery.isPending) {
     return (
       <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
@@ -51,9 +32,7 @@ export function EventLayout(props: EventLayoutProps) {
             ? "イベントが見つかりません。"
             : "イベントを読み込めませんでした。"}
         </Alert>
-        <p>
-          <Link to="/events">イベント一覧へ</Link>
-        </p>
+        <p>{renderBackLink("イベント一覧へ")}</p>
       </main>
     );
   }
@@ -63,9 +42,7 @@ export function EventLayout(props: EventLayoutProps) {
   return (
     <EventProvider value={event}>
       <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
-        <p className="mb-4 text-sm">
-          <Link to="/events">← イベント一覧</Link>
-        </p>
+        <p className="mb-4 text-sm">{renderBackLink("← イベント一覧")}</p>
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -81,23 +58,8 @@ export function EventLayout(props: EventLayoutProps) {
             </p>
           </div>
         </div>
-        <EventTabs
-          eventId={eventId}
-          activeTab={
-            routeId?.endsWith("/registrations")
-              ? "registrations"
-              : routeId?.endsWith("/tickets")
-                ? "tickets"
-                : "basic"
-          }
-          registrationSearch={{
-            tab: "basic",
-            status: registrationStatus === "cancelled" ? "cancelled" : "active",
-            ticket: typeof registrationTicket === "string" ? registrationTicket : "all",
-            page: typeof registrationPage === "number" ? registrationPage : 1,
-          }}
-        />
-        <Outlet key={eventId} />
+        {navigation}
+        {children}
       </main>
     </EventProvider>
   );
