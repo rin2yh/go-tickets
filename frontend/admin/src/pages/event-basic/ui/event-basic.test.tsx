@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { event, renderEventPage } from "../../shared/test/event-page";
+import { event, renderEventPage } from "../../../test/event-page";
 
 function inputValue(element: HTMLElement) {
   if (!(element instanceof HTMLInputElement)) throw new Error("Expected an input element");

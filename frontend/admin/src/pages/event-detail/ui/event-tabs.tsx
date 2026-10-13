@@ -25,7 +25,7 @@ export function EventTabs({
       <Link
         to="/events/$eventId"
         params={{ eventId }}
-        search={{ tab: "basic" }}
+        search={registrationSearch}
         activeOptions={{ exact: true }}
         aria-current={activeTab === "basic" ? "page" : undefined}
         className={tabClass(activeTab === "basic")}
@@ -33,9 +33,9 @@ export function EventTabs({
         基本情報
       </Link>
       <Link
-        to="/events/$eventId"
+        to="/events/$eventId/tickets"
         params={{ eventId }}
-        search={{ tab: "tickets" }}
+        search={registrationSearch}
         activeOptions={{ exact: true }}
         aria-current={activeTab === "tickets" ? "page" : undefined}
         className={tabClass(activeTab === "tickets")}

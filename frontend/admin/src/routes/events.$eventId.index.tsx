@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BasicInformation } from "../pages/event-basic/ui/event-basic";
+import { BasicInformation } from "../pages/event-basic";
 
 export const Route = createFileRoute("/events/$eventId/")({ component: EventBasicRoute });
 function EventBasicRoute() {

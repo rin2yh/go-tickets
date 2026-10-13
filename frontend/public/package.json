@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "astro build",
-    "test": "vitest run --environment jsdom",
+    "lint": "oxlint .",
+    "test": "vitest run",
     "typecheck": "astro-check"
   },
   "dependencies": {

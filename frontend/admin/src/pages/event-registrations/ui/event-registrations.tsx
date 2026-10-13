@@ -13,11 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@go-tickets/ui/components/table";
-import { useEvent } from "../../../features/event/event-detail";
-import {
-  formatRegistrationDate,
-  buildRegistrationsQueryOptions,
-} from "../../../features/event/registrations";
+import { useEvent, buildRegistrationsQueryOptions } from "../../../entities/event";
+import { formatJST } from "../../../shared/lib/datetime";
 // oxlint-disable-next-line complexity
 export interface RegistrationsProps {
   eventId: string;
@@ -27,6 +24,11 @@ export interface RegistrationsProps {
   onSearchChange: (
     next: Partial<{ status: "active" | "cancelled"; ticket: string; page: number }>,
   ) => void;
+}
+
+function formatRegistrationDate(value: string) {
+  const normalized = /Z$|[+-]\d\d:\d\d$/.test(value) ? value : `${value.replace(" ", "T")}Z`;
+  return formatJST(normalized, "medium");
 }
 
 export function Registrations(props: RegistrationsProps) {
