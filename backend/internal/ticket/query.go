@@ -22,6 +22,47 @@ func (s SQLQuery) Status(ctx context.Context, typeID int64) (Status, error) {
 	return result, nil
 }
 
+// AdminRegistrations returns one page of registrations and event-level counts.
+func (s SQLQuery) AdminRegistrations(ctx context.Context, eventID int64, status, ticketID string, page int) (RegistrationPage, error) {
+	var result RegistrationPage
+	if err := s.DB.QueryRowContext(ctx, `SELECT COALESCE(SUM(capacity),0) FROM ticket_types WHERE event_id = ?`, eventID).Scan(&result.Capacity); err != nil {
+		return result, err
+	}
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(CASE WHEN r.status='active' THEN 1 ELSE 0 END),0), COALESCE(SUM(CASE WHEN r.status='cancelled' THEN 1 ELSE 0 END),0) FROM registrations r JOIN ticket_types t ON t.id=r.ticket_type_id WHERE t.event_id=?`, eventID).Scan(&result.Total, &result.Active, &result.Cancelled); err != nil {
+		return result, err
+	}
+	if status != "active" && status != "cancelled" {
+		status = "active"
+	}
+	query := `SELECT COALESCE(p.name,''), t.id, t.name, r.created_at FROM registrations r JOIN ticket_types t ON t.id=r.ticket_type_id LEFT JOIN participant_profiles p ON p.user_id=r.user_id WHERE t.event_id=? AND r.status=?`
+	args := []any{eventID, status}
+	if ticketID != "" && ticketID != "all" {
+		query += ` AND t.id=?`
+		args = append(args, ticketID)
+	}
+	var total int64
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM (`+query+`)`, args...).Scan(&total); err != nil {
+		return result, err
+	}
+	result.Total = total
+	query += ` ORDER BY r.created_at ASC, r.id ASC LIMIT 50 OFFSET ?`
+	args = append(args, (page-1)*50)
+	rows, err := s.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return result, err
+	}
+	defer func() { _ = rows.Close() }()
+	result.Items = []AdminRegistration{}
+	for rows.Next() {
+		var item AdminRegistration
+		if err := rows.Scan(&item.Name, &item.TicketTypeID, &item.TicketName, &item.CreatedAt); err != nil {
+			return result, err
+		}
+		result.Items = append(result.Items, item)
+	}
+	return result, rows.Err()
+}
+
 func (s SQLQuery) Registrations(ctx context.Context, userID string) ([]Registration, error) {
 	query := selectQuery(
 		sm.Columns(quote("r", "ticket_type_id"), quote("e", "name"), quote("t", "name"), quote("r", "status")),

@@ -23,7 +23,7 @@ func NewDB(t testing.TB) *sql.DB {
 		t.Fatal("locate store helper")
 	}
 	migrationsDir := filepath.Join(filepath.Dir(file), "..", "..", "..", "migrations")
-	for _, name := range []string{"0001_init.sql", "0002_administrators.sql", "0003_event_details_and_registration_periods.sql"} {
+	for _, name := range []string{"0001_init.sql", "0002_administrators.sql", "0003_event_details_and_registration_periods.sql", "0004_participant_profiles.sql"} {
 		migration, err := os.ReadFile(filepath.Join(migrationsDir, name))
 		if err != nil {
 			t.Fatal(err)

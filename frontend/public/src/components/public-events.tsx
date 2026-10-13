@@ -87,7 +87,7 @@ export function PublicEventDetail() {
   if (!event) return <Alert variant="destructive">イベントが見つかりません。</Alert>;
 
   return (
-    <>
+    <div className="public-event-detail-content">
       <div className="public-hero">
         <Badge>イベント詳細</Badge>
         <h1 style={{ marginTop: 12 }}>{event.name}</h1>
@@ -137,7 +137,7 @@ export function PublicEventDetail() {
           ))}
         </ul>
       )}
-    </>
+    </div>
   );
 }
 

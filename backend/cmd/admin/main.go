@@ -44,6 +44,7 @@ func main() {
 	mux.Handle("GET /api/auth/config", handler.AuthConfig(cloudflare.Getenv("CLERK_PUBLISHABLE_KEY")))
 	mux.Handle("GET /api/admin/events", adminOnly(http.HandlerFunc(events.AdminEvents)))
 	mux.Handle("GET /api/admin/events/{id}", adminOnly(http.HandlerFunc(events.AdminEvent)))
+	mux.Handle("GET /api/admin/events/{id}/registrations", adminOnly(http.HandlerFunc(handler.AdminRegistrations)))
 	mux.Handle("GET /api/ticket-types/{id}/status", adminOnly(http.HandlerFunc(handler.TicketTypeStatus)))
 	mux.Handle("POST /api/events", adminOnly(http.HandlerFunc(events.CreateEvent)))
 	mux.Handle("PUT /api/events/{id}", adminOnly(http.HandlerFunc(events.UpdateEvent)))

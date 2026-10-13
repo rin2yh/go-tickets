@@ -1,6 +1,7 @@
 package ticket
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -100,6 +101,35 @@ func (h *Handler) TicketTypeStatus(w http.ResponseWriter, r *http.Request) {
 	default:
 		httpx.WriteError(w, http.StatusInternalServerError, "database_error")
 	}
+}
+
+func (h *Handler) AdminRegistrations(w http.ResponseWriter, r *http.Request) {
+	q, ok := h.queries.(interface {
+		AdminRegistrations(context.Context, int64, string, string, int) (RegistrationPage, error)
+	})
+	if !ok {
+		httpx.WriteError(w, http.StatusInternalServerError, "database_error")
+		return
+	}
+	eventID, ok := pathID(w, r, "id", "invalid_event_id")
+	if !ok {
+		return
+	}
+	page := 1
+	if raw := r.URL.Query().Get("page"); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil || value < 1 {
+			httpx.WriteError(w, http.StatusBadRequest, "invalid_page")
+			return
+		}
+		page = value
+	}
+	result, err := q.AdminRegistrations(r.Context(), eventID, r.URL.Query().Get("status"), r.URL.Query().Get("ticket"), page)
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "database_error")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, result)
 }
 
 func (h *Handler) CreateTicketType(w http.ResponseWriter, r *http.Request) {

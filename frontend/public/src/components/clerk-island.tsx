@@ -66,9 +66,13 @@ export function ClerkIsland() {
   );
 }
 
+// oxlint-disable-next-line complexity
 function AuthenticatedContent() {
   const [pathname, setPathname] = useState("");
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
+  const [participantName, setParticipantName] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
   const mode = pathname === "/tickets" ? "tickets" : "event";
   const eventId = Number(pathname.match(/^\/events\/(\d+)\/?$/)?.[1] ?? 0);
   const [ticketTypesForEvent, setTicketTypesForEvent] = useState<{
@@ -85,6 +89,28 @@ function AuthenticatedContent() {
     document.addEventListener("astro:page-load", onPageLoad);
     return () => document.removeEventListener("astro:page-load", onPageLoad);
   }, []);
+  useEffect(() => {
+    document.body.classList.toggle("needs-participant-name", isSignedIn && participantName === "");
+    return () => document.body.classList.remove("needs-participant-name");
+  }, [isSignedIn, participantName]);
+  useEffect(() => {
+    if (!isSignedIn) return;
+    let active = true;
+    void getToken()
+      .then((token) =>
+        fetch("/api/profile", { headers: { Authorization: `Bearer ${token ?? ""}` } }),
+      )
+      .then((response) => response?.json())
+      .then((payload) => {
+        if (active) setParticipantName(payload.name || "");
+      })
+      .catch(() => {
+        if (active) setParticipantName("");
+      });
+    return () => {
+      active = false;
+    };
+  }, [getToken, isSignedIn]);
   useEffect(() => {
     if (mode !== "event" || !eventId) return;
     let active = true;
@@ -119,13 +145,96 @@ function AuthenticatedContent() {
         </CardContent>
       </Card>
     );
+  if (participantName === null)
+    return (
+      <Card>
+        <CardContent>
+          <p aria-live="polite">参加者情報を確認しています…</p>
+        </CardContent>
+      </Card>
+    );
+  if (!participantName || editingName)
+    return (
+      <ParticipantNameForm
+        initialName={participantName || user?.fullName || user?.firstName || ""}
+        onSaved={(name) => {
+          setParticipantName(name);
+          setEditingName(false);
+        }}
+      />
+    );
   return (
     <TicketActions
       mode={mode}
       eventId={eventId}
       ticketTypes={ticketTypes}
       eventEndsAt={eventEndsAt}
+      participantName={participantName}
+      onEditName={() => setEditingName(true)}
     />
+  );
+}
+
+function ParticipantNameForm({
+  initialName,
+  onSaved,
+}: {
+  initialName: string;
+  onSaved: (name: string) => void;
+}) {
+  const { getToken } = useAuth();
+  const [name, setName] = useState(initialName);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <Card>
+      <CardContent>
+        <form
+          className="participant-name-form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const normalized = name.trim();
+            if (!normalized) return;
+            setBusy(true);
+            setError("");
+            try {
+              const token = await getToken();
+              const response = await fetch("/api/profile", {
+                method: "PUT",
+                headers: {
+                  Authorization: `Bearer ${token ?? ""}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ name: normalized }),
+              });
+              if (!response.ok) throw new Error("参加者名を保存できません");
+              const result = await response.json();
+              onSaved(result.name);
+            } catch (cause) {
+              setError(cause instanceof Error ? cause.message : "保存に失敗しました");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <h2>参加者名を設定</h2>
+          <p>
+            イベントの参加者一覧などで使う名前です。実名・ハンドルネームのどちらでも構いません。あとから変更できます。
+          </p>
+          <label>
+            参加者名
+            <input
+              value={name}
+              maxLength={100}
+              required
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          {error && <Alert variant="destructive">{error}</Alert>}
+          <Button disabled={busy || !name.trim()}>保存して続ける</Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -134,14 +243,17 @@ function TicketActions({
   eventId,
   ticketTypes,
   eventEndsAt,
+  participantName,
+  onEditName,
 }: {
   mode: "tickets" | "event";
   eventId: number;
   ticketTypes: TicketType[];
   eventEndsAt: string | null;
+  participantName: string;
+  onEditName: () => void;
 }) {
   const { getToken } = useAuth();
-  const { user } = useUser();
   const [items, setItems] = useState<MyRegistration[]>([]);
   const [loadedRegistrationKey, setLoadedRegistrationKey] = useState("");
   const [loadedTokenGetter, setLoadedTokenGetter] = useState<TokenGetter | null>(null);
@@ -155,7 +267,6 @@ function TicketActions({
     getToken,
   );
   const currentItems = registrationsReady ? items : [];
-  const userName = user?.username || user?.fullName || user?.firstName || "ユーザー";
 
   useEffect(() => {
     let active = true;
@@ -205,7 +316,10 @@ function TicketActions({
         <CardContent>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
             <Badge>ログイン中</Badge>
-            <span>{userName}</span>
+            <span>{participantName}</span>
+            <Button variant="ghost" size="sm" onClick={onEditName}>
+              参加者名を変更
+            </Button>
             <UserButton />
           </div>
           {mode === "event" && (

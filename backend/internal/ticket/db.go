@@ -40,6 +40,20 @@ type Registration struct {
 	Status       string `json:"status"`
 }
 
+type AdminRegistration struct {
+	Name         string `json:"name"`
+	TicketTypeID int64  `json:"ticket_type_id"`
+	TicketName   string `json:"ticket_name"`
+	CreatedAt    string `json:"created_at"`
+}
+type RegistrationPage struct {
+	Items     []AdminRegistration `json:"items"`
+	Total     int64               `json:"total"`
+	Active    int64               `json:"active"`
+	Cancelled int64               `json:"cancelled"`
+	Capacity  int64               `json:"capacity"`
+}
+
 type Command interface {
 	Register(context.Context, int64, string) error
 	Cancel(context.Context, int64, string) error

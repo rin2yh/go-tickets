@@ -179,6 +179,7 @@ function Events() {
               key={event.id}
               to="/events/$eventId"
               params={{ eventId: String(event.id) }}
+              search={{ tab: "basic" }}
             >
               <span className="event-row-name">{event.name}</span>
               <span className="event-row-meta">

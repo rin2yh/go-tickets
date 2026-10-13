@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
@@ -33,10 +33,17 @@ interface Event {
   ticket_types: TicketType[];
 }
 export const Route = createFileRoute("/events/$eventId")({
+  // oxlint-disable-next-line no-restricted-types
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: search.tab === "tickets" ? ("tickets" as const) : ("basic" as const),
+  }),
   component: EventPage,
 });
+// oxlint-disable-next-line complexity
 function EventPage() {
   const { eventId } = Route.useParams();
+  const { tab } = Route.useSearch();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { getToken } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [eventName, setEventName] = useState("");
@@ -56,6 +63,7 @@ function EventPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
+    if (pathname.endsWith("/registrations")) return;
     void getToken()
       .then(async (token) => {
         const response = await fetch(`/api/admin/events/${eventId}`, {
@@ -73,7 +81,8 @@ function EventPage() {
         setPublicationStatus(item.publication_status);
       })
       .catch((cause: Error) => setError(cause.message));
-  }, [eventId, getToken]);
+  }, [eventId, getToken, pathname]);
+  if (pathname.endsWith("/registrations")) return <Outlet />;
   async function save(path: string, method: string, body: Record<string, string | number | null>) {
     setBusy(true);
     setError("");
@@ -116,260 +125,304 @@ function EventPage() {
   return (
     <main className="admin-main">
       <p>
-        <Link to="/events">← イベント一覧へ</Link>
+        <Link to="/events">← イベント一覧</Link>
       </p>
       <div className="page-heading">
         <div>
-          <p className="page-eyebrow">EVENT SETTINGS</p>
-          <h1>イベント編集</h1>
+          <h1>{event.name}</h1>
+          <p className="event-meta">
+            <Badge variant="outline">
+              {event.publication_status === "published" ? "公開中" : "下書き"}
+            </Badge>
+            {event.starts_at ? formatJST(event.starts_at) : "開催日時未設定"}
+          </p>
         </div>
-        <Badge variant="outline">イベント #{event.id}</Badge>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>基本情報</CardTitle>
-          <CardDescription>
-            下書きは未入力項目を保存できます。公開時には開催日時と説明が必要です。
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="form-stack"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void save(`/api/events/${event.id}`, "PUT", {
-                name: eventName,
-                description,
-                starts_at: toUTC(startsAt),
-                ends_at: toUTC(endsAt),
-                venue_name: venueName,
-                venue_address: venueAddress,
-                publication_status: publicationStatus,
-              });
-            }}
-          >
-            <Label>
-              イベント名
-              <Input
-                value={eventName}
-                maxLength={200}
-                required
-                onChange={(e) => setEventName(e.target.value)}
-              />
-            </Label>
-            <Label>
-              イベント説明（Markdown）
-              <textarea
-                aria-label="イベント説明（Markdown）"
-                value={description}
-                rows={8}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </Label>
-            <Label>
-              開催開始日時（JST）
-              <Input
-                type="datetime-local"
-                value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
-              />
-            </Label>
-            <Label>
-              開催終了日時（JST）
-              <Input
-                type="datetime-local"
-                value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
-              />
-            </Label>
-            <Label>
-              会場名
-              <Input value={venueName} onChange={(e) => setVenueName(e.target.value)} />
-            </Label>
-            <Label>
-              会場住所
-              <Input value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} />
-            </Label>
-            <Label>
-              公開状態
-              <select
-                aria-label="公開状態"
-                value={publicationStatus}
-                onChange={(e) =>
-                  setPublicationStatus(e.target.value === "published" ? "published" : "draft")
-                }
+      <nav className="event-tabs" aria-label="イベント内ナビゲーション">
+        <Link
+          to="/events/$eventId"
+          params={{ eventId }}
+          search={{ tab: "basic" }}
+          className={tab === "basic" ? "active" : ""}
+        >
+          基本情報
+        </Link>
+        <Link
+          to="/events/$eventId"
+          params={{ eventId }}
+          search={{ tab: "tickets" }}
+          className={tab === "tickets" ? "active" : ""}
+        >
+          チケット設定
+        </Link>
+        <Link
+          to="/events/$eventId/registrations"
+          params={{ eventId }}
+          search={{ tab: "basic", status: "active", ticket: "all", page: 1 }}
+          className=""
+        >
+          参加者
+        </Link>
+      </nav>
+      {tab === "basic" && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>基本情報</CardTitle>
+              <CardDescription>
+                下書きは未入力項目を保存できます。公開時には開催日時と説明が必要です。
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                className="form-stack"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void save(`/api/events/${event.id}`, "PUT", {
+                    name: eventName,
+                    description,
+                    starts_at: toUTC(startsAt),
+                    ends_at: toUTC(endsAt),
+                    venue_name: venueName,
+                    venue_address: venueAddress,
+                    publication_status: publicationStatus,
+                  });
+                }}
               >
-                <option value="draft">下書き</option>
-                <option value="published">公開</option>
-              </select>
-            </Label>
-            <div>
-              <Button disabled={busy}>イベントを保存</Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-      <div className="page-heading" style={{ marginTop: 38 }}>
-        <div>
-          <p className="page-eyebrow">TICKETS</p>
-          <h2>チケット種別</h2>
-        </div>
-        <Badge variant="secondary">{event.ticket_types.length} 件</Badge>
-      </div>
-      {event.ticket_types.length === 0 && (
-        <Card>
-          <CardContent>
-            <p>チケット種別はありません。</p>
-          </CardContent>
-        </Card>
+                <Label>
+                  イベント名
+                  <Input
+                    value={eventName}
+                    maxLength={200}
+                    required
+                    onChange={(e) => setEventName(e.target.value)}
+                  />
+                </Label>
+                <Label>
+                  イベント説明（Markdown）
+                  <textarea
+                    aria-label="イベント説明（Markdown）"
+                    value={description}
+                    rows={8}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </Label>
+                <Label>
+                  開催開始日時（JST）
+                  <Input
+                    type="datetime-local"
+                    value={startsAt}
+                    onChange={(e) => setStartsAt(e.target.value)}
+                  />
+                </Label>
+                <Label>
+                  開催終了日時（JST）
+                  <Input
+                    type="datetime-local"
+                    value={endsAt}
+                    onChange={(e) => setEndsAt(e.target.value)}
+                  />
+                </Label>
+                <Label>
+                  会場名
+                  <Input value={venueName} onChange={(e) => setVenueName(e.target.value)} />
+                </Label>
+                <Label>
+                  会場住所
+                  <Input value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} />
+                </Label>
+                <Label>
+                  公開状態
+                  <select
+                    aria-label="公開状態"
+                    value={publicationStatus}
+                    onChange={(e) =>
+                      setPublicationStatus(e.target.value === "published" ? "published" : "draft")
+                    }
+                  >
+                    <option value="draft">下書き</option>
+                    <option value="published">公開</option>
+                  </select>
+                </Label>
+                <div>
+                  <Button disabled={busy}>イベントを保存</Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </>
       )}
-      <div className="ticket-grid">
-        {event.ticket_types.map((t) => {
-          const value = editing[t.id] ?? {
-            name: t.name,
-            capacity: String(t.capacity),
-            starts: toLocal(t.registration_starts_at),
-            ends: toLocal(t.registration_ends_at),
-          };
-          return (
-            <form
-              key={t.id}
-              onSubmit={(e) => {
-                e.preventDefault();
-                void save(`/api/ticket-types/${t.id}`, "PUT", {
-                  name: value.name,
-                  capacity: Number(value.capacity),
-                  registration_starts_at: toUTC(value.starts),
-                  registration_ends_at: toUTC(value.ends),
-                });
-              }}
-            >
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t.name}</CardTitle>
-                  <CardDescription>
-                    申込済み {t.reserved} 件 / 定員 {t.capacity} 件
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="ticket-form">
-                    <Label>
-                      種別名
-                      <Input
-                        value={value.name}
-                        maxLength={200}
-                        required
-                        onChange={(e) =>
-                          setEditing({ ...editing, [t.id]: { ...value, name: e.target.value } })
-                        }
-                      />
-                    </Label>
-                    <Label>
-                      定員
-                      <Input
-                        type="number"
-                        min={t.reserved}
-                        step="1"
-                        value={value.capacity}
-                        required
-                        onChange={(e) =>
-                          setEditing({ ...editing, [t.id]: { ...value, capacity: e.target.value } })
-                        }
-                      />
-                    </Label>
-                    <Label>
-                      受付開始日時（JST）
-                      <Input
-                        type="datetime-local"
-                        value={value.starts}
-                        onChange={(e) =>
-                          setEditing({ ...editing, [t.id]: { ...value, starts: e.target.value } })
-                        }
-                      />
-                    </Label>
-                    <Label>
-                      受付終了日時（JST）
-                      <Input
-                        type="datetime-local"
-                        value={value.ends}
-                        onChange={(e) =>
-                          setEditing({ ...editing, [t.id]: { ...value, ends: e.target.value } })
-                        }
-                      />
-                    </Label>
-                    <Button disabled={busy}>保存</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </form>
-          );
-        })}
-      </div>
-      <Card style={{ marginTop: 20 }}>
-        <CardHeader>
-          <CardTitle>チケット種別を追加</CardTitle>
-          <CardDescription>販売するチケットの名前と定員を設定します。</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="ticket-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void save(`/api/events/${event.id}/ticket-types`, "POST", {
-                name: newName,
-                capacity: Number(capacity),
-                registration_starts_at: toUTC(newRegistrationStarts),
-                registration_ends_at: toUTC(newRegistrationEnds),
-              }).then((ok) => {
-                if (ok) {
-                  setNewName("");
-                  setCapacity("0");
-                  setNewRegistrationStarts("");
-                  setNewRegistrationEnds("");
-                }
-              });
-            }}
-          >
-            <Label>
-              種別名
-              <Input
-                value={newName}
-                maxLength={200}
-                required
-                onChange={(e) => setNewName(e.target.value)}
-              />
-            </Label>
-            <Label>
-              受付開始日時（JST）
-              <Input
-                type="datetime-local"
-                value={newRegistrationStarts}
-                onChange={(e) => setNewRegistrationStarts(e.target.value)}
-              />
-            </Label>
-            <Label>
-              受付終了日時（JST）
-              <Input
-                type="datetime-local"
-                value={newRegistrationEnds}
-                onChange={(e) => setNewRegistrationEnds(e.target.value)}
-              />
-            </Label>
-            <Label>
-              定員
-              <Input
-                type="number"
-                min="0"
-                step="1"
-                value={capacity}
-                required
-                onChange={(e) => setCapacity(e.target.value)}
-              />
-            </Label>
-            <Button disabled={busy}>種別を作成</Button>
-          </form>
-        </CardContent>
-      </Card>
+      {tab === "tickets" && (
+        <>
+          <div className="page-heading" style={{ marginTop: 38 }}>
+            <div>
+              <p className="page-eyebrow">TICKETS</p>
+              <h2>チケット種別</h2>
+            </div>
+            <Badge variant="secondary">{event.ticket_types.length} 件</Badge>
+          </div>
+          {event.ticket_types.length === 0 && (
+            <Card>
+              <CardContent>
+                <p>チケット種別はありません。</p>
+              </CardContent>
+            </Card>
+          )}
+          <div className="ticket-grid">
+            {event.ticket_types.map((t) => {
+              const value = editing[t.id] ?? {
+                name: t.name,
+                capacity: String(t.capacity),
+                starts: toLocal(t.registration_starts_at),
+                ends: toLocal(t.registration_ends_at),
+              };
+              return (
+                <form
+                  key={t.id}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void save(`/api/ticket-types/${t.id}`, "PUT", {
+                      name: value.name,
+                      capacity: Number(value.capacity),
+                      registration_starts_at: toUTC(value.starts),
+                      registration_ends_at: toUTC(value.ends),
+                    });
+                  }}
+                >
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{t.name}</CardTitle>
+                      <CardDescription>
+                        申込済み {t.reserved} 件 / 定員 {t.capacity} 件
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="ticket-form">
+                        <Label>
+                          種別名
+                          <Input
+                            value={value.name}
+                            maxLength={200}
+                            required
+                            onChange={(e) =>
+                              setEditing({ ...editing, [t.id]: { ...value, name: e.target.value } })
+                            }
+                          />
+                        </Label>
+                        <Label>
+                          定員
+                          <Input
+                            type="number"
+                            min={t.reserved}
+                            step="1"
+                            value={value.capacity}
+                            required
+                            onChange={(e) =>
+                              setEditing({
+                                ...editing,
+                                [t.id]: { ...value, capacity: e.target.value },
+                              })
+                            }
+                          />
+                        </Label>
+                        <Label>
+                          受付開始日時（JST）
+                          <Input
+                            type="datetime-local"
+                            value={value.starts}
+                            onChange={(e) =>
+                              setEditing({
+                                ...editing,
+                                [t.id]: { ...value, starts: e.target.value },
+                              })
+                            }
+                          />
+                        </Label>
+                        <Label>
+                          受付終了日時（JST）
+                          <Input
+                            type="datetime-local"
+                            value={value.ends}
+                            onChange={(e) =>
+                              setEditing({ ...editing, [t.id]: { ...value, ends: e.target.value } })
+                            }
+                          />
+                        </Label>
+                        <Button disabled={busy}>保存</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </form>
+              );
+            })}
+          </div>
+          <Card style={{ marginTop: 20 }}>
+            <CardHeader>
+              <CardTitle>チケット種別を追加</CardTitle>
+              <CardDescription>販売するチケットの名前と定員を設定します。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                className="ticket-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void save(`/api/events/${event.id}/ticket-types`, "POST", {
+                    name: newName,
+                    capacity: Number(capacity),
+                    registration_starts_at: toUTC(newRegistrationStarts),
+                    registration_ends_at: toUTC(newRegistrationEnds),
+                  }).then((ok) => {
+                    if (ok) {
+                      setNewName("");
+                      setCapacity("0");
+                      setNewRegistrationStarts("");
+                      setNewRegistrationEnds("");
+                    }
+                  });
+                }}
+              >
+                <Label>
+                  種別名
+                  <Input
+                    value={newName}
+                    maxLength={200}
+                    required
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
+                </Label>
+                <Label>
+                  受付開始日時（JST）
+                  <Input
+                    type="datetime-local"
+                    value={newRegistrationStarts}
+                    onChange={(e) => setNewRegistrationStarts(e.target.value)}
+                  />
+                </Label>
+                <Label>
+                  受付終了日時（JST）
+                  <Input
+                    type="datetime-local"
+                    value={newRegistrationEnds}
+                    onChange={(e) => setNewRegistrationEnds(e.target.value)}
+                  />
+                </Label>
+                <Label>
+                  定員
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={capacity}
+                    required
+                    onChange={(e) => setCapacity(e.target.value)}
+                  />
+                </Label>
+                <Button disabled={busy}>種別を作成</Button>
+              </form>
+            </CardContent>
+          </Card>
+        </>
+      )}
       {error && (
         <Alert variant="destructive" style={{ marginTop: 16 }}>
           {error}
@@ -377,6 +430,14 @@ function EventPage() {
       )}
     </main>
   );
+}
+
+function formatJST(value: string) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Asia/Tokyo",
+  }).format(new Date(value));
 }
 
 function toLocal(value: string | null) {

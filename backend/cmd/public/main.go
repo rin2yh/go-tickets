@@ -11,6 +11,7 @@ import (
 
 	"github.com/rin2yh/go-tickets/internal/auth"
 	"github.com/rin2yh/go-tickets/internal/event"
+	"github.com/rin2yh/go-tickets/internal/profile"
 	"github.com/rin2yh/go-tickets/internal/ticket"
 	"github.com/syumai/workers-go"
 	"github.com/syumai/workers-go/cloudflare"
@@ -36,6 +37,7 @@ func main() {
 		log.Fatal(err)
 	}
 	handler := ticket.NewHandler(ticket.SQLQuery{DB: db}, ticket.SQLCommand{DB: db}, auth.UserID)
+	profiles := profile.Handler{DB: db, UserID: auth.UserID}
 	events := event.NewHandler(event.SQLQuery{DB: db}, event.SQLCommand{DB: db})
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handler.Health)
@@ -44,6 +46,8 @@ func main() {
 	mux.HandleFunc("GET /api/events/{id}", events.Event)
 	protected := auth.Authenticated(auth.UserID)
 	mux.Handle("GET /api/registrations", protected(http.HandlerFunc(handler.Registrations)))
+	mux.Handle("GET /api/profile", protected(http.HandlerFunc(profiles.Get)))
+	mux.Handle("PUT /api/profile", protected(http.HandlerFunc(profiles.Save)))
 	mux.Handle("POST /api/registrations", protected(http.HandlerFunc(handler.Register)))
 	mux.Handle("POST /api/registrations/cancel", protected(http.HandlerFunc(handler.CancelRegistration)))
 	workers.Serve(authenticator.Wrap(mux))

@@ -16,6 +16,8 @@ components:
     in: internal/event
   ticket:
     in: internal/ticket
+  profile:
+    in: internal/profile
   http:
     in: x/http
   public:
@@ -35,6 +37,10 @@ deps:
     mayDependOn:
       - http
 
+  profile:
+    mayDependOn:
+      - http
+
   event:
     mayDependOn:
       - ticket
@@ -45,6 +51,7 @@ deps:
       - auth
       - event
       - ticket
+      - profile
       - http
 
   admin:

@@ -141,9 +141,6 @@ func TestSQLCommand(t *testing.T) {
 	})
 }
 
-//go:fix inline
-func ptr(value string) *string { return new(value) }
-
 func eventInput(name string) event.EventInput {
 	start := time.Now().UTC().Add(-time.Hour).Format(time.RFC3339)
 	end := time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339)

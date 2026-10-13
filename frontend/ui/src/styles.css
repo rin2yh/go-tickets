@@ -220,6 +220,176 @@ a:hover {
   align-items: end;
   gap: 14px;
 }
+.event-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 9px 0 0;
+  color: var(--ui-muted);
+  font-size: 0.9rem;
+}
+.event-tabs {
+  display: flex;
+  gap: 26px;
+  overflow-x: auto;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--ui-border);
+  margin: 26px 0 30px;
+}
+.event-tabs a {
+  flex: none;
+  padding: 0 2px 12px;
+  color: var(--ui-muted);
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+}
+.event-tabs a.active,
+.event-tabs a[aria-current="page"] {
+  color: var(--ui-primary);
+  border-color: var(--ui-primary);
+}
+.attendee-section h2 {
+  margin: 0 0 18px;
+  color: #18392a;
+  font-size: 1.35rem;
+}
+.capacity-summary {
+  max-width: 430px;
+  margin-bottom: 22px;
+}
+.capacity-summary strong {
+  display: block;
+  margin-bottom: 9px;
+  font-size: 1.05rem;
+}
+.capacity-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e5ece7;
+}
+.capacity-track span {
+  display: block;
+  height: 100%;
+  background: var(--ui-primary);
+}
+.registration-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.registration-tabs button {
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--ui-muted);
+  background: transparent;
+  font-weight: 600;
+  cursor: pointer;
+}
+.registration-tabs button.selected {
+  color: var(--ui-primary);
+  border-bottom-color: var(--ui-primary);
+}
+.ticket-filter {
+  display: grid;
+  gap: 7px;
+  width: min(100%, 360px);
+  margin-bottom: 20px;
+  color: #31473a;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.ticket-filter select {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: white;
+  color: inherit;
+}
+.attendee-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  background: white;
+}
+.attendee-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  text-align: left;
+}
+.attendee-table th,
+.attendee-table td {
+  padding: 15px 18px;
+  border-bottom: 1px solid #edf1ee;
+}
+.attendee-table th {
+  color: var(--ui-muted);
+  background: #f8faf8;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.attendee-table td:first-child {
+  color: #22392d;
+  font-weight: 650;
+}
+.attendee-table tr:last-child td {
+  border-bottom: 0;
+}
+.empty-attendees {
+  padding: 32px !important;
+  color: var(--ui-muted);
+  text-align: center;
+  font-weight: 400 !important;
+}
+.attendee-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 16px;
+  color: var(--ui-muted);
+  font-size: 0.9rem;
+}
+.attendee-pagination div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.participant-name-form {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 480px);
+  margin: 0 auto;
+}
+.participant-name-form h2 {
+  margin: 0;
+  color: #18392a;
+  font-size: 1.45rem;
+}
+.participant-name-form p {
+  margin: 0;
+  color: var(--ui-muted);
+  line-height: 1.7;
+}
+.participant-name-form label {
+  display: grid;
+  gap: 7px;
+  font-weight: 600;
+}
+.participant-name-form input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+}
+body.needs-participant-name .public-event-detail-content {
+  display: none;
+}
 .public-shell {
   width: min(100% - 40px, 1080px);
   margin: 0 auto;
@@ -316,6 +486,13 @@ a:hover {
   }
   .ticket-form {
     grid-template-columns: 1fr;
+  }
+  .attendee-pagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .event-tabs {
+    gap: 20px;
   }
   .event-row {
     align-items: flex-start;
