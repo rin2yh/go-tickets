@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RegisterButtons, TicketAvailability } from "./clerk-island";
+import { RegisterButtons, TicketAvailability } from "./ticket-actions";
 
 afterEach(() => {
   cleanup();
