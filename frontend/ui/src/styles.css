@@ -28,10 +28,17 @@
 
 @layer base {
   * {
+    box-sizing: border-box;
     @apply border-border outline-ring/50;
   }
   body {
+    min-width: 320px;
+    margin: 0;
     @apply bg-background text-foreground;
+  }
+  button,
+  input {
+    font: inherit;
   }
   a {
     color: var(--ui-primary);
@@ -74,17 +81,6 @@
   --radius: 0.65rem;
 }
 
-* {
-  box-sizing: border-box;
-}
-body {
-  margin: 0;
-  min-width: 320px;
-}
-button,
-input {
-  font: inherit;
-}
 .participant-name-form {
   display: grid;
   gap: 16px;

@@ -100,7 +100,6 @@ function Events() {
                 value={description}
                 rows={8}
                 onChange={(e) => setDescription(e.target.value)}
-                className="min-h-[300px] resize-y leading-relaxed"
               />
             </div>
             <div className="grid gap-5 md:grid-cols-2">

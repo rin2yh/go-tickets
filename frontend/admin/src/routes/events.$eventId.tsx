@@ -231,7 +231,6 @@ function EventPage() {
                   <Textarea
                     id="event-description"
                     value={description}
-                    className="min-h-[300px] resize-y text-sm leading-6"
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
