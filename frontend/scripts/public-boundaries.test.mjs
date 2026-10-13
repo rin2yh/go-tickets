@@ -1,14 +1,20 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { checkPublicImport } from "./public-boundaries.mjs";
+import { checkPublicBoundaries, checkPublicImport } from "./public-boundaries.mjs";
 
 describe("Public FSD boundaries", () => {
   it("allows downward imports through a slice public API", () => {
     assert.equal(
-      checkPublicImport("widgets/public-event-list/ui/list.tsx", "../../../features/auth"),
+      checkPublicImport(
+        "widgets/public-event-list/ui/list.tsx",
+        "../../../features/participant-name",
+      ),
       null,
     );
-    assert.equal(checkPublicImport("features/auth/ui/form.tsx", "../../../entities/event"), null);
+    assert.equal(
+      checkPublicImport("features/participant-name/ui/form.tsx", "../../../entities/event"),
+      null,
+    );
   });
 
   it("rejects dependencies between slices in the same layer", () => {
@@ -33,5 +39,19 @@ describe("Public FSD boundaries", () => {
 
   it("allows imports within the same slice", () => {
     assert.equal(checkPublicImport("widgets/public-event-list/ui/list.tsx", "./card"), null);
+  });
+
+  it("checks the imports in the actual Public source tree", async () => {
+    assert.deepEqual(await checkPublicBoundaries(), []);
+  });
+
+  it("checks Astro layouts and rejects imports into slice internals", () => {
+    assert.match(
+      checkPublicImport(
+        "layouts/site-layout.astro",
+        "../widgets/authenticated-area/ui/clerk-island",
+      ),
+      /through its index.ts public API/,
+    );
   });
 });

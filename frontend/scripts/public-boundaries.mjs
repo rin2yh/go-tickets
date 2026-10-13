@@ -1,11 +1,23 @@
+import { createRequire } from "node:module";
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const publicRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../public/src");
+const scriptPath = fileURLToPath(import.meta.url);
+const publicRoot = resolve(dirname(scriptPath), "../public/src");
+const publicRequire = createRequire(resolve(dirname(scriptPath), "../public/package.json"));
+const ts = publicRequire("typescript");
+const configPath = resolve(publicRoot, "../tsconfig.json");
+const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+const compilerOptions = ts.parseJsonConfigFileContent(
+  configFile.config,
+  ts.sys,
+  dirname(configPath),
+).options;
 const layerOrder = new Map([
   ["pages", 0],
   ["screens", 0],
+  ["layouts", 0],
   ["widgets", 1],
   ["features", 2],
   ["entities", 3],
@@ -20,55 +32,43 @@ function sliceRoot(path) {
 }
 
 function normalizedImportPath(fromPath, specifier) {
-  const target = resolve(publicRoot, dirname(fromPath), specifier);
-  const path = relative(publicRoot, target).split(sep).join("/");
+  const fromFile = resolve(publicRoot, fromPath);
+  const resolved = specifier.startsWith(".")
+    ? resolve(dirname(fromFile), specifier)
+    : ts.resolveModuleName(specifier, fromFile, compilerOptions, ts.sys).resolvedModule
+        ?.resolvedFileName;
+  if (!resolved) return null;
+  const path = relative(publicRoot, resolve(resolved)).split(sep).join("/");
+  if (path === ".." || path.startsWith("../")) return null;
   return path.replace(/\.(astro|tsx?|jsx?)$/, "").replace(/\/index$/, "");
 }
 
 export function checkPublicImport(fromPath, specifier) {
-  if (!specifier.startsWith(".")) return null;
   const targetPath = normalizedImportPath(fromPath, specifier);
-  if (isOutsidePublicRoot(targetPath)) return null;
+  if (!targetPath) return null;
   const fromParts = fromPath.split("/");
   const toParts = targetPath.split("/");
   const fromLayer = fromParts[0];
   const toLayer = toParts[0];
-  if (isLayoutImport(fromLayer, toLayer) || !isPublicLayer(fromLayer) || !isPublicLayer(toLayer))
-    return null;
+  if (!layerOrder.has(fromLayer) || !layerOrder.has(toLayer)) return null;
+  return checkLayerDependency(fromPath, targetPath, fromLayer, toLayer);
+}
 
+function checkLayerDependency(fromPath, targetPath, fromLayer, toLayer) {
+  if (fromLayer === "pages" && toLayer === "layouts") return null;
   const fromSlice = sliceRoot(fromPath);
   const toSlice = sliceRoot(targetPath);
-  if (isSameSlice(fromSlice, toSlice)) return null;
+  if (fromSlice !== null && fromSlice === toSlice) return null;
 
   const fromLevel = layerOrder.get(fromLayer);
   const toLevel = layerOrder.get(toLayer);
-  if (isSameOrHigherLayer(fromLevel, toLevel)) {
+  if (toLevel <= fromLevel) {
     return `${fromPath} must not import ${targetPath}: same-layer and upward imports are forbidden`;
   }
   if (toSlice && targetPath !== toSlice) {
     return `${fromPath} must import ${toSlice} through its index.ts public API`;
   }
   return null;
-}
-
-function isOutsidePublicRoot(path) {
-  return path === ".." || path.startsWith("../");
-}
-
-function isLayoutImport(fromLayer, toLayer) {
-  return fromLayer === "pages" && toLayer === "layouts";
-}
-
-function isPublicLayer(layer) {
-  return layerOrder.has(layer);
-}
-
-function isSameSlice(fromSlice, toSlice) {
-  return fromSlice !== null && fromSlice === toSlice;
-}
-
-function isSameOrHigherLayer(fromLevel, toLevel) {
-  return toLevel <= fromLevel;
 }
 
 async function sourceFiles(directory) {
@@ -82,23 +82,50 @@ async function sourceFiles(directory) {
   return files.flat();
 }
 
+function astroFrontmatter(source) {
+  return source.match(/^---\s*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1] ?? "";
+}
+
+function moduleSpecifiers(source, filePath) {
+  const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
+  const specifiers = [];
+  function visit(node) {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      specifiers.push(node.moduleSpecifier.text);
+    } else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length === 1 &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      specifiers.push(node.arguments[0].text);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
+  return specifiers;
+}
+
 export async function checkPublicBoundaries() {
-  const files = (await sourceFiles(publicRoot)).filter((path) => /\.(astro|tsx?)$/.test(path));
+  const files = (await sourceFiles(publicRoot)).filter((path) => /\.(astro|tsx?|jsx?)$/.test(path));
   const errors = [];
-  const importPattern =
-    /\b(?:import|export)\s+(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
   for (const file of files) {
     const source = await readFile(file, "utf8");
     const fromPath = relative(publicRoot, file).split(sep).join("/");
-    for (const match of source.matchAll(importPattern)) {
-      const message = checkPublicImport(fromPath, match[1] ?? match[2]);
+    const code = file.endsWith(".astro") ? astroFrontmatter(source) : source;
+    for (const specifier of moduleSpecifiers(code, file)) {
+      const message = checkPublicImport(fromPath, specifier);
       if (message) errors.push(message);
     }
   }
   return errors;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] === scriptPath) {
   const errors = await checkPublicBoundaries();
   if (errors.length > 0) {
     process.stderr.write(`${errors.join("\n")}\n`);

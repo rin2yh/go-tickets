@@ -3,7 +3,7 @@ import { ClerkProvider, SignIn, useAuth, useUser } from "@clerk/react";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
 import { fetchPublicEvent } from "../../../entities/event";
-import { ParticipantNameForm } from "../../../features/auth";
+import { ParticipantNameForm } from "../../../features/participant-name";
 import { TicketActions, type TicketType } from "../../../features/ticket-registration";
 
 async function clerkKey(): Promise<string> {
