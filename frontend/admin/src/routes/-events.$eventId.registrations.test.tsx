@@ -56,8 +56,9 @@ it("keeps the registration capacity values when capacity is zero", async () => {
   );
   expect(progress.getAttribute("aria-valuemin")).toBe("0");
   expect(progress.getAttribute("aria-valuenow")).toBe("0");
-  expect(progress.getAttribute("aria-valuemax")).toBe("0");
+  expect(progress.getAttribute("aria-valuemax")).toBe("100");
   expect(progress.firstElementChild?.getAttribute("style")).toContain("translateX(-100%)");
+  expect(screen.getByText("0 / 0名")).toBeTruthy();
 
   const ticketFilter = screen.getByLabelText("チケット種別");
   expect(ticketFilter.tagName).toBe("SELECT");

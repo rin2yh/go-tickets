@@ -6,8 +6,9 @@ import { cn } from "cn";
 type ProgressProps = React.ComponentProps<typeof ProgressPrimitive.Root>;
 
 function Progress({ className, value = null, max = 100, ...props }: ProgressProps) {
-  const safeMax = Number.isFinite(max) && max > 0 ? max : 1;
-  const progressValue = value === null ? null : Math.min(Math.max(value, 0), safeMax);
+  const safeMax = Number.isFinite(max) && max > 0 ? max : 100;
+  const progressValue =
+    value !== null && Number.isFinite(value) && value >= 0 && value <= safeMax ? value : null;
   const percentage = progressValue === null ? 0 : (progressValue / safeMax) * 100;
 
   return (
@@ -16,10 +17,6 @@ function Progress({ className, value = null, max = 100, ...props }: ProgressProp
       value={progressValue}
       max={safeMax}
       className={cn("relative h-2 w-full overflow-hidden rounded-full bg-muted", className)}
-      aria-valuenow={value ?? undefined}
-      aria-valuemin={0}
-      aria-valuemax={max}
-      aria-valuetext={undefined}
       {...props}
     >
       <ProgressPrimitive.Indicator
