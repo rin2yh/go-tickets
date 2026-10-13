@@ -8,6 +8,7 @@
     "shadcn:add": "pnpm dlx shadcn@latest add -c ui",
     "lint": "oxlint . && pnpm run format:check && pnpm run typecheck",
     "test": "pnpm --filter @go-tickets/public test",
+    "vrt:admin": "pnpm --filter @go-tickets/e2e vrt:admin",
     "typecheck": "pnpm --filter @go-tickets/public typecheck && pnpm --filter @go-tickets/admin typecheck",
     "format": "oxfmt .",
     "format:check": "oxfmt --check ."
