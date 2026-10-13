@@ -271,7 +271,7 @@ function EventPage() {
                   <textarea
                     id="event-description"
                     value={description}
-                    className="min-h-[300px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    className="min-h-[300px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-base leading-relaxed shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
@@ -315,7 +315,7 @@ function EventPage() {
                   <Label htmlFor="event-publication-status">公開状態</Label>
                   <select
                     id="event-publication-status"
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
                     value={publicationStatus}
                     onChange={(e) =>
                       setPublicationStatus(e.target.value === "published" ? "published" : "draft")
