@@ -48,13 +48,13 @@ describe("Oxlint architecture boundaries", () => {
   it("rejects an Admin dependency between page slices", () => {
     const output = lintFixture("admin", 'import "@admin/pages/home";\n');
 
-    expect(output).toMatch(/error boundaries\(dependencies\)/);
+    expect(output).toMatch(/There is no policy allowing dependencies/);
   });
 
   it("rejects an Admin import that bypasses an entity public API", () => {
     const output = lintFixture("admin", 'import "@admin/entities/event/model/event";\n');
 
-    expect(output).toMatch(/error boundaries\(dependencies\)/);
+    expect(output).toMatch(/There is no policy allowing dependencies/);
   });
 
   it("resolves a Public tsconfig alias and allows a feature to use shared", () => {
@@ -66,6 +66,6 @@ describe("Oxlint architecture boundaries", () => {
   it("rejects a Public component import that bypasses the shared public API", () => {
     const output = lintFixture("public", 'import "@public/lib/public-event";\n');
 
-    expect(output).toMatch(/error boundaries\(dependencies\)/);
+    expect(output).toMatch(/There is no policy allowing dependencies/);
   });
 });
