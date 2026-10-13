@@ -12,7 +12,7 @@ import {
 } from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
-import { NativeSelect } from "@go-tickets/ui/components/native-select";
+import { NativeSelect, NativeSelectOption } from "@go-tickets/ui/components/native-select";
 import { Textarea } from "@go-tickets/ui/components/textarea";
 export const Route = createFileRoute("/events/create")({
   component: Events,
@@ -147,8 +147,8 @@ function Events() {
                   setPublicationStatus(e.target.value === "published" ? "published" : "draft")
                 }
               >
-                <option value="draft">下書き</option>
-                <option value="published">公開</option>
+                <NativeSelectOption value="draft">下書き</NativeSelectOption>
+                <NativeSelectOption value="published">公開</NativeSelectOption>
               </NativeSelect>
             </div>
             <div className="pt-1">
