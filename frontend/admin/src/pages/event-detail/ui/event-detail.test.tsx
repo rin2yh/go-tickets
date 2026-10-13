@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { event, renderEventPage } from "./event-page";
+import { event, renderEventPage } from "../../../app/test-page";
 
 const cases = [
   {

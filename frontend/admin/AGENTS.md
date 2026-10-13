@@ -12,13 +12,14 @@
 - slice 内の参照には正規の相対パスを使い、Admin 内部の alias や計算した dynamic import を追加しない。
 - URL の検証・ルート状態の解釈・リダイレクト・Outlet は `routes/` に置く。
 - Entities と Shared に Clerk・Router への依存を持ち込まない。
-- Shared に業務モデル・画面固有の処理・アプリの結合テスト基盤を置かない。
+- Shared に業務モデル・画面固有の処理を置かない。
 - Shared の技術モジュールは `shared/lib/datetime/` のように用途を明示し、共用 UI は `@go-tickets/ui` の公開 API を使う。
-- Router を使う結合テストは `app/test/` に置く。
+- テストファイルは対象の実装ファイルと同じディレクトリに置く。
+- ルートツリーを使う結合テストも画面実装の隣に置き、共通の認証モックと描画基盤は `app/test-page.tsx` を使う。
 - widgets・features の導入や共通化は、実際の再利用と責務に基づいて判断する。
 - `routeTree.gen.ts` は自動生成する。
-- 境界変更時は `pnpm lint` の規則と回帰テストを合わせて更新し、違反を許すための lint 無効化を追加しない。
+- 境界変更時は `pnpm lint` の規則を合わせて更新し、違反を許すための lint 無効化を追加しない。
 
 境界チェックは frontend の `oxlint.config.ts` でソースファイルから生成し、
 新しい slice にも適用する。`pnpm lint` と CI の Frontend lint ジョブで、
-静的 import・再 export・文字列リテラルの dynamic import の境界と規則の回帰テストを確認する。
+静的 import・再 export・文字列リテラルの dynamic import の境界を確認する。

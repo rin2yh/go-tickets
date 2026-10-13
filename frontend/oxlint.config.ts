@@ -21,6 +21,9 @@ function scope(file: string) {
 }
 
 function canImport(source: string, target: string) {
+  if (source.endsWith(".test.tsx")) {
+    return target === "app/test-page.tsx" || target === "routeTree.gen.ts";
+  }
   const from = scope(source);
   const to = scope(target);
   if (from.layer === to.layer && from.slice === to.slice) return true;
