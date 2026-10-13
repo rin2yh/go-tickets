@@ -15,7 +15,13 @@ import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
 import { NativeSelect } from "@go-tickets/ui/components/native-select";
 import { Textarea } from "@go-tickets/ui/components/textarea";
-import { eventQueryOptions, saveEventChange, toLocal, toUTC, useEvent } from "./-event-detail";
+import {
+  eventQueryOptions,
+  saveEventChange,
+  toLocal,
+  toUTC,
+  useEvent,
+} from "../features/event/event-detail";
 
 interface BasicForm {
   name: string;

@@ -14,8 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@go-tickets/ui/components/table";
-import { useEvent } from "./-event-detail";
-import { formatRegistrationDate, registrationsQueryOptions } from "./-registrations";
+import { useEvent } from "../features/event/event-detail";
+import { formatRegistrationDate, registrationsQueryOptions } from "../features/event/registrations";
 export const Route = createFileRoute("/events/$eventId/registrations")({
   // oxlint-disable-next-line no-restricted-types
   validateSearch: (s: Record<string, unknown>) => ({

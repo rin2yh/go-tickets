@@ -4,7 +4,12 @@ import { createFileRoute, Link, Navigate, Outlet, useRouterState } from "@tansta
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { EventTabs } from "../components/event-tabs";
-import { EventProvider, EventRequestError, eventQueryOptions, formatJST } from "./-event-detail";
+import {
+  EventProvider,
+  EventRequestError,
+  eventQueryOptions,
+  formatJST,
+} from "../features/event/event-detail";
 
 export const Route = createFileRoute("/events/$eventId")({
   // oxlint-disable-next-line no-restricted-types
