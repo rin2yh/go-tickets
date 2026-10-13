@@ -1,77 +1,153 @@
-import { readdirSync } from "node:fs";
-import { dirname, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "oxlint";
 import base from "./.oxlint-base.json" with { type: "json" };
 
-const root = fileURLToPath(new URL("./", import.meta.url));
-const sourceRoot = resolve(root, "admin/src");
-const files = readdirSync(sourceRoot, { recursive: true })
-  .filter((file) => /\.tsx?$/.test(file))
-  .map((file) => file.split(sep).join("/"));
-const layers = ["app", "pages", "widgets", "features", "entities", "shared"];
+const adminLayers = ["admin-page", "admin-widget", "admin-feature", "admin-entity", "admin-shared"];
+const publicLayers = ["public-page", "public-widget", "public-feature", "public-shared"];
 
-function scope(file: string) {
-  const [layer, slice, segment] = file.split("/");
-  // routes, the generated tree, and main are application composition entries.
-  if (layer === "routes" || !file.includes("/")) return { layer: "app", slice: "app" };
-  if (layer === "app") return { layer, slice: "app" };
-  // Shared has technical segments rather than business slices.
-  return { layer, slice: layer === "shared" ? `${slice}/${segment}` : slice };
-}
-
-function canImport(source: string, target: string) {
-  if (source.endsWith(".test.tsx")) {
-    return target === "app/test-page.tsx" || target === "routeTree.gen.ts";
-  }
-  const from = scope(source);
-  const to = scope(target);
-  if (from.layer === to.layer && from.slice === to.slice) return true;
-  const sourceRank = layers.indexOf(from.layer);
-  const targetRank = layers.indexOf(to.layer);
-  return sourceRank >= 0 && targetRank > sourceRank && target.endsWith("/index.ts");
-}
-
-function importPaths(source: string, target: string) {
-  const path = relative(dirname(resolve(sourceRoot, source)), resolve(sourceRoot, target))
-    .split(sep)
-    .join("/");
-  const specifier = path.startsWith(".") ? path : `./${path}`;
-  const extensionless = specifier.replace(/\.tsx?$/, "");
-  return target.endsWith("/index.ts")
-    ? [specifier, extensionless, extensionless.slice(0, -"/index".length)]
-    : [specifier, extensionless];
-}
-
-const architecture = files.map((file) => {
-  const allowed = files
-    .filter((target) => canImport(file, target))
-    .flatMap((target) => importPaths(file, target));
-  const layer = scope(file).layer;
-  return {
-    files: [`admin/src/${file}`],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            ...base.rules["no-restricted-imports"][1].paths,
-            ...(layer === "entities" || layer === "shared"
-              ? ["@clerk/react", "@tanstack/react-router"]
-              : []),
-          ],
-          patterns: [
-            {
-              group: ["./**", "../**", "/**", ...allowed.map((path) => `!${path}`)],
-              caseSensitive: true,
-              message:
-                "Admin: import lower layers through index.ts; keep internals within their slice. Use canonical relative paths.",
-            },
-          ],
-        },
-      ],
+function layerPolicies(layers: string[]) {
+  const policies = [
+    {
+      from: { file: { categories: "test" } },
+      allow: {
+        to: [
+          { element: { type: "admin-test", fileInternalPath: "event-page.tsx" } },
+          { element: { type: "admin-app", fileInternalPath: "routeTree.gen.ts" } },
+        ],
+      },
     },
-  };
-});
+    {
+      from: { element: { type: "admin-test" } },
+      allow: {
+        to: {
+          element: { type: "admin-app", fileInternalPath: "routeTree.gen.ts" },
+        },
+      },
+    },
+    {
+      from: { element: { type: "admin-app" } },
+      allow: {
+        to: {
+          element: {
+            type: layers,
+            fileInternalPath: "index.ts",
+          },
+        },
+      },
+    },
+  ];
 
-export default defineConfig({ ...base, overrides: [...base.overrides, ...architecture] });
+  for (const [index, layer] of layers.entries()) {
+    const downstream = layers.slice(index + 1);
+    if (downstream.length === 0) continue;
+
+    policies.push({
+      from: { element: { type: layer } },
+      allow: {
+        to: {
+          element: {
+            type: downstream,
+            fileInternalPath: "index.ts",
+          },
+        },
+      },
+    });
+  }
+
+  // Each FSD layer is modeled as separate slice elements, so same-layer
+  // dependencies remain disallowed by default. Internal files within a slice
+  // are ignored by the rule's default `checkInternals: false` behavior.
+  return policies;
+}
+
+const adminElements = [
+  {
+    type: "admin-page",
+    pattern: "admin/src/pages/*",
+    partialMatch: false,
+    capture: ["slice"],
+  },
+  {
+    type: "admin-widget",
+    pattern: "admin/src/widgets/*",
+    partialMatch: false,
+    capture: ["slice"],
+  },
+  {
+    type: "admin-feature",
+    pattern: "admin/src/features/*",
+    partialMatch: false,
+    capture: ["slice"],
+  },
+  {
+    type: "admin-entity",
+    pattern: "admin/src/entities/*",
+    partialMatch: false,
+    capture: ["slice"],
+  },
+  {
+    type: "admin-shared",
+    pattern: "admin/src/shared/*/*",
+    partialMatch: false,
+    capture: ["segment", "slice"],
+  },
+  { type: "admin-test", pattern: "admin/src/test", partialMatch: false },
+  { type: "admin-app", pattern: "admin/src", partialMatch: false },
+];
+
+const publicElements = [
+  {
+    type: "public-page",
+    pattern: "public/src/pages/*",
+    partialMatch: false,
+    capture: ["slice"],
+  },
+  {
+    type: "public-widget",
+    pattern: "public/src/layouts/*",
+    partialMatch: false,
+    capture: ["slice"],
+  },
+  {
+    type: "public-feature",
+    pattern: "public/src/components",
+    partialMatch: false,
+  },
+  {
+    type: "public-shared",
+    pattern: "public/src/lib",
+    partialMatch: false,
+  },
+  { type: "public-app", pattern: "public/src", partialMatch: false },
+];
+
+export default defineConfig({
+  ...base,
+  jsPlugins: ["eslint-plugin-boundaries"],
+  settings: {
+    "boundaries/root-path": ".",
+    "boundaries/include": ["admin/src/**/*.{ts,tsx}", "public/src/**/*.{ts,tsx}"],
+    "boundaries/elements": [...adminElements, ...publicElements],
+    "boundaries/files": [
+      { pattern: "admin/src/**/*.test.{ts,tsx}", category: "test" },
+      { pattern: "public/src/**/*.test.{ts,tsx}", category: "test" },
+    ],
+    "import/resolver": {
+      typescript: {
+        alwaysTryTypes: true,
+        project: ["./admin/tsconfig.json", "./public/tsconfig.json"],
+      },
+      node: true,
+    },
+  },
+  rules: {
+    ...base.rules,
+    "boundaries/no-unknown-dependencies": "error",
+    "boundaries/dependencies": [
+      "error",
+      {
+        default: "disallow",
+        policies: [...layerPolicies(adminLayers), ...layerPolicies(publicLayers)],
+      },
+    ],
+  },
+});

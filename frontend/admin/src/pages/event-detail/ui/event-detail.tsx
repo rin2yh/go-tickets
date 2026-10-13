@@ -9,12 +9,11 @@ import { formatJST } from "../../../shared/lib/datetime";
 export interface EventLayoutProps {
   eventId: string;
   renderBackLink: (label: string) => ReactNode;
-  navigation: ReactNode;
   children: ReactNode;
 }
 
 export function EventLayout(props: EventLayoutProps) {
-  const { eventId, renderBackLink, navigation, children } = props;
+  const { eventId, renderBackLink, children } = props;
   const { getToken } = useAuth();
   const eventQuery = useQuery(buildEventQueryOptions(eventId, getToken));
   if (eventQuery.isPending) {
@@ -58,7 +57,6 @@ export function EventLayout(props: EventLayoutProps) {
             </p>
           </div>
         </div>
-        {navigation}
         {children}
       </main>
     </EventProvider>

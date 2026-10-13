@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "vitest run --environment node src ../ui/src",
+    "test": "vitest run --environment node src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -28,10 +28,8 @@ function EventDetailRoute() {
   }
 
   return (
-    <EventLayout
-      eventId={eventId}
-      renderBackLink={(label) => <Link to="/events">{label}</Link>}
-      navigation={
+    <EventLayout eventId={eventId} renderBackLink={(label) => <Link to="/events">{label}</Link>}>
+      <>
         <EventTabs
           eventId={eventId}
           activeTab={
@@ -48,9 +46,8 @@ function EventDetailRoute() {
             page: typeof search.page === "number" ? search.page : 1,
           }}
         />
-      }
-    >
-      <Outlet key={eventId} />
+        <Outlet key={eventId} />
+      </>
     </EventLayout>
   );
 }

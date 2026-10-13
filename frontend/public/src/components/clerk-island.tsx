@@ -5,11 +5,7 @@ import { Badge } from "@go-tickets/ui/components/badge";
 import { Button } from "@go-tickets/ui/components/button";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
-import {
-  fetchPublicEvent,
-  invalidatePublicEvent,
-  type PublicTicketType,
-} from "../lib/public-event";
+import { fetchPublicEvent, invalidatePublicEvent, type PublicTicketType } from "../lib";
 
 type TicketType = PublicTicketType;
 type TokenGetter = () => Promise<string | null>;

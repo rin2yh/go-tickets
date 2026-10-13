@@ -27,6 +27,7 @@ allowBuilds:
   browser-tabs-lock: false
   core-js: false
   sharp: false
+  unrs-resolver: true
 
 minimumReleaseAgeExclude:
   - http-cache-semantics@4.3.0
