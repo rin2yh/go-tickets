@@ -369,6 +369,7 @@ async function loadRegistrations(
 
 function registrationError(status: number, code?: string) {
   const messages: Record<string, string> = {
+    participant_name_required: "チケットを申し込む前に参加者名を設定してください。",
     registration_not_started: "受付前です。受付開始日時をご確認ください。",
     registration_ended: "受付は終了しました。",
     event_ended: "イベント終了後はお申し込みできません。",

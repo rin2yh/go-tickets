@@ -21,6 +21,12 @@ type fakeStore struct {
 	registeredUser, cancelledUser, adminUser    string
 	statusID                                    int64
 }
+type fakeParticipantProfile struct {
+	name string
+	err  error
+}
+
+func (p fakeParticipantProfile) Name(context.Context, string) (string, error) { return p.name, p.err }
 
 func (f *fakeStore) Register(_ context.Context, _ int64, user string) error {
 	f.registeredUser = user
@@ -54,6 +60,9 @@ func (f *fakeStore) AdminEvent(ctx context.Context, id int64) (event.Event, erro
 func (f *fakeStore) Registrations(_ context.Context, user string) ([]ticket.Registration, error) {
 	f.registeredUser = user
 	return []ticket.Registration{{TicketTypeID: 1, EventName: "event", TicketName: "ticket", Status: "active"}}, nil
+}
+func (f *fakeStore) AdminRegistrations(context.Context, int64, string, string, int) (ticket.RegistrationPage, error) {
+	return ticket.RegistrationPage{Items: []ticket.AdminRegistration{}}, nil
 }
 func (f *fakeStore) CreateEvent(context.Context, event.EventInput) (int64, error) { return 2, nil }
 func (f *fakeStore) UpdateEvent(context.Context, int64, event.EventInput) error   { return nil }
@@ -120,6 +129,18 @@ func TestPublicHandler(t *testing.T) {
 		testPublicMux(&fakeStore{}).ServeHTTP(w, r)
 		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("status = %d, want 401", w.Code)
+		}
+	})
+	t.Run("registration requires a Clerk participant name", func(t *testing.T) {
+		h := ticket.NewHandler(&fakeStore{}, &fakeStore{}, testAuthenticatedUserID, fakeParticipantProfile{})
+		mux := http.NewServeMux()
+		mux.Handle("POST /api/registrations", auth.Authenticated(testAuthenticatedUserID)(http.HandlerFunc(h.Register)))
+		req := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1}`))
+		req.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+		if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "participant_name_required") {
+			t.Fatalf("response = %d %s", w.Code, w.Body.String())
 		}
 	})
 }
@@ -215,7 +236,7 @@ func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 }
 
 func testPublicMux(store *fakeStore) *http.ServeMux {
-	h := ticket.NewHandler(store, store, testAuthenticatedUserID)
+	h := ticket.NewHandler(store, store, testAuthenticatedUserID, fakeParticipantProfile{name: "Attendee"})
 	events := event.NewHandler(store, store)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", h.Health)
@@ -230,7 +251,7 @@ func testPublicMux(store *fakeStore) *http.ServeMux {
 }
 
 func testAdminMux(store *fakeStore) *http.ServeMux {
-	h := ticket.NewHandler(store, store, testAuthenticatedUserID)
+	h := ticket.NewHandler(store, store, testAuthenticatedUserID, nil)
 	events := event.NewHandler(store, store)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", h.Health)
@@ -238,6 +259,7 @@ func testAdminMux(store *fakeStore) *http.ServeMux {
 	adminOnly := auth.AdminOnly(testAuthenticatedUserID, store.IsAdmin)
 	mux.Handle("GET /api/admin/events", adminOnly(http.HandlerFunc(events.AdminEvents)))
 	mux.Handle("GET /api/admin/events/{id}", adminOnly(http.HandlerFunc(events.AdminEvent)))
+	mux.Handle("GET /api/admin/events/{id}/registrations", adminOnly(http.HandlerFunc(h.AdminRegistrations)))
 	mux.Handle("GET /api/ticket-types/{id}/status", adminOnly(http.HandlerFunc(h.TicketTypeStatus)))
 	mux.Handle("POST /api/events", adminOnly(http.HandlerFunc(events.CreateEvent)))
 	mux.Handle("PUT /api/events/{id}", adminOnly(http.HandlerFunc(events.UpdateEvent)))

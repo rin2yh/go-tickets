@@ -41,6 +41,7 @@ type Registration struct {
 }
 
 type AdminRegistration struct {
+	UserID       string `json:"-"`
 	Name         string `json:"name"`
 	TicketTypeID int64  `json:"ticket_type_id"`
 	TicketName   string `json:"ticket_name"`
@@ -64,6 +65,7 @@ type Command interface {
 type Query interface {
 	Status(context.Context, int64) (Status, error)
 	Registrations(context.Context, string) ([]Registration, error)
+	AdminRegistrations(context.Context, int64, string, string, int) (RegistrationPage, error)
 }
 
 type SQLCommand struct{ DB *sql.DB }

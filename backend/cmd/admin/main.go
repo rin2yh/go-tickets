@@ -36,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	handler := ticket.NewHandler(ticket.SQLQuery{DB: db}, ticket.SQLCommand{DB: db}, auth.UserID)
+	handler := ticket.NewHandler(ticket.SQLQuery{DB: db}, ticket.SQLCommand{DB: db}, auth.UserID, nil)
 	events := event.NewHandler(event.SQLQuery{DB: db}, event.SQLCommand{DB: db})
 	adminOnly := auth.AdminOnly(auth.UserID, func(ctx context.Context, userID string) (bool, error) { return auth.IsAdmin(ctx, db, userID) })
 	mux := http.NewServeMux()

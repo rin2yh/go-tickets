@@ -34,7 +34,7 @@ func (s SQLQuery) AdminRegistrations(ctx context.Context, eventID int64, status,
 	if status != "active" && status != "cancelled" {
 		status = "active"
 	}
-	query := `SELECT COALESCE(p.name,''), t.id, t.name, r.created_at FROM registrations r JOIN ticket_types t ON t.id=r.ticket_type_id LEFT JOIN participant_profiles p ON p.user_id=r.user_id WHERE t.event_id=? AND r.status=?`
+	query := `SELECT r.user_id, COALESCE(p.name,''), t.id, t.name, r.created_at FROM registrations r JOIN ticket_types t ON t.id=r.ticket_type_id LEFT JOIN participant_profiles p ON p.user_id=r.user_id WHERE t.event_id=? AND r.status=?`
 	args := []any{eventID, status}
 	if ticketID != "" && ticketID != "all" {
 		query += ` AND t.id=?`
@@ -55,7 +55,7 @@ func (s SQLQuery) AdminRegistrations(ctx context.Context, eventID int64, status,
 	result.Items = []AdminRegistration{}
 	for rows.Next() {
 		var item AdminRegistration
-		if err := rows.Scan(&item.Name, &item.TicketTypeID, &item.TicketName, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.UserID, &item.Name, &item.TicketTypeID, &item.TicketName, &item.CreatedAt); err != nil {
 			return result, err
 		}
 		result.Items = append(result.Items, item)

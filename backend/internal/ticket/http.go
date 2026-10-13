@@ -17,10 +17,15 @@ type Handler struct {
 	queries             Query
 	commands            Command
 	authenticatedUserID func(*http.Request) string
+	profiles            ParticipantProfile
 }
 
-func NewHandler(queries Query, commands Command, authenticatedUserID func(*http.Request) string) *Handler {
-	return &Handler{queries: queries, commands: commands, authenticatedUserID: authenticatedUserID}
+type ParticipantProfile interface {
+	Name(context.Context, string) (string, error)
+}
+
+func NewHandler(queries Query, commands Command, authenticatedUserID func(*http.Request) string, profiles ParticipantProfile) *Handler {
+	return &Handler{queries: queries, commands: commands, authenticatedUserID: authenticatedUserID, profiles: profiles}
 }
 
 func (h *Handler) Health(w http.ResponseWriter, _ *http.Request) {
@@ -54,7 +59,21 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_request")
 		return
 	}
-	err := h.commands.Register(r.Context(), input.TicketTypeID, h.authenticatedUserID(r))
+	userID := h.authenticatedUserID(r)
+	if h.profiles == nil {
+		httpx.WriteError(w, http.StatusBadGateway, "profile_unavailable")
+		return
+	}
+	name, err := h.profiles.Name(r.Context(), userID)
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadGateway, "profile_unavailable")
+		return
+	}
+	if name == "" {
+		httpx.WriteError(w, http.StatusForbidden, "participant_name_required")
+		return
+	}
+	err = h.commands.Register(r.Context(), input.TicketTypeID, userID)
 	switch {
 	case err == nil:
 		httpx.WriteJSON(w, http.StatusCreated, map[string]string{"status": "registered"})
@@ -104,13 +123,6 @@ func (h *Handler) TicketTypeStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AdminRegistrations(w http.ResponseWriter, r *http.Request) {
-	q, ok := h.queries.(interface {
-		AdminRegistrations(context.Context, int64, string, string, int) (RegistrationPage, error)
-	})
-	if !ok {
-		httpx.WriteError(w, http.StatusInternalServerError, "database_error")
-		return
-	}
 	eventID, ok := pathID(w, r, "id", "invalid_event_id")
 	if !ok {
 		return
@@ -124,7 +136,7 @@ func (h *Handler) AdminRegistrations(w http.ResponseWriter, r *http.Request) {
 		}
 		page = value
 	}
-	result, err := q.AdminRegistrations(r.Context(), eventID, r.URL.Query().Get("status"), r.URL.Query().Get("ticket"), page)
+	result, err := h.queries.AdminRegistrations(r.Context(), eventID, r.URL.Query().Get("status"), r.URL.Query().Get("ticket"), page)
 	if err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "database_error")
 		return
