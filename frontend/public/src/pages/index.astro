@@ -3,10 +3,12 @@ import SiteLayout from "../layouts/site-layout.astro";
 import { PublicEventList } from "../components/public-events";
 ---
 <SiteLayout title="イベント一覧">
-  <div class="public-hero">
-    <p class="public-eyebrow">GO TICKETS / EVENTS</p>
-    <h1 class="public-title">イベント一覧</h1>
-    <p class="public-description">気になるイベントを選んで、チケットをお申し込みください。</p>
+  <div class="mb-7">
+    <p class="mb-2 text-xs font-bold uppercase tracking-widest text-primary">GO TICKETS / EVENTS</p>
+    <h1 class="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">イベント一覧</h1>
+    <p class="mt-3 max-w-xl leading-relaxed text-muted-foreground">
+      気になるイベントを選んで、チケットをお申し込みください。
+    </p>
   </div>
   <PublicEventList client:only="react" />
 </SiteLayout>

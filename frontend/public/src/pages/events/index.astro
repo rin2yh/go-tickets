@@ -3,6 +3,6 @@ import SiteLayout from "../../layouts/site-layout.astro";
 import { PublicEventDetail } from "../../components/public-events";
 ---
 <SiteLayout title="イベント">
-  <p><a href="/">← イベント一覧へ</a></p>
+  <p class="mb-4 text-sm"><a href="/">← イベント一覧へ</a></p>
   <PublicEventDetail client:only="react" />
 </SiteLayout>

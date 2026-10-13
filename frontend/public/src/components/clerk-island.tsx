@@ -139,11 +139,10 @@ function AuthenticatedContent() {
     );
   if (!isSignedIn)
     return (
-      <Card>
-        <CardContent>
-          <SignIn routing="hash" />
-        </CardContent>
-      </Card>
+      <SignIn
+        routing="hash"
+        appearance={{ elements: { rootBox: "!w-full", cardBox: "!w-full" } }}
+      />
     );
   if (participantName === null)
     return (
@@ -190,7 +189,7 @@ function ParticipantNameForm({
     <Card>
       <CardContent>
         <form
-          className="mx-auto grid w-full max-w-participant-form gap-4"
+          className="mx-auto grid w-full max-w-lg gap-4"
           onSubmit={async (e) => {
             e.preventDefault();
             const normalized = name.trim();
@@ -217,8 +216,8 @@ function ParticipantNameForm({
             }
           }}
         >
-          <h2 className="m-0 text-participant-heading text-public-heading">参加者名を設定</h2>
-          <p className="m-0 leading-public text-muted-foreground">
+          <h2 className="m-0 text-2xl font-semibold text-foreground">参加者名を設定</h2>
+          <p className="m-0 leading-relaxed text-muted-foreground">
             イベントの参加者一覧などで使う名前です。実名・ハンドルネームのどちらでも構いません。あとから変更できます。
           </p>
           <label className="grid gap-2 font-semibold">
@@ -315,7 +314,7 @@ function TicketActions({
     <section className="mt-7">
       <Card>
         <CardContent>
-          <div className="mb-4.5 flex items-center gap-3">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
             <Badge>ログイン中</Badge>
             <span>{participantName}</span>
             <Button variant="ghost" size="sm" onClick={onEditName}>
@@ -401,7 +400,7 @@ export function RegisterButtons({
     const state = ticketActionState(ticket, eventEndsAt, registrations, now);
     return (
       <Button
-        className="mr-2.5 mb-2.5"
+        className="mr-2 mb-2"
         key={ticket.id}
         disabled={busy || !registrationsReady || state.disabled}
         onClick={() => void register("register", ticket.id)}
@@ -472,10 +471,13 @@ function RegistrationList({
   register: (action: "register" | "cancel", ticketTypeId: number) => Promise<void>;
 }) {
   return (
-    <ul className="public-ticket-list">
+    <ul className="grid list-none gap-3 p-0">
       {items.map((item) => (
-        <li className="public-ticket-row" key={item.ticket_type_id}>
-          <span>
+        <li
+          className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5"
+          key={item.ticket_type_id}
+        >
+          <span className="min-w-0 break-words">
             {item.event_name} / {item.ticket_name}
           </span>
           <Badge variant={item.status === "active" ? "default" : "secondary"}>

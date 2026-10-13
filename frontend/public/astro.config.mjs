@@ -9,7 +9,7 @@ export default defineConfig({
   integrations: [react()],
   vite: {
     plugins: [
-      tailwindcss({ config: new URL("./tailwind.config.ts", import.meta.url) }),
+      tailwindcss(),
       babel({ include: /\.[jt]sx?$/, plugins: [[reactCompiler, { target: "19" }]] }),
     ],
   },
