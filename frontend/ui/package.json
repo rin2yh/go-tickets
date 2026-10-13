@@ -15,7 +15,7 @@
     "./styles.css": "./src/styles.css"
   },
   "scripts": {
-    "test": "vitest run --environment node src"
+    "test": "vitest run"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
