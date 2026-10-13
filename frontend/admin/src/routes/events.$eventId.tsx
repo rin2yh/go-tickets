@@ -13,6 +13,7 @@ import {
 } from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
+import { loadEvent } from "../lib/load-event";
 interface TicketType {
   id: number;
   name: string;
@@ -32,6 +33,11 @@ interface Event {
   publication_status: "draft" | "published";
   ticket_types: TicketType[];
 }
+type EventLoadState =
+  | { eventId: string; status: "loading" }
+  | { eventId: string; status: "not-found" }
+  | { eventId: string; status: "error" }
+  | { eventId: string; status: "success"; event: Event };
 export const Route = createFileRoute("/events/$eventId")({
   // oxlint-disable-next-line no-restricted-types
   validateSearch: (search: Record<string, unknown>) => ({
@@ -47,7 +53,7 @@ function EventPage() {
     select: (s) => s.matches.some((match) => match.routeId.endsWith("/registrations")),
   });
   const { getToken } = useAuth();
-  const [event, setEvent] = useState<Event | null>(null);
+  const [eventLoad, setEventLoad] = useState<EventLoadState>({ eventId, status: "loading" });
   const [eventName, setEventName] = useState("");
   const [description, setDescription] = useState("");
   const [startsAt, setStartsAt] = useState("");
@@ -68,25 +74,30 @@ function EventPage() {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (isRegistrationPage) return;
-    void getToken()
-      .then(async (token) => {
-        const response = await fetch(`/api/admin/events/${eventId}`, {
-          headers: { Authorization: `Bearer ${token ?? ""}` },
-        });
-        if (!response.ok) throw new Error("イベントを読み込めません");
-        const item: Event = await response.json();
-        setEvent(item);
-        setEventName(item.name);
-        setDescription(item.description);
-        setStartsAt(toLocal(item.starts_at));
-        setEndsAt(toLocal(item.ends_at));
-        setVenueName(item.venue_name ?? "");
-        setVenueAddress(item.venue_address ?? "");
-        setPublicationStatus(item.publication_status);
-      })
-      .catch((cause: Error) => setError(cause.message));
+    let live = true;
+    void loadEvent<Event>(eventId, getToken).then((result) => {
+      if (!live) return;
+      if (result.status !== "success") {
+        setEventLoad({ ...result, eventId });
+        return;
+      }
+      const item = result.event;
+      setEventName(item.name);
+      setDescription(item.description);
+      setStartsAt(toLocal(item.starts_at));
+      setEndsAt(toLocal(item.ends_at));
+      setVenueName(item.venue_name ?? "");
+      setVenueAddress(item.venue_address ?? "");
+      setPublicationStatus(item.publication_status);
+      setEventLoad({ ...result, eventId });
+    });
+    return () => {
+      live = false;
+    };
   }, [eventId, getToken, isRegistrationPage]);
   if (isRegistrationPage) return <Outlet />;
+  const currentEventLoad: EventLoadState =
+    eventLoad.eventId === eventId ? eventLoad : { status: "loading" as const, eventId };
   async function save(path: string, method: string, body: Record<string, string | number | null>) {
     setBusy(true);
     setError("");
@@ -108,7 +119,8 @@ function EventPage() {
           headers: { Authorization: `Bearer ${token ?? ""}` },
         });
         if (!latestResponse.ok) throw new Error("イベント情報を再取得できません");
-        setEvent(await latestResponse.json());
+        const latestEvent: Event = await latestResponse.json();
+        setEventLoad({ status: "success", eventId, event: latestEvent });
       } catch {
         setRefreshWarning(
           "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",
@@ -122,13 +134,13 @@ function EventPage() {
       setBusy(false);
     }
   }
-  if (!event && !error)
+  if (currentEventLoad.status === "loading")
     return (
       <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
         <p aria-live="polite">イベントを読み込み中です。</p>
       </main>
     );
-  if (!event)
+  if (currentEventLoad.status === "not-found")
     return (
       <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
         <Alert variant="destructive">イベントが見つかりません。</Alert>
@@ -137,6 +149,16 @@ function EventPage() {
         </p>
       </main>
     );
+  if (currentEventLoad.status === "error")
+    return (
+      <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
+        <Alert variant="destructive">イベントを読み込めませんでした。</Alert>
+        <p>
+          <Link to="/events">イベント一覧へ</Link>
+        </p>
+      </main>
+    );
+  const event = currentEventLoad.event;
   return (
     <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
       <p className="mb-4 text-sm">

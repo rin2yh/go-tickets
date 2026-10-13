@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "test": "node --test src/lib/load-event.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
