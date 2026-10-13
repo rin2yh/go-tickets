@@ -16,7 +16,7 @@ import { Label } from "@go-tickets/ui/components/label";
 import { NativeSelect } from "@go-tickets/ui/components/native-select";
 import { Textarea } from "@go-tickets/ui/components/textarea";
 import {
-  eventQueryOptions,
+  buildEventQueryOptions,
   saveEventChange,
   toLocal,
   toUTC,
@@ -58,7 +58,7 @@ function BasicInformation() {
       setNotice("変更を保存しました。");
       try {
         await queryClient.invalidateQueries(
-          { queryKey: eventQueryOptions(eventId, getToken).queryKey, exact: true },
+          { queryKey: buildEventQueryOptions(eventId, getToken).queryKey, exact: true },
           { throwOnError: true },
         );
         setRefreshWarning("");

@@ -8,7 +8,7 @@ interface RegistrationPage {
   capacity: number;
 }
 
-export function registrationsQueryOptions(
+export function buildRegistrationsQueryOptions(
   eventId: string,
   status: "active" | "cancelled",
   ticket: string,

@@ -38,7 +38,7 @@ export async function fetchEvent(eventId: string, getToken: () => Promise<string
   return event;
 }
 
-export function eventQueryOptions(eventId: string, getToken: () => Promise<string | null>) {
+export function buildEventQueryOptions(eventId: string, getToken: () => Promise<string | null>) {
   return queryOptions({
     queryKey: ["admin", "events", eventId] as const,
     queryFn: () => fetchEvent(eventId, getToken),

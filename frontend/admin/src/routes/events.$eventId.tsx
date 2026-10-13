@@ -7,7 +7,7 @@ import { EventTabs } from "../components/event-tabs";
 import {
   EventProvider,
   EventRequestError,
-  eventQueryOptions,
+  buildEventQueryOptions,
   formatJST,
 } from "../features/event/event-detail";
 
@@ -24,7 +24,7 @@ function EventLayout() {
   const { eventId } = Route.useParams();
   const { tab } = Route.useSearch();
   const { getToken } = useAuth();
-  const eventQuery = useQuery(eventQueryOptions(eventId, getToken));
+  const eventQuery = useQuery(buildEventQueryOptions(eventId, getToken));
   const routeId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
   const registrationStatus = useRouterState({ select: (state) => state.location.search.status });
   const registrationTicket = useRouterState({ select: (state) => state.location.search.ticket });

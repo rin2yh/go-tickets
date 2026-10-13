@@ -15,7 +15,10 @@ import {
   TableRow,
 } from "@go-tickets/ui/components/table";
 import { useEvent } from "../features/event/event-detail";
-import { formatRegistrationDate, registrationsQueryOptions } from "../features/event/registrations";
+import {
+  buildRegistrationsQueryOptions,
+  formatRegistrationDate,
+} from "../features/event/registrations";
 export const Route = createFileRoute("/events/$eventId/registrations")({
   // oxlint-disable-next-line no-restricted-types
   validateSearch: (s: Record<string, unknown>) => ({
@@ -33,7 +36,7 @@ function Registrations() {
   const navigate = useNavigate({ from: Route.fullPath });
   const { getToken } = useAuth();
   const registrations = useQuery(
-    registrationsQueryOptions(eventId, status, ticket, page, getToken),
+    buildRegistrationsQueryOptions(eventId, status, ticket, page, getToken),
   );
   if (registrations.isError)
     return (

@@ -15,7 +15,7 @@ import {
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
 import {
-  eventQueryOptions,
+  buildEventQueryOptions,
   saveEventChange,
   toLocal,
   toUTC,
@@ -61,7 +61,7 @@ function Tickets() {
       }
       try {
         await queryClient.invalidateQueries(
-          { queryKey: eventQueryOptions(eventId, getToken).queryKey, exact: true },
+          { queryKey: buildEventQueryOptions(eventId, getToken).queryKey, exact: true },
           { throwOnError: true },
         );
         setRefreshWarning("");
