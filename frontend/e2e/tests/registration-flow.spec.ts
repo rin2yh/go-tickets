@@ -8,6 +8,12 @@ import { MyTicketsPage } from "../pages/my-tickets-page";
 
 async function expectSignedIn(page: Page) {
   const main = page.getByRole("main");
+  const nameForm = main.getByRole("heading", { name: "参加者名を設定" });
+  await expect(nameForm.or(main.getByText("ログイン中"))).toBeVisible();
+  if (await nameForm.isVisible()) {
+    await main.getByLabel("参加者名").fill("E2E Participant");
+    await main.getByRole("button", { name: "保存して続ける" }).click();
+  }
   await expect(main.getByText("ログイン中")).toBeVisible();
   await expect(main.getByText(/認証を読み込んでいます…|ログイン状態を確認しています…/)).toHaveCount(
     0,
