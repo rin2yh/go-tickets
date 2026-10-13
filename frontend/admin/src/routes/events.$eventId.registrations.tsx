@@ -95,17 +95,27 @@ function Registrations() {
         </div>
       </header>
       <nav className="event-tabs" aria-label="イベント内ナビゲーション">
-        <Link to="/events/$eventId" params={{ eventId }} search={{ tab: "basic" }}>
+        <Link
+          to="/events/$eventId"
+          params={{ eventId }}
+          search={{ tab: "basic" }}
+          className="tab-not-current"
+        >
           基本情報
         </Link>
-        <Link to="/events/$eventId" params={{ eventId }} search={{ tab: "tickets" }}>
+        <Link
+          to="/events/$eventId"
+          params={{ eventId }}
+          search={{ tab: "tickets" }}
+          className="tab-not-current"
+        >
           チケット設定
         </Link>
         <Link
           to="/events/$eventId/registrations"
           params={{ eventId }}
           search={{ tab: "basic", status, ticket, page }}
-          className="active"
+          className="current-tab"
           aria-current="page"
         >
           参加者

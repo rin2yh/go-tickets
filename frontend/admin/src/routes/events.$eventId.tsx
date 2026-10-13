@@ -43,7 +43,9 @@ export const Route = createFileRoute("/events/$eventId")({
 function EventPage() {
   const { eventId } = Route.useParams();
   const { tab } = Route.useSearch();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isRegistrationPage = useRouterState({
+    select: (s) => s.matches.some((match) => match.routeId.endsWith("/registrations")),
+  });
   const { getToken } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [eventName, setEventName] = useState("");
@@ -61,9 +63,10 @@ function EventPage() {
     Record<number, { name: string; capacity: string; starts: string; ends: string }>
   >({});
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (pathname.endsWith("/registrations")) return;
+    if (isRegistrationPage) return;
     void getToken()
       .then(async (token) => {
         const response = await fetch(`/api/admin/events/${eventId}`, {
@@ -81,11 +84,12 @@ function EventPage() {
         setPublicationStatus(item.publication_status);
       })
       .catch((cause: Error) => setError(cause.message));
-  }, [eventId, getToken, pathname]);
-  if (pathname.endsWith("/registrations")) return <Outlet />;
+  }, [eventId, getToken, isRegistrationPage]);
+  if (isRegistrationPage) return <Outlet />;
   async function save(path: string, method: string, body: Record<string, string | number | null>) {
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       const token = await getToken();
       const r = await fetch(path, {
@@ -99,6 +103,7 @@ function EventPage() {
         headers: { Authorization: `Bearer ${token ?? ""}` },
       });
       if (response.ok) setEvent(await response.json());
+      setNotice("変更を保存しました。");
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "保存に失敗しました");
@@ -124,7 +129,7 @@ function EventPage() {
     );
   return (
     <main className="admin-main">
-      <p>
+      <p className="back-link">
         <Link to="/events">← イベント一覧</Link>
       </p>
       <div className="page-heading">
@@ -143,7 +148,8 @@ function EventPage() {
           to="/events/$eventId"
           params={{ eventId }}
           search={{ tab: "basic" }}
-          className={tab === "basic" ? "active" : ""}
+          activeOptions={{ exact: true }}
+          className={tab === "basic" && !isRegistrationPage ? "current-tab" : "tab-not-current"}
         >
           基本情報
         </Link>
@@ -151,7 +157,8 @@ function EventPage() {
           to="/events/$eventId"
           params={{ eventId }}
           search={{ tab: "tickets" }}
-          className={tab === "tickets" ? "active" : ""}
+          activeOptions={{ exact: true }}
+          className={tab === "tickets" && !isRegistrationPage ? "current-tab" : "tab-not-current"}
         >
           チケット設定
         </Link>
@@ -159,14 +166,15 @@ function EventPage() {
           to="/events/$eventId/registrations"
           params={{ eventId }}
           search={{ tab: "basic", status: "active", ticket: "all", page: 1 }}
-          className=""
+          activeOptions={{ exact: true }}
+          className={isRegistrationPage ? "current-tab" : "tab-not-current"}
         >
           参加者
         </Link>
       </nav>
       {tab === "basic" && (
         <>
-          <Card>
+          <Card className="form-card">
             <CardHeader>
               <CardTitle>基本情報</CardTitle>
               <CardDescription>
@@ -175,7 +183,7 @@ function EventPage() {
             </CardHeader>
             <CardContent>
               <form
-                className="form-stack"
+                className="form-stack event-basic-form"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void save(`/api/events/${event.id}`, "PUT", {
@@ -256,7 +264,6 @@ function EventPage() {
         <>
           <div className="page-heading" style={{ marginTop: 38 }}>
             <div>
-              <p className="page-eyebrow">TICKETS</p>
               <h2>チケット種別</h2>
             </div>
             <Badge variant="secondary">{event.ticket_types.length} 件</Badge>
@@ -427,6 +434,11 @@ function EventPage() {
         <Alert variant="destructive" style={{ marginTop: 16 }}>
           {error}
         </Alert>
+      )}
+      {notice && (
+        <p className="save-notice" role="status">
+          {notice}
+        </p>
       )}
     </main>
   );

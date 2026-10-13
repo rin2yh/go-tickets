@@ -1,10 +1,9 @@
-import { SignIn, UserButton, useAuth, useUser } from "@clerk/react";
+import { SignIn, UserButton, useAuth } from "@clerk/react";
 import { Link, Outlet } from "@tanstack/react-router";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
 
 export function AdminShell() {
   const { isLoaded, isSignedIn } = useAuth();
-  const { user } = useUser();
   if (!isLoaded)
     return (
       <main className="admin-main">
@@ -21,29 +20,29 @@ export function AdminShell() {
         </Card>
       </main>
     );
-  const name = user?.username || user?.fullName || user?.firstName || "ユーザー";
   return (
     <div className="admin-app">
-      <header className="admin-topbar">
-        <Link to="/" className="admin-brand">
-          Go Tickets <span style={{ color: "#71917d", fontWeight: 500 }}>管理</span>
-        </Link>
-        <div className="admin-account">
-          <span>ログイン中: {name}</span>
-          <UserButton />
+      <header className="admin-header">
+        <div className="admin-header-inner">
+          <Link to="/" className="admin-brand">
+            Go Tickets <span>Admin</span>
+          </Link>
+          <nav className="admin-nav" aria-label="メインナビゲーション">
+            <Link to="/" activeProps={{ "aria-current": "page" }}>
+              概要
+            </Link>
+            <Link to="/events" activeProps={{ "aria-current": "page" }}>
+              イベント
+            </Link>
+            <Link to="/check-in" activeProps={{ "aria-current": "page" }}>
+              チェックイン
+            </Link>
+          </nav>
+          <div className="admin-account">
+            <UserButton />
+          </div>
         </div>
       </header>
-      <nav className="admin-nav" aria-label="メインナビゲーション">
-        <Link to="/" activeProps={{ "aria-current": "page" }}>
-          概要
-        </Link>
-        <Link to="/events" activeProps={{ "aria-current": "page" }}>
-          イベント
-        </Link>
-        <Link to="/check-in" activeProps={{ "aria-current": "page" }}>
-          チェックイン
-        </Link>
-      </nav>
       <Outlet />
     </div>
   );

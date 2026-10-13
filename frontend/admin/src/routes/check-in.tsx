@@ -13,7 +13,6 @@ function CheckIn() {
     <main className="admin-main">
       <div className="page-heading">
         <div>
-          <p className="page-eyebrow">ON-SITE</p>
           <h1>チェックイン</h1>
         </div>
         <Badge variant="outline">準備中</Badge>
