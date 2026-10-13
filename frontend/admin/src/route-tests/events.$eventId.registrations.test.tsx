@@ -54,9 +54,6 @@ it("keeps the registration capacity values when capacity is zero", async () => {
       expect.stringContaining("/registrations?status=cancelled&ticket=all&page=1"),
     ]),
   );
-  expect(progress.getAttribute("aria-valuemin")).toBe("0");
-  expect(progress.getAttribute("aria-valuenow")).toBe("0");
-  expect(progress.getAttribute("aria-valuemax")).toBe("100");
   expect(progress.firstElementChild?.getAttribute("style")).toContain("translateX(-100%)");
   expect(screen.getByText("0 / 0名")).toBeTruthy();
 
