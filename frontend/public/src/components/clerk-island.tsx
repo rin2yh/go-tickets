@@ -139,11 +139,10 @@ function AuthenticatedContent() {
     );
   if (!isSignedIn)
     return (
-      <Card>
-        <CardContent>
-          <SignIn routing="hash" />
-        </CardContent>
-      </Card>
+      <SignIn
+        routing="hash"
+        appearance={{ elements: { rootBox: "!w-full", cardBox: "!w-full" } }}
+      />
     );
   if (participantName === null)
     return (
@@ -190,7 +189,7 @@ function ParticipantNameForm({
     <Card>
       <CardContent>
         <form
-          className="participant-name-form"
+          className="mx-auto grid w-full max-w-lg gap-4"
           onSubmit={async (e) => {
             e.preventDefault();
             const normalized = name.trim();
@@ -217,13 +216,14 @@ function ParticipantNameForm({
             }
           }}
         >
-          <h2>参加者名を設定</h2>
-          <p>
+          <h2 className="m-0 text-2xl font-semibold text-foreground">参加者名を設定</h2>
+          <p className="m-0 leading-relaxed text-muted-foreground">
             イベントの参加者一覧などで使う名前です。実名・ハンドルネームのどちらでも構いません。あとから変更できます。
           </p>
-          <label>
+          <label className="grid gap-2 font-semibold">
             参加者名
             <input
+              className="h-10.5 rounded-md border border-border px-3"
               value={name}
               maxLength={100}
               required
@@ -311,10 +311,10 @@ function TicketActions({
   }
 
   return (
-    <section style={{ marginTop: 28 }}>
+    <section className="mt-7">
       <Card>
         <CardContent>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
             <Badge>ログイン中</Badge>
             <span>{participantName}</span>
             <Button variant="ghost" size="sm" onClick={onEditName}>
@@ -400,7 +400,7 @@ export function RegisterButtons({
     const state = ticketActionState(ticket, eventEndsAt, registrations, now);
     return (
       <Button
-        style={{ margin: "0 10px 10px 0" }}
+        className="mr-2 mb-2"
         key={ticket.id}
         disabled={busy || !registrationsReady || state.disabled}
         onClick={() => void register("register", ticket.id)}
@@ -471,10 +471,13 @@ function RegistrationList({
   register: (action: "register" | "cancel", ticketTypeId: number) => Promise<void>;
 }) {
   return (
-    <ul className="public-ticket-list">
+    <ul className="grid list-none gap-3 p-0">
       {items.map((item) => (
-        <li className="public-ticket-row" key={item.ticket_type_id}>
-          <span>
+        <li
+          className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5"
+          key={item.ticket_type_id}
+        >
+          <span className="min-w-0 break-words">
             {item.event_name} / {item.ticket_name}
           </span>
           <Badge variant={item.status === "active" ? "default" : "secondary"}>
@@ -501,7 +504,7 @@ function RegistrationMessage({ message }: { message: string }) {
   return (
     <Alert
       variant={message.includes(":") ? "destructive" : "default"}
-      style={{ marginTop: 16 }}
+      className="mt-4"
       aria-live="polite"
     >
       {message}

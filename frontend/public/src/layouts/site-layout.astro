@@ -16,9 +16,16 @@ import { ClerkIsland } from "../components/clerk-island";
     <title>{title} | Go Tickets</title>
   </head>
   <body>
-    <div class="public-shell">
-      <header class="public-header"><a href="/">Go Tickets</a><nav><a href="/tickets">自分のチケット</a></nav></header>
-      <main class="public-content">
+    <div class="mx-auto w-full max-w-6xl px-5">
+      <header class="flex items-center justify-between border-b border-border py-6">
+        <a class="font-bold text-primary no-underline" href="/">Go Tickets</a>
+        <nav>
+          <a class="text-sm font-medium text-muted-foreground no-underline hover:text-primary" href="/tickets">
+            自分のチケット
+          </a>
+        </nav>
+      </header>
+      <main class="pt-8 pb-20 md:pt-12">
         <slot />
         <ClerkIsland client:load transition:persist="clerk-auth" />
       </main>

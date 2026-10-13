@@ -38,14 +38,14 @@ export function PublicEventList() {
     );
 
   return (
-    <ul className="public-event-list">
+    <ul className="grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
       {events.map((event) => (
         <li key={event.id}>
           <Card>
-            <a className="public-event-card" href={`/events/${event.id}`}>
+            <a className="block h-full p-5 text-inherit no-underline" href={`/events/${event.id}`}>
               <Badge>{event.publication_status === "published" ? "公開中" : ""}</Badge>
-              <h2>{event.name}</h2>
-              <p>イベント詳細とチケットを見る　→</p>
+              <h2 className="mt-3.5 mb-2 text-lg font-semibold text-foreground">{event.name}</h2>
+              <p className="m-0 text-sm text-muted-foreground">イベント詳細とチケットを見る　→</p>
             </a>
           </Card>
         </li>
@@ -87,19 +87,23 @@ export function PublicEventDetail() {
   if (!event) return <Alert variant="destructive">イベントが見つかりません。</Alert>;
 
   return (
-    <div className="public-event-detail-content">
-      <div className="public-hero">
+    <div className="[body.needs-participant-name_&]:hidden">
+      <div className="mb-7">
         <Badge>イベント詳細</Badge>
-        <h1 style={{ marginTop: 12 }}>{event.name}</h1>
-        <p>
+        <h1 className="mt-3 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+          {event.name}
+        </h1>
+        <p className="mt-3 max-w-xl leading-relaxed text-muted-foreground">
           {event.starts_at && event.ends_at
             ? `${formatJST(event.starts_at)} – ${formatJST(event.ends_at)}`
             : ""}
         </p>
       </div>
-      {event.venue_name && <h2>{event.venue_name}</h2>}
+      {event.venue_name && (
+        <h2 className="mb-3 text-xl font-semibold text-foreground">{event.venue_name}</h2>
+      )}
       {event.venue_address && (
-        <p>
+        <p className="mb-6">
           {event.venue_address}{" "}
           <a
             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.venue_address)}`}
@@ -110,11 +114,13 @@ export function PublicEventDetail() {
           </a>
         </p>
       )}
-      <section aria-labelledby="event-description">
-        <h2 id="event-description">イベント説明</h2>
+      <section className="mt-8" aria-labelledby="event-description">
+        <h2 className="mb-3 text-xl font-semibold text-foreground" id="event-description">
+          イベント説明
+        </h2>
         <Markdown text={event.description} />
       </section>
-      <h2>チケット</h2>
+      <h2 className="mt-8 mb-4 text-xl font-semibold text-foreground">チケット</h2>
       {event.ticket_types.length === 0 ? (
         <Card>
           <CardContent>
@@ -122,10 +128,13 @@ export function PublicEventDetail() {
           </CardContent>
         </Card>
       ) : (
-        <ul className="public-ticket-list">
+        <ul className="grid list-none gap-3 p-0">
           {event.ticket_types.map((ticket) => (
-            <li className="public-ticket-row" key={ticket.id}>
-              <strong>{ticket.name}</strong>
+            <li
+              className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5"
+              key={ticket.id}
+            >
+              <strong className="min-w-0 break-words">{ticket.name}</strong>
               <TicketAvailability
                 registrationStartsAt={ticket.registration_starts_at}
                 registrationEndsAt={ticket.registration_ends_at}
