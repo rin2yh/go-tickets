@@ -1,6 +1,8 @@
 ---
 interface Props { title: string }
 const { title } = Astro.props;
+// oxlint-disable-next-line import/no-unassigned-import
+import "@go-tickets/ui/styles.css";
 import { ClientRouter } from "astro:transitions";
 import { ClerkIsland } from "../components/clerk-island";
 ---
@@ -19,15 +21,10 @@ import { ClerkIsland } from "../components/clerk-island";
         <a class="public-brand" href="/">Go Tickets</a>
         <nav><a href="/tickets">自分のチケット</a></nav>
       </header>
-      <main class="public-content max-[700px]:pt-[34px]">
+      <main class="public-content public-mobile:pt-mobile-content">
         <slot />
         <ClerkIsland client:load transition:persist="clerk-auth" />
       </main>
     </div>
   </body>
 </html>
-
-<style is:global>
-  @import "@go-tickets/ui/styles.css";
-  @config "../../tailwind.config.js";
-</style>

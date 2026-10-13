@@ -190,7 +190,7 @@ function ParticipantNameForm({
     <Card>
       <CardContent>
         <form
-          className="mx-auto grid w-full max-w-[480px] gap-4"
+          className="mx-auto grid w-full max-w-participant-form gap-4"
           onSubmit={async (e) => {
             e.preventDefault();
             const normalized = name.trim();
@@ -217,14 +217,14 @@ function ParticipantNameForm({
             }
           }}
         >
-          <h2 className="m-0 text-[1.45rem] text-public-heading">参加者名を設定</h2>
-          <p className="m-0 leading-[1.7] text-[var(--ui-muted)]">
+          <h2 className="m-0 text-participant-heading text-public-heading">参加者名を設定</h2>
+          <p className="m-0 leading-public text-muted-foreground">
             イベントの参加者一覧などで使う名前です。実名・ハンドルネームのどちらでも構いません。あとから変更できます。
           </p>
-          <label className="grid gap-[7px] font-semibold">
+          <label className="grid gap-2 font-semibold">
             参加者名
             <input
-              className="h-[42px] rounded-[8px] border border-[var(--ui-border)] px-3"
+              className="h-10.5 rounded-md border border-border px-3"
               value={name}
               maxLength={100}
               required
@@ -315,7 +315,7 @@ function TicketActions({
     <section className="mt-7">
       <Card>
         <CardContent>
-          <div className="mb-[18px] flex items-center gap-3">
+          <div className="mb-4.5 flex items-center gap-3">
             <Badge>ログイン中</Badge>
             <span>{participantName}</span>
             <Button variant="ghost" size="sm" onClick={onEditName}>
@@ -401,7 +401,7 @@ export function RegisterButtons({
     const state = ticketActionState(ticket, eventEndsAt, registrations, now);
     return (
       <Button
-        className="mr-[10px] mb-[10px]"
+        className="mr-2.5 mb-2.5"
         key={ticket.id}
         disabled={busy || !registrationsReady || state.disabled}
         onClick={() => void register("register", ticket.id)}

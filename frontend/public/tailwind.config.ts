@@ -1,5 +1,14 @@
+interface TailwindPluginApi {
+  addUtilities: (utilities: Record<string, Record<string, string>>) => void;
+  addVariant: (name: string, variant: string) => void;
+  theme: (path: string) => string;
+}
+
 export default {
-  content: ["./src/**/*.{astro,html,js,jsx,ts,tsx}"],
+  content: {
+    relative: true,
+    files: ["./src/**/*.{astro,html,js,jsx,ts,tsx}"],
+  },
   theme: {
     extend: {
       colors: {
@@ -8,12 +17,28 @@ export default {
           eyebrow: "#5a8b71",
           heading: "#18392a",
           "event-title": "#22392d",
+          muted: "var(--ui-muted)",
         },
+      },
+      fontSize: {
+        "event-heading": "1.15rem",
+        "participant-heading": "1.45rem",
+      },
+      lineHeight: {
+        public: "1.7",
+      },
+      maxWidth: {
+        "participant-form": "480px",
+      },
+      spacing: {
+        "mobile-content": "34px",
       },
     },
   },
   plugins: [
-    ({ addUtilities, theme }) => {
+    ({ addUtilities, addVariant, theme }: TailwindPluginApi) => {
+      addVariant("public-mobile", "@media (max-width: 700px)");
+      addVariant("participant-name-missing", "body.needs-participant-name &");
       addUtilities({
         ".public-shell": {
           width: "calc(100% - 2.5rem)",
@@ -58,8 +83,8 @@ export default {
           maxWidth: "560px",
           marginTop: "12px",
           marginBottom: "0",
-          color: "var(--ui-muted)",
-          lineHeight: "1.7",
+          color: theme("colors.public.muted"),
+          lineHeight: theme("lineHeight.public"),
         },
         ".public-event-list": {
           display: "grid",

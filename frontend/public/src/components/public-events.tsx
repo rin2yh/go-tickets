@@ -43,16 +43,14 @@ export function PublicEventList() {
         <li key={event.id}>
           <Card>
             <a
-              className="block h-full p-[22px] text-inherit no-underline"
+              className="block h-full p-5.5 text-inherit no-underline"
               href={`/events/${event.id}`}
             >
               <Badge>{event.publication_status === "published" ? "公開中" : ""}</Badge>
-              <h2 className="mt-[14px] mb-2 text-[1.15rem] text-public-event-title">
+              <h2 className="mt-3.5 mb-2 text-event-heading text-public-event-title">
                 {event.name}
               </h2>
-              <p className="m-0 text-[0.9rem] text-[var(--ui-muted)]">
-                イベント詳細とチケットを見る　→
-              </p>
+              <p className="m-0 text-sm text-muted-foreground">イベント詳細とチケットを見る　→</p>
             </a>
           </Card>
         </li>
@@ -94,7 +92,7 @@ export function PublicEventDetail() {
   if (!event) return <Alert variant="destructive">イベントが見つかりません。</Alert>;
 
   return (
-    <div className="[body.needs-participant-name_&]:hidden">
+    <div className="participant-name-missing:hidden">
       <div className="public-hero">
         <Badge>イベント詳細</Badge>
         <h1 className="public-title mt-3">{event.name}</h1>
