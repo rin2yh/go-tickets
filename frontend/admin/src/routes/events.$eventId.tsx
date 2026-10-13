@@ -13,6 +13,8 @@ import {
 } from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
+import { NativeSelect } from "@go-tickets/ui/components/native-select";
+import { Textarea } from "@go-tickets/ui/components/textarea";
 interface TicketType {
   id: number;
   name: string;
@@ -268,10 +270,9 @@ function EventPage() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="event-description">イベント説明（Markdown）</Label>
-                  <textarea
+                  <Textarea
                     id="event-description"
                     value={description}
-                    className="min-h-[300px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
@@ -313,9 +314,8 @@ function EventPage() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="event-publication-status">公開状態</Label>
-                  <select
+                  <NativeSelect
                     id="event-publication-status"
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     value={publicationStatus}
                     onChange={(e) =>
                       setPublicationStatus(e.target.value === "published" ? "published" : "draft")
@@ -323,7 +323,7 @@ function EventPage() {
                   >
                     <option value="draft">下書き</option>
                     <option value="published">公開</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="pt-1">
                   <Button disabled={busy}>イベントを保存</Button>
