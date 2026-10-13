@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import common from "../.oxlintrc.json" with { type: "json" };
+import common from "../oxlint.config.json" with { type: "json" };
 
 export default {
   ...common,

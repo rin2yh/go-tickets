@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import common from "../.oxlintrc.json" with { type: "json" };
+import common from "../oxlint.config.json" with { type: "json" };
 
 const baseImportRule = common.rules["no-restricted-imports"];
 const adminImportPatterns = [
