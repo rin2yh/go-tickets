@@ -61,87 +61,104 @@ function Events() {
     }
   }
   return (
-    <main className="admin-main">
-      <div className="page-heading">
+    <main className="mx-auto w-full max-w-[1120px] px-4 py-8 sm:px-6">
+      <div className="mb-6 flex items-center">
         <div>
-          <p>
-            <Link to="/events">← イベント一覧</Link>
+          <p className="mb-2 text-sm">
+            <Link className="text-muted-foreground hover:text-foreground" to="/events">
+              ← イベント一覧
+            </Link>
           </p>
-          <h1>イベントを作成</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">イベントを作成</h1>
         </div>
       </div>
-      <Card className="form-card">
+      <Card className="mx-auto w-full max-w-[800px]">
         <CardHeader>
-          <CardTitle>イベントを作成</CardTitle>
+          <CardTitle>イベント情報</CardTitle>
           <CardDescription>
-            下書きとして作成されます。公開に必要な情報は後から設定できます。
+            公開状態はフォームで選択できます。公開する場合は、説明と開催日時の入力が必要です。
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={create} className="form-stack event-basic-form">
-            <Label>
-              イベント名
+        <CardContent className="px-4 pb-6 sm:px-6">
+          <form onSubmit={create} className="mx-auto grid w-full max-w-[720px] gap-5">
+            <div className="grid gap-2">
+              <Label htmlFor="event-name">イベント名</Label>
               <Input
+                id="event-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={200}
                 placeholder="例: 春のカンファレンス"
               />
-            </Label>
-            <Label>
-              イベント説明（Markdown）
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="event-description">イベント説明（Markdown）</Label>
               <textarea
-                aria-label="イベント説明（Markdown）"
+                id="event-description"
                 value={description}
-                rows={5}
+                rows={8}
                 onChange={(e) => setDescription(e.target.value)}
+                className="min-h-[300px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-base leading-relaxed shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
               />
-            </Label>
-            <Label>
-              開催開始日時（JST）
+            </div>
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="event-starts-at">開催開始日時（JST）</Label>
+                <Input
+                  id="event-starts-at"
+                  type="datetime-local"
+                  value={startsAt}
+                  onChange={(e) => setStartsAt(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="event-ends-at">開催終了日時（JST）</Label>
+                <Input
+                  id="event-ends-at"
+                  type="datetime-local"
+                  value={endsAt}
+                  onChange={(e) => setEndsAt(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="event-venue-name">会場名</Label>
               <Input
-                type="datetime-local"
-                value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
+                id="event-venue-name"
+                value={venueName}
+                onChange={(e) => setVenueName(e.target.value)}
               />
-            </Label>
-            <Label>
-              開催終了日時（JST）
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="event-venue-address">会場住所</Label>
               <Input
-                type="datetime-local"
-                value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
+                id="event-venue-address"
+                value={venueAddress}
+                onChange={(e) => setVenueAddress(e.target.value)}
               />
-            </Label>
-            <Label>
-              会場名
-              <Input value={venueName} onChange={(e) => setVenueName(e.target.value)} />
-            </Label>
-            <Label>
-              会場住所
-              <Input value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} />
-            </Label>
-            <Label>
-              公開状態
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="event-publication-status">公開状態</Label>
               <select
-                aria-label="公開状態"
+                id="event-publication-status"
                 value={publicationStatus}
                 onChange={(e) =>
                   setPublicationStatus(e.target.value === "published" ? "published" : "draft")
                 }
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
               >
                 <option value="draft">下書き</option>
                 <option value="published">公開</option>
               </select>
-            </Label>
-            <div>
+            </div>
+            <div className="pt-1">
               <Button disabled={busy}>{busy ? "作成中…" : "イベントを作成"}</Button>
             </div>
           </form>
         </CardContent>
       </Card>
       {error && (
-        <Alert variant="destructive" style={{ marginTop: 16 }}>
+        <Alert className="mx-auto mt-4 w-full max-w-[800px]" variant="destructive">
           {error}
         </Alert>
       )}

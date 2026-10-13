@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test",
-    "vrt:admin": "playwright test --config playwright.admin-vrt.config.ts"
+    "test": "playwright test"
   },
   "devDependencies": {
     "@clerk/backend": "^3.21.1",

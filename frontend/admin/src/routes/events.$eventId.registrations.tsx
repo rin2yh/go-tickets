@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Button } from "@go-tickets/ui/components/button";
+import { Label } from "@go-tickets/ui/components/label";
 interface Event {
   id: number;
   name: string;
@@ -62,13 +63,13 @@ function Registrations() {
   }, [eventId, getToken, status, ticket, page]);
   if (error)
     return (
-      <main className="admin-main">
+      <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
         <Alert variant="destructive">{error}</Alert>
       </main>
     );
   if (!event || !data)
     return (
-      <main className="admin-main">
+      <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
         <p aria-live="polite">参加者を読み込み中です。</p>
       </main>
     );
@@ -79,27 +80,32 @@ function Registrations() {
     next: Partial<{ status: "active" | "cancelled"; ticket: string; page: number }>,
   ) => void navigate({ search: (old) => ({ ...old, ...next }) });
   return (
-    <main className="admin-main">
-      <p>
-        <Link to="/events">← イベント一覧</Link>
+    <main className="mx-auto w-full max-w-[1120px] px-4 py-8 md:px-6 md:py-10">
+      <p className="mb-4 text-sm">
+        <Link className="text-muted-foreground hover:text-foreground" to="/events">
+          ← イベント一覧
+        </Link>
       </p>
-      <header className="page-heading">
-        <div>
-          <h1>{event.name}</h1>
-          <p className="event-meta">
-            <Badge variant="outline">
-              {event.publication_status === "published" ? "公開中" : "下書き"}
-            </Badge>
-            {event.starts_at ? fmt(event.starts_at) : "開催日時未設定"}
-          </p>
+      <header className="mb-6">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{event.name}</h1>
+          <Badge variant={event.publication_status === "published" ? "default" : "secondary"}>
+            {event.publication_status === "published" ? "公開中" : "下書き"}
+          </Badge>
         </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {event.starts_at ? fmt(event.starts_at) : "開催日時未設定"}
+        </p>
       </header>
-      <nav className="event-tabs" aria-label="イベント内ナビゲーション">
+      <nav
+        className="mb-7 flex gap-6 overflow-x-auto border-b border-border"
+        aria-label="イベント内ナビゲーション"
+      >
         <Link
           to="/events/$eventId"
           params={{ eventId }}
           search={{ tab: "basic" }}
-          className="tab-not-current"
+          className="shrink-0 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           基本情報
         </Link>
@@ -107,7 +113,7 @@ function Registrations() {
           to="/events/$eventId"
           params={{ eventId }}
           search={{ tab: "tickets" }}
-          className="tab-not-current"
+          className="shrink-0 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           チケット設定
         </Link>
@@ -115,54 +121,64 @@ function Registrations() {
           to="/events/$eventId/registrations"
           params={{ eventId }}
           search={{ tab: "basic", status, ticket, page }}
-          className="current-tab"
+          className="shrink-0 border-b-2 border-primary px-1 pb-3 text-sm font-medium text-primary"
           aria-current="page"
         >
           参加者
         </Link>
       </nav>
-      <section className="attendee-section">
-        <h2>参加者</h2>
-        <div className="capacity-summary">
-          <strong>
+      <section className="space-y-5">
+        <h2 className="text-xl font-semibold tracking-tight">参加者</h2>
+        <div className="max-w-md space-y-2">
+          <strong className="block text-sm font-semibold">
             {data.active} / {data.capacity}名
           </strong>
           <div
-            className="capacity-track"
+            className="h-2 overflow-hidden rounded-full bg-muted"
             role="progressbar"
             aria-valuenow={data.active}
             aria-valuemin={0}
             aria-valuemax={data.capacity}
           >
             <span
+              className="block h-full rounded-full bg-primary"
               style={{
                 width: `${data.capacity ? Math.min(100, (data.active / data.capacity) * 100) : 0}%`,
               }}
             />
           </div>
         </div>
-        <div className="registration-tabs" role="group" aria-label="申込ステータス">
+        <div className="flex gap-2 border-b border-border" role="group" aria-label="申込ステータス">
           <button
-            className={status === "active" ? "selected" : ""}
+            className={`border-b-2 px-3 py-2 text-sm font-medium ${
+              status === "active"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
             aria-pressed={status === "active"}
             onClick={() => setSearch({ status: "active", page: 1 })}
           >
             申込中 {data.active}
           </button>
           <button
-            className={status === "cancelled" ? "selected" : ""}
+            className={`border-b-2 px-3 py-2 text-sm font-medium ${
+              status === "cancelled"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
             aria-pressed={status === "cancelled"}
             onClick={() => setSearch({ status: "cancelled", page: 1 })}
           >
             キャンセル済み {data.cancelled}
           </button>
         </div>
-        <label className="ticket-filter">
-          チケット種別
+        <div className="grid w-full max-w-sm gap-2">
+          <Label htmlFor="ticket-filter">チケット種別</Label>
           <select
-            aria-label="チケット種別"
+            id="ticket-filter"
             value={ticket}
             onChange={(e) => setSearch({ ticket: e.target.value, page: 1 })}
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             <option value="all">すべてのチケット</option>
             {event.ticket_types.map((t) => (
@@ -171,28 +187,35 @@ function Registrations() {
               </option>
             ))}
           </select>
-        </label>
-        <div className="attendee-table-scroll">
-          <table className="attendee-table">
-            <thead>
+        </div>
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table className="w-full min-w-[600px] border-collapse text-left text-sm">
+            <thead className="bg-muted/60 text-xs text-muted-foreground">
               <tr>
-                <th>参加者名</th>
-                <th>チケット種別</th>
-                <th>申込日時</th>
+                <th className="px-4 py-3 font-medium">参加者名</th>
+                <th className="px-4 py-3 font-medium">チケット種別</th>
+                <th className="px-4 py-3 font-medium">申込日時</th>
               </tr>
             </thead>
             <tbody>
               {data.items.length ? (
                 data.items.map((row, i) => (
                   <tr key={`${row.ticket_type_id}-${row.created_at}-${i}`}>
-                    <td>{row.name || "名前未設定"}</td>
-                    <td>{row.ticket_name}</td>
-                    <td>{fmt(row.created_at)}</td>
+                    <td className="border-t border-border px-4 py-3 font-medium">
+                      {row.name || "名前未設定"}
+                    </td>
+                    <td className="border-t border-border px-4 py-3">{row.ticket_name}</td>
+                    <td className="border-t border-border px-4 py-3 text-muted-foreground">
+                      {fmt(row.created_at)}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={3} className="empty-attendees">
+                  <td
+                    colSpan={3}
+                    className="border-t border-border px-4 py-10 text-center text-muted-foreground"
+                  >
                     該当する参加者はいません
                   </td>
                 </tr>
@@ -200,11 +223,11 @@ function Registrations() {
             </tbody>
           </table>
         </div>
-        <footer className="attendee-pagination">
-          <span>
+        <footer className="flex flex-col items-start justify-between gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center">
+          <span className="tabular-nums">
             {first}–{last} / {data.total}件
           </span>
-          <div>
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -213,9 +236,8 @@ function Registrations() {
             >
               前へ
             </Button>
-            <span>
-              {" "}
-              {page} / {pages}{" "}
+            <span className="tabular-nums">
+              {page} / {pages}
             </span>
             <Button
               variant="outline"
