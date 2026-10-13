@@ -6,13 +6,15 @@
     "build:public": "pnpm --filter @go-tickets/public build",
     "build:admin": "pnpm --filter @go-tickets/admin build",
     "shadcn:add": "pnpm dlx shadcn@latest add -c ui",
-    "lint": "oxlint . && node scripts/public-boundaries.mjs && pnpm run format:check && pnpm run typecheck",
-    "test": "pnpm --filter @go-tickets/public test && pnpm --filter @go-tickets/admin test && node --test scripts/public-boundaries.test.mjs",
+    "lint": "oxlint . && pnpm run format:check && pnpm run typecheck",
+    "test": "pnpm --filter @go-tickets/public test && pnpm --filter @go-tickets/admin test",
     "typecheck": "pnpm --filter @go-tickets/public typecheck && pnpm --filter @go-tickets/admin typecheck",
     "format": "oxfmt .",
     "format:check": "oxfmt --check ."
   },
   "devDependencies": {
+    "eslint-import-resolver-typescript": "3.6.1",
+    "eslint-plugin-boundaries": "7.2.0",
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0"
   },

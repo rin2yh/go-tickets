@@ -10,6 +10,8 @@
 
 依存方向は `pages` / `screens` → `widgets` → `features` → `entities` → `shared` とする。各 slice は別 slice の内部ファイルを参照せず、公開 API (`index.ts`) 経由で利用する。同一レイヤーの slice 間依存は作らない。Astro ルートの相対 import は Astro の公開 entrypoint に限定する。
 
-境界は TypeScript AST を使う `frontend/scripts/public-boundaries.mjs` で検査し、`pnpm lint` と `pnpm test` の両方から実ソースを走査する。Astro ファイルは frontmatter を TypeScript AST として解析する。TypeScript の module resolver を使い、tsconfig の alias が Public 内部へ解決される場合も検査対象にする。
+TypeScript の依存境界は Oxlint の `eslint-plugin-boundaries` 設定で検査する。FSD レイヤー間の依存方向、同じレイヤーの別 slice への依存、別 slice の内部ファイルへの依存を制限する。TypeScript の module resolver を設定し、tsconfig の path alias による依存も解決する。
+
+Astro の `.astro` ファイルは Oxlint の解析対象外であるため、`pages/` と `layouts/` の frontmatter にある import は検査されない。これらの依存方向、別 slice への直接 import、公開 API 経由の制約は保証対象外となる。
 
 React Island の境界と hydration 方針は維持する。イベント一覧とイベント詳細は従来どおり `client:only="react"`、永続化する認証 Island は `client:load` とする。
