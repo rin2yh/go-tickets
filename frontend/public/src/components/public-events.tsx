@@ -42,10 +42,17 @@ export function PublicEventList() {
       {events.map((event) => (
         <li key={event.id}>
           <Card>
-            <a className="public-event-card" href={`/events/${event.id}`}>
+            <a
+              className="block h-full p-[22px] text-inherit no-underline"
+              href={`/events/${event.id}`}
+            >
               <Badge>{event.publication_status === "published" ? "公開中" : ""}</Badge>
-              <h2>{event.name}</h2>
-              <p>イベント詳細とチケットを見る　→</p>
+              <h2 className="mt-[14px] mb-2 text-[1.15rem] text-public-event-title">
+                {event.name}
+              </h2>
+              <p className="m-0 text-[0.9rem] text-[var(--ui-muted)]">
+                イベント詳細とチケットを見る　→
+              </p>
             </a>
           </Card>
         </li>
@@ -87,11 +94,11 @@ export function PublicEventDetail() {
   if (!event) return <Alert variant="destructive">イベントが見つかりません。</Alert>;
 
   return (
-    <div className="public-event-detail-content">
+    <div className="[body.needs-participant-name_&]:hidden">
       <div className="public-hero">
         <Badge>イベント詳細</Badge>
-        <h1 style={{ marginTop: 12 }}>{event.name}</h1>
-        <p>
+        <h1 className="public-title mt-3">{event.name}</h1>
+        <p className="public-description">
           {event.starts_at && event.ends_at
             ? `${formatJST(event.starts_at)} – ${formatJST(event.ends_at)}`
             : ""}
