@@ -1,5 +1,6 @@
 import { ClerkProvider } from "@clerk/react";
 import { createRoot } from "react-dom/client";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 // oxlint-disable-next-line import/no-unassigned-import
@@ -10,6 +11,9 @@ const router = createRouter({
   basepath: "/",
   trailingSlash: "never",
   scrollRestoration: true,
+});
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
 });
 declare module "@tanstack/react-router" {
   interface Register {
@@ -27,7 +31,9 @@ async function start() {
     const config: { publishableKey: string } = await response.json();
     root.render(
       <ClerkProvider publishableKey={config.publishableKey}>
-        <RouterProvider router={router} />
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
       </ClerkProvider>,
     );
   } catch (error) {

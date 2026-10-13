@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import type * as Clerk from "@clerk/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -75,7 +76,12 @@ async function renderEventPage() {
     history: createMemoryHistory({ initialEntries: ["/events/42"] }),
   });
   await router.load();
-  render(<RouterProvider router={router} />);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 }
 
 describe("イベント詳細の読み込み状態", () => {
