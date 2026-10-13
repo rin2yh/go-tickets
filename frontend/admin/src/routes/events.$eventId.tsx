@@ -13,7 +13,6 @@ import {
 } from "@go-tickets/ui/components/card";
 import { Input } from "@go-tickets/ui/components/input";
 import { Label } from "@go-tickets/ui/components/label";
-import { loadEvent } from "../lib/load-event";
 interface TicketType {
   id: number;
   name: string;
@@ -75,22 +74,31 @@ function EventPage() {
   useEffect(() => {
     if (isRegistrationPage) return;
     let live = true;
-    void loadEvent<Event>(eventId, getToken).then((result) => {
-      if (!live) return;
-      if (result.status !== "success") {
-        setEventLoad({ ...result, eventId });
-        return;
+    void (async () => {
+      try {
+        const token = await getToken();
+        const response = await fetch(`/api/admin/events/${eventId}`, {
+          headers: { Authorization: `Bearer ${token ?? ""}` },
+        });
+        if (!live) return;
+        if (!response.ok) {
+          setEventLoad({ status: response.status === 404 ? "not-found" : "error", eventId });
+          return;
+        }
+        const item: Event = await response.json();
+        if (!live) return;
+        setEventName(item.name);
+        setDescription(item.description);
+        setStartsAt(toLocal(item.starts_at));
+        setEndsAt(toLocal(item.ends_at));
+        setVenueName(item.venue_name ?? "");
+        setVenueAddress(item.venue_address ?? "");
+        setPublicationStatus(item.publication_status);
+        setEventLoad({ status: "success", eventId, event: item });
+      } catch {
+        if (live) setEventLoad({ status: "error", eventId });
       }
-      const item = result.event;
-      setEventName(item.name);
-      setDescription(item.description);
-      setStartsAt(toLocal(item.starts_at));
-      setEndsAt(toLocal(item.ends_at));
-      setVenueName(item.venue_name ?? "");
-      setVenueAddress(item.venue_address ?? "");
-      setPublicationStatus(item.publication_status);
-      setEventLoad({ ...result, eventId });
-    });
+    })();
     return () => {
       live = false;
     };
