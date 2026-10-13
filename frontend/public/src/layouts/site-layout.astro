@@ -1,8 +1,6 @@
 ---
 interface Props { title: string }
 const { title } = Astro.props;
-// oxlint-disable-next-line import/no-unassigned-import
-import "../styles.css";
 import { ClientRouter } from "astro:transitions";
 import { ClerkIsland } from "../components/clerk-island";
 ---
@@ -28,3 +26,8 @@ import { ClerkIsland } from "../components/clerk-island";
     </div>
   </body>
 </html>
+
+<style is:global>
+  @import "@go-tickets/ui/styles.css";
+  @config "../../tailwind.config.js";
+</style>
