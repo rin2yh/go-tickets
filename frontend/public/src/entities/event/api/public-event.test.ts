@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Result } from "@praha/byethrow";
-import { fetchPublicEvent, invalidatePublicEvent } from "./public-event";
+import { fetchPublicEvent, fetchPublicEvents, invalidatePublicEvent } from "./public-event";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -80,5 +80,31 @@ describe("public event fetch cache", () => {
 
     expect(Result.isFailure(result)).toBe(true);
     if (Result.isFailure(result)) expect(result.error.message).toBe("network unavailable");
+  });
+
+  it("returns JSON parsing failures as Result failures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new SyntaxError("invalid JSON");
+        },
+      }),
+    );
+
+    const result = await fetchPublicEvent(42);
+
+    expect(Result.isFailure(result)).toBe(true);
+    if (Result.isFailure(result)) expect(result.error.message).toBe("invalid JSON");
+  });
+
+  it("returns an HTTP failure when the public event list cannot be loaded", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
+
+    const result = await fetchPublicEvents();
+
+    expect(Result.isFailure(result)).toBe(true);
+    if (Result.isFailure(result)) expect(result.error.message).toContain("503");
   });
 });

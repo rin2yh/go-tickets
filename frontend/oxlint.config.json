@@ -49,6 +49,14 @@
     "no-restricted-properties": [
       "error",
       {
+        "property": "then",
+        "message": "Use async/await instead of Promise.then()."
+      },
+      {
+        "property": "catch",
+        "message": "Use Result.try instead of Promise.catch()."
+      },
+      {
         "object": "React",
         "property": "memo",
         "message": "React Compiler handles memoization automatically. Remove this manual memoization."
@@ -118,18 +126,10 @@
     "react/react-in-jsx-scope": "off",
     "jsx-a11y/prefer-tag-over-role": "off",
     "eslint-js/no-restricted-syntax": [
-      "error",
+      "warn",
       {
         "selector": "TryStatement",
-        "message": "Handle failures as Result values; try/catch is forbidden."
-      },
-      {
-        "selector": "CallExpression[callee.property.name='catch']",
-        "message": "Use Result.try to handle Promise failures; Promise.catch() is forbidden."
-      },
-      {
-        "selector": "CallExpression[callee.property.name='then']",
-        "message": "Use async/await; Promise.then() is forbidden."
+        "message": "Prefer Result values for expected failures. Reserve try/catch for exception boundaries."
       }
     ]
   },
@@ -139,6 +139,14 @@
       "rules": {
         "no-restricted-properties": [
           "error",
+          {
+            "property": "then",
+            "message": "Use async/await instead of Promise.then()."
+          },
+          {
+            "property": "catch",
+            "message": "Use Result.try instead of Promise.catch()."
+          },
           {
             "property": "getByTestId",
             "message": "Use a user-facing role, label, or text locator."
