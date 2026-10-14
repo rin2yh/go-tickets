@@ -12,7 +12,12 @@
   },
   "ignorePatterns": ["**/dist/**", "**/build/**", "**/coverage/**", "**/routeTree.gen.ts"],
   "rules": {
-    "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
+    "typescript/consistent-type-assertions": [
+      "error",
+      {
+        "assertionStyle": "never"
+      }
+    ],
     "typescript/consistent-type-imports": "error",
     "typescript/consistent-type-definitions": ["error", "interface"],
     "unicorn/consistent-function-scoping": "error",
@@ -63,24 +68,70 @@
       "error",
       {
         "forbid": [
-          { "propName": "data-testid", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-test", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-test-id", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-e2e", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-e2e-id", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-e2e-test", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-e2e-testid", "message": "Do not add test-only DOM attributes." }
+          {
+            "propName": "data-testid",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-test",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-test-id",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-e2e",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-e2e-id",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-e2e-test",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-e2e-testid",
+            "message": "Do not add test-only DOM attributes."
+          }
         ]
       }
     ],
     "complexity": ["error", 10],
-    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "eqeqeq": [
+      "error",
+      "always",
+      {
+        "null": "ignore"
+      }
+    ],
     "no-unused-vars": [
       "error",
-      { "args": "none", "caughtErrors": "none", "varsIgnorePattern": "^_" }
+      {
+        "args": "none",
+        "caughtErrors": "none",
+        "varsIgnorePattern": "^_"
+      }
     ],
     "react/react-in-jsx-scope": "off",
-    "jsx-a11y/prefer-tag-over-role": "off"
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "eslint-js/no-restricted-syntax": [
+      "error",
+      {
+        "selector": "TryStatement",
+        "message": "Handle expected errors with a Result value instead of try/catch."
+      },
+      {
+        "selector": "CallExpression[callee.property.name='catch']",
+        "message": "Handle Promise failures as Result values; do not use Promise.catch()."
+      },
+      {
+        "selector": "CallExpression[callee.property.name='then'][arguments.length>1]",
+        "message": "Handle Promise failures as Result values instead of a second .then() callback."
+      }
+    ]
   },
   "overrides": [
     {
@@ -254,6 +305,12 @@
           }
         ]
       }
+    }
+  ],
+  "jsPlugins": [
+    {
+      "name": "eslint-js",
+      "specifier": "oxlint-plugin-eslint"
     }
   ]
 }

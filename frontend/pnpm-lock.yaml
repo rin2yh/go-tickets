@@ -63,6 +63,9 @@ importers:
       oxlint:
         specifier: 1.86.0
         version: 1.86.0
+      oxlint-plugin-eslint:
+        specifier: 1.86.0
+        version: 1.86.0
 
   admin:
     dependencies:
@@ -4079,6 +4082,10 @@ packages:
         optional: true
       vite-plus:
         optional: true
+
+  oxlint-plugin-eslint@1.86.0:
+    resolution: {integrity: sha512-+nf0EDyteq25iqZXmQSYfEEbMj3cl24u/cVmeNV0c+oiMN+rO5sH+3jEJsbMyUUVWSUDQxNeB5QdoDHauPFHvQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
 
   oxlint@1.86.0:
     resolution: {integrity: sha512-og0lhgvZfgGF//gOOmZXvtr+GmBbAGEnbEhv/QUg7UW2Wi4wHMnJbnMD+zuHgPdJxdklfgpPupdlAaAySyxrZg==}
@@ -8678,6 +8685,8 @@ snapshots:
       '@oxfmt/binding-win32-arm64-msvc': 0.71.0
       '@oxfmt/binding-win32-ia32-msvc': 0.71.0
       '@oxfmt/binding-win32-x64-msvc': 0.71.0
+
+  oxlint-plugin-eslint@1.86.0: {}
 
   oxlint@1.86.0:
     optionalDependencies:
