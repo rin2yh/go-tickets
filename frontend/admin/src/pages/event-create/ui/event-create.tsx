@@ -18,47 +18,26 @@ import { Textarea } from "@go-tickets/ui/components/textarea";
 import { toUTC } from "../../../shared/lib/datetime";
 import { createEvent } from "../../../entities/event";
 export function Events() {
-  const { getToken } = useAuth();
-  const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [endsAt, setEndsAt] = useState("");
-  const [venueName, setVenueName] = useState("");
-  const [venueAddress, setVenueAddress] = useState("");
-  const [publicationStatus, setPublicationStatus] = useState<"draft" | "published">("draft");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    const created = await createEvent(getToken, {
-      name,
-      description,
-      starts_at: toUTC(startsAt),
-      ends_at: toUTC(endsAt),
-      venue_name: venueName || null,
-      venue_address: venueAddress || null,
-      publication_status: publicationStatus,
-    });
-    if (Result.isFailure(created)) {
-      setError(created.error.message);
-      setBusy(false);
-      return;
-    }
-    const navigation = await Result.try({
-      try: () =>
-        navigate({
-          to: "/events/$eventId",
-          params: { eventId: String(created.value) },
-          search: { tab: "basic", status: "active", ticket: "all", page: 1 },
-        }),
-      catch: (cause) => (cause instanceof Error ? cause : new Error("画面を開けません", { cause })),
-    });
-    if (Result.isFailure(navigation)) setError(navigation.error.message);
-    setBusy(false);
-  }
+  const {
+    name,
+    setName,
+    description,
+    setDescription,
+    startsAt,
+    setStartsAt,
+    endsAt,
+    setEndsAt,
+    venueName,
+    setVenueName,
+    venueAddress,
+    setVenueAddress,
+    publicationStatus,
+    setPublicationStatus,
+    error,
+    busy,
+    create,
+  } = useEventCreation();
+
   return (
     <main className="mx-auto w-full max-w-[1120px] px-4 py-8 sm:px-6">
       <div className="mb-6 flex items-center">
@@ -161,4 +140,67 @@ export function Events() {
       )}
     </main>
   );
+}
+
+function useEventCreation() {
+  const { getToken } = useAuth();
+  const navigate = useNavigate();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  const [venueName, setVenueName] = useState("");
+  const [venueAddress, setVenueAddress] = useState("");
+  const [publicationStatus, setPublicationStatus] = useState<"draft" | "published">("draft");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function create(e: React.SubmitEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const created = await createEvent(getToken, {
+      name,
+      description,
+      starts_at: toUTC(startsAt),
+      ends_at: toUTC(endsAt),
+      venue_name: venueName || null,
+      venue_address: venueAddress || null,
+      publication_status: publicationStatus,
+    });
+    if (Result.isFailure(created)) {
+      setError(created.error.message);
+      setBusy(false);
+      return;
+    }
+    const navigation = await Result.try({
+      try: () =>
+        navigate({
+          to: "/events/$eventId",
+          params: { eventId: String(created.value) },
+          search: { tab: "basic", status: "active", ticket: "all", page: 1 },
+        }),
+      catch: (cause) => (cause instanceof Error ? cause : new Error("画面を開けません", { cause })),
+    });
+    if (Result.isFailure(navigation)) setError(navigation.error.message);
+    setBusy(false);
+  }
+  return {
+    name,
+    setName,
+    description,
+    setDescription,
+    startsAt,
+    setStartsAt,
+    endsAt,
+    setEndsAt,
+    venueName,
+    setVenueName,
+    venueAddress,
+    setVenueAddress,
+    publicationStatus,
+    setPublicationStatus,
+    error,
+    busy,
+    create,
+  };
 }

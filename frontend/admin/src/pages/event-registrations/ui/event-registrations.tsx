@@ -51,9 +51,6 @@ export function Registrations(props: RegistrationsProps) {
       </div>
     );
   const data = registrations.data;
-  const pages = Math.max(1, Math.ceil(data.total / 50));
-  const first = data.total === 0 ? 0 : (page - 1) * 50 + 1;
-  const last = Math.min(page * 50, data.total);
   const setSearch = (
     next: Partial<{ status: "active" | "cancelled"; ticket: string; page: number }>,
   ) => onSearchChange(next);
@@ -105,69 +102,100 @@ export function Registrations(props: RegistrationsProps) {
           ))}
         </NativeSelect>
       </div>
-      <div className="overflow-x-auto rounded-lg border bg-card">
-        <Table className="min-w-[600px] border-collapse text-left">
-          <TableHeader className="bg-muted/60 text-xs text-muted-foreground">
-            <TableRow>
-              <TableHead className="px-4 py-3 font-medium">参加者名</TableHead>
-              <TableHead className="px-4 py-3 font-medium">チケット種別</TableHead>
-              <TableHead className="px-4 py-3 font-medium">申込日時</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.items.length ? (
-              data.items.map((row, i) => (
-                <TableRow key={`${row.ticket_type_id}-${row.created_at}-${i}`}>
-                  <TableCell className="border-t border-border px-4 py-3 font-medium">
-                    {row.name || "名前未設定"}
-                  </TableCell>
-                  <TableCell className="border-t border-border px-4 py-3">
-                    {row.ticket_name}
-                  </TableCell>
-                  <TableCell className="border-t border-border px-4 py-3 text-muted-foreground">
-                    {formatRegistrationDate(row.created_at)}
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={3}
-                  className="border-t border-border px-4 py-10 text-center text-muted-foreground"
-                >
-                  該当する参加者はいません
+      <RegistrationTable items={data.items} />
+      <RegistrationPagination
+        total={data.total}
+        page={page}
+        onPageChange={(nextPage) => setSearch({ page: nextPage })}
+      />
+    </section>
+  );
+}
+
+function RegistrationTable({
+  items,
+}: {
+  items: { name: string; ticket_type_id: number; ticket_name: string; created_at: string }[];
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border bg-card">
+      <Table className="min-w-[600px] border-collapse text-left">
+        <TableHeader className="bg-muted/60 text-xs text-muted-foreground">
+          <TableRow>
+            <TableHead className="px-4 py-3 font-medium">参加者名</TableHead>
+            <TableHead className="px-4 py-3 font-medium">チケット種別</TableHead>
+            <TableHead className="px-4 py-3 font-medium">申込日時</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.length ? (
+            items.map((row, i) => (
+              <TableRow key={`${row.ticket_type_id}-${row.created_at}-${i}`}>
+                <TableCell className="border-t border-border px-4 py-3 font-medium">
+                  {row.name || "名前未設定"}
+                </TableCell>
+                <TableCell className="border-t border-border px-4 py-3">
+                  {row.ticket_name}
+                </TableCell>
+                <TableCell className="border-t border-border px-4 py-3 text-muted-foreground">
+                  {formatRegistrationDate(row.created_at)}
                 </TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      <footer className="flex flex-col items-start justify-between gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center">
+            ))
+          ) : (
+            <TableRow>
+              <TableCell
+                colSpan={3}
+                className="border-t border-border px-4 py-10 text-center text-muted-foreground"
+              >
+                該当する参加者はいません
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function RegistrationPagination({
+  total,
+  page,
+  onPageChange,
+}: {
+  total: number;
+  page: number;
+  onPageChange: (page: number) => void;
+}) {
+  const pages = Math.max(1, Math.ceil(total / 50));
+  const first = total === 0 ? 0 : (page - 1) * 50 + 1;
+  const last = Math.min(page * 50, total);
+  return (
+    <footer className="flex flex-col items-start justify-between gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center">
+      <span className="tabular-nums">
+        {first}–{last} / {total}件
+      </span>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          前へ
+        </Button>
         <span className="tabular-nums">
-          {first}–{last} / {data.total}件
+          {page} / {pages}
         </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setSearch({ page: page - 1 })}
-          >
-            前へ
-          </Button>
-          <span className="tabular-nums">
-            {page} / {pages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= pages}
-            onClick={() => setSearch({ page: page + 1 })}
-          >
-            次へ
-          </Button>
-        </div>
-      </footer>
-    </section>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page >= pages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          次へ
+        </Button>
+      </div>
+    </footer>
   );
 }
