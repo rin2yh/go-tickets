@@ -78,31 +78,28 @@ func TestStoreName(t *testing.T) {
 }
 
 func TestStoreNameErrors(t *testing.T) {
-	t.Run("Clerk request failure", func(t *testing.T) {
-		s, _ := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, "unavailable", http.StatusServiceUnavailable)
-		}))
-		if _, err := s.Name(context.Background(), "user_1"); err == nil {
-			t.Fatal("Name returned nil error")
-		}
-	})
-	t.Run("legacy profile lookup error", func(t *testing.T) {
+	type input struct {
+		status    int
+		response  string
+		dropTable bool
+	}
+	type want struct{}
+	testx.NewTable[input, want](t,
+		testx.NewCase("Clerk request failure", input{status: http.StatusServiceUnavailable}, want{}),
+		testx.NewCase("legacy profile lookup error", input{status: http.StatusOK, response: `{"id":"user_1"}`, dropTable: true}, want{}),
+		testx.NewCase("projection update error", input{status: http.StatusOK, response: `{"id":"user_1","public_metadata":{"participant_name":"Ada"}}`, dropTable: true}, want{}),
+	).Run(func(t *testing.T, in input, _ want) {
 		s, db := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_, _ = io.WriteString(w, `{"id":"user_1"}`)
+			if in.status != http.StatusOK {
+				http.Error(w, "unavailable", in.status)
+				return
+			}
+			_, _ = io.WriteString(w, in.response)
 		}))
-		if _, err := db.Exec(`DROP TABLE participant_profiles`); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.Name(context.Background(), "user_1"); err == nil {
-			t.Fatal("Name returned nil error")
-		}
-	})
-	t.Run("projection update error", func(t *testing.T) {
-		s, db := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_, _ = io.WriteString(w, `{"id":"user_1","public_metadata":{"participant_name":"Ada"}}`)
-		}))
-		if _, err := db.Exec(`DROP TABLE participant_profiles`); err != nil {
-			t.Fatal(err)
+		if in.dropTable {
+			if _, err := db.Exec(`DROP TABLE participant_profiles`); err != nil {
+				t.Fatal(err)
+			}
 		}
 		if _, err := s.Name(context.Background(), "user_1"); err == nil {
 			t.Fatal("Name returned nil error")

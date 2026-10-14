@@ -9,12 +9,8 @@ pnpm = "11.5.1"
 includes = [
   "backend/tasks.toml",
   "frontend/tasks.toml",
+  "tool/lint/tasks.toml",
 ]
-
-[tasks.test]
-description = "Run Go tests"
-dir = "backend"
-run = "go test ./..."
 
 [tasks.audit-frontend]
 description = "Audit frontend dependencies"
@@ -38,7 +34,7 @@ run = "pnpm --filter @go-tickets/e2e test"
 
 [tasks.check]
 description = "Run lint, architecture checks, format checks, and typechecks"
-run = [{ task = "lint-go" }, { task = "lint-architecture" }, { task = "lint-frontend" }, { task = "format-frontend" }, { task = "typecheck-frontend" }]
+run = [{ task = "lint-go" }, { task = "lint-architecture" }, { task = "lint-tabledriven" }, { task = "lint-frontend" }, { task = "format-frontend" }, { task = "typecheck-frontend" }]
 
 [tasks.build]
 description = "Build the Public and Admin Workers"

@@ -94,19 +94,16 @@ func TestHandlerEventEndpoints(t *testing.T) {
 			t.Fatalf("status = %d, body = %s", w.Code, w.Body)
 		}
 	})
-	t.Run("published event requires description", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/events", strings.NewReader(`{"name":"Event","publication_status":"published"}`))
+	type input struct{ body string }
+	type want struct{ status int }
+	testx.NewTable[input, want](t,
+		testx.NewCase("published event requires description", input{body: `{"name":"Event","publication_status":"published"}`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("malformed body", input{body: `{`}, want{status: http.StatusBadRequest}),
+	).Run(func(t *testing.T, in input, want want) {
+		r := httptest.NewRequest(http.MethodPost, "/events", strings.NewReader(in.body))
 		w := httptest.NewRecorder()
 		h.CreateEvent(w, r)
-		if w.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d", w.Code)
-		}
-	})
-	t.Run("malformed body", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/events", strings.NewReader(`{`))
-		w := httptest.NewRecorder()
-		h.CreateEvent(w, r)
-		if w.Code != http.StatusBadRequest {
+		if w.Code != want.status {
 			t.Fatalf("status = %d", w.Code)
 		}
 	})
