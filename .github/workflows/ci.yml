@@ -8,8 +8,12 @@ on:
 
 jobs:
   frontend-lint:
-    name: Lint frontend
+    name: Lint frontend ${{ matrix.app }}
     runs-on: &ubuntu ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [public, admin, ui, e2e]
     permissions:
       contents: read
     steps:
@@ -27,12 +31,25 @@ jobs:
         id: frontend_dependencies
         run: pnpm install --frozen-lockfile
         working-directory: frontend
-      - run: pnpm run lint
+      - name: Lint ${{ matrix.app }}
+        if: matrix.app != 'e2e'
+        run: pnpm --filter @go-tickets/${{ matrix.app }} lint
+        working-directory: frontend
+      - name: Lint E2E and check frontend
+        if: matrix.app == 'e2e'
+        run: |
+          pnpm exec oxlint e2e
+          pnpm run format:check
+          pnpm run typecheck
         working-directory: frontend
 
   frontend-test:
-    name: Test frontend
+    name: Test frontend ${{ matrix.app }}
     runs-on: *ubuntu
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [public, admin, ui]
     permissions:
       contents: read
       pull-requests: write
@@ -41,39 +58,17 @@ jobs:
       - *setup-node
       - *setup-pnpm
       - *install-frontend
-      - run: |
-          coverage_status=0
-          pnpm --filter @go-tickets/public test || coverage_status=1
-          pnpm --filter @go-tickets/admin test || coverage_status=1
-          pnpm --filter @go-tickets/ui test || coverage_status=1
-          test "$coverage_status" -eq 0
+      - name: Run tests
+        run: pnpm --filter @go-tickets/${{ matrix.app }} test
         working-directory: frontend
-      - name: Report public coverage
+      - name: Report coverage
         if: always() && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
         with:
-          name: Public
-          working-directory: frontend
-          json-summary-path: coverage/public/coverage-summary.json
-          json-final-path: coverage/public/coverage-final.json
-          vite-config-path: public/vitest.config.ts
-      - name: Report admin coverage
-        if: always() && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
-        with:
-          name: Admin
-          working-directory: frontend
-          json-summary-path: coverage/admin/coverage-summary.json
-          json-final-path: coverage/admin/coverage-final.json
-          vite-config-path: admin/vite.config.ts
-      - name: Report UI coverage
-        if: always() && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
-        with:
-          name: UI
-          working-directory: frontend
-          json-summary-path: coverage/ui/coverage-summary.json
-          json-final-path: coverage/ui/coverage-final.json
+          name: ${{ matrix.app }}
+          working-directory: frontend/${{ matrix.app }}
+          json-summary-path: ../coverage/${{ matrix.app }}/coverage-summary.json
+          json-final-path: ../coverage/${{ matrix.app }}/coverage-final.json
 
   backend:
     name: Lint and test Go code
