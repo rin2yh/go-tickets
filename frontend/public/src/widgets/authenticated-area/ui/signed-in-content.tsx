@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@clerk/react";
 import { Alert } from "@go-tickets/ui/components/alert";
+import { Button } from "@go-tickets/ui/components/button";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
 import { useParticipantProfile, ParticipantNameForm } from "../../../features/participant-name";
 import { TicketActions } from "../../../features/ticket-registration";
@@ -15,12 +16,13 @@ export function SignedInContent({
   defaultName: string;
 }) {
   const { getToken } = useAuth();
-  const { state: profile, updateName } = useParticipantProfile(getToken, true);
+  const { state: profile, updateName, retry } = useParticipantProfile(getToken, true);
   const [editingName, setEditingName] = useState(false);
 
   return (
     <ParticipantProfileContent
       profile={profile}
+      onRetry={retry}
       defaultName={defaultName}
       editingName={editingName}
       onSaved={(name) => {
@@ -35,6 +37,7 @@ export function SignedInContent({
 
 function ParticipantProfileContent({
   profile,
+  onRetry,
   defaultName,
   editingName,
   onSaved,
@@ -42,6 +45,7 @@ function ParticipantProfileContent({
   route,
 }: {
   profile: ReturnType<typeof useParticipantProfile>["state"];
+  onRetry: () => void;
   defaultName: string;
   editingName: boolean;
   onSaved: (name: string) => void;
@@ -56,7 +60,15 @@ function ParticipantProfileContent({
         </CardContent>
       </Card>
     );
-  if (profile.status === "failed") return <Alert variant="destructive">{profile.error}</Alert>;
+  if (profile.status === "failed")
+    return (
+      <div className="grid justify-items-start gap-3">
+        <Alert variant="destructive">{profile.error}</Alert>
+        <Button variant="outline" onClick={onRetry}>
+          もう一度試す
+        </Button>
+      </div>
+    );
   if (!profile.name || editingName)
     return <ParticipantNameForm initialName={profile.name || defaultName} onSaved={onSaved} />;
 

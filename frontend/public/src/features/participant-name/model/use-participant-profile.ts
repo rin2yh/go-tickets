@@ -10,7 +10,7 @@ export function useParticipantProfile(getToken: () => Promise<string | null>, en
   const [state, setState] = useState<ProfileState>({ status: "loading" });
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || state.status !== "loading") return;
     let active = true;
 
     async function load() {
@@ -24,13 +24,17 @@ export function useParticipantProfile(getToken: () => Promise<string | null>, en
     return () => {
       active = false;
     };
-  }, [enabled, getToken]);
+  }, [enabled, getToken, state.status]);
 
   function updateName(name: string) {
     setState({ status: "loaded", name });
   }
 
-  return { state, updateName };
+  function retry() {
+    setState({ status: "loading" });
+  }
+
+  return { state, updateName, retry };
 }
 
 async function fetchParticipantName(getToken: () => Promise<string | null>) {

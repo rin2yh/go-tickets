@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ClerkIsland } from "./clerk-island";
 
 const { authState, userState } = vi.hoisted(() => ({
@@ -13,33 +13,6 @@ vi.mock("@clerk/react", () => ({
   SignIn: () => <div>サインイン</div>,
   useAuth: authState,
   useUser: userState,
-}));
-
-vi.mock("../../../features/participant-name", () => ({
-  ParticipantNameForm: () => <div>参加者名フォーム</div>,
-  useParticipantProfile: (getToken: () => Promise<string | null>) => {
-    const [state, setState] = useState<
-      | { status: "loading" }
-      | { status: "loaded"; name: string }
-      | { status: "failed"; error: string }
-    >({ status: "loading" });
-    useEffect(() => {
-      let active = true;
-      async function load() {
-        await getToken();
-        const response = await fetch("/api/profile");
-        if (!active) return;
-        if (!response.ok)
-          setState({ status: "failed", error: `プロフィール取得エラー (${response.status})` });
-        else setState({ status: "loaded", name: "参加者" });
-      }
-      void load();
-      return () => {
-        active = false;
-      };
-    }, [getToken]);
-    return { state, updateName: vi.fn() };
-  },
 }));
 
 vi.mock("../../../features/ticket-registration", () => ({
@@ -91,18 +64,23 @@ describe("ClerkIsland", () => {
       isSignedIn: true,
       getToken: vi.fn(async () => "token"),
     });
+    let profileRequests = 0;
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         if (input === "/api/auth/config") return Response.json({ publishableKey: "pk_test" });
-        return new Response(null, { status: 503 });
+        if (input === "/api/profile" && profileRequests++ === 0)
+          return new Response(null, { status: 503 });
+        return Response.json({ name: "参加者" });
       }),
     );
 
     render(<ClerkIsland />);
 
-    expect(await screen.findByText("プロフィール取得エラー (503)")).toBeTruthy();
+    expect(await screen.findByText("参加者情報を取得できません (503)")).toBeTruthy();
     expect(screen.queryByText("参加者名フォーム")).toBeNull();
+    screen.getByRole("button", { name: "もう一度試す" }).click();
+    expect(await screen.findByText("tickets:0")).toBeTruthy();
   });
 
   it("イベント申込情報の取得失敗を表示する", async () => {
