@@ -95,6 +95,52 @@ describe("受付状態", () => {
     );
   });
 
+  it("申込APIのエラーを再取得エラーと区別して表示する", async () => {
+    getTokenMock.mockResolvedValue("token");
+    const now = Date.now();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input === "/api/registrations" && !init?.method) return Response.json([]);
+      if (input === "/api/registrations" && init?.method === "POST") {
+        return Response.json({ error: "registration_ended" }, { status: 400 });
+      }
+      throw new Error(`Unexpected request: ${input}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TicketActions
+          mode="event"
+          eventId={42}
+          ticketTypes={[
+            {
+              id: 7,
+              name: "General",
+              capacity: 10,
+              reserved: 0,
+              registration_starts_at: new Date(now - 60_000).toISOString(),
+              registration_ends_at: new Date(now + 60_000).toISOString(),
+            },
+          ]}
+          eventEndsAt={new Date(now + 120_000).toISOString()}
+          participantName="Participant"
+          onEditName={() => {}}
+        />
+      </QueryClientProvider>,
+    );
+
+    const registerButton = await screen.findByRole("button", { name: "Generalに申込" });
+    await waitFor(() => expect(registerButton.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(registerButton);
+
+    expect(await screen.findByText("受付は終了しました。")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "再試行" })).toBeNull();
+    expect(fetchMock.mock.calls.filter(([input]) => input === "/api/registrations")).toHaveLength(
+      2,
+    );
+  });
+
   it("キャンセル後の履歴再取得に失敗しても古い申込を操作できず、再試行で同期する", async () => {
     getTokenMock.mockResolvedValue("token");
     let historyRequests = 0;

@@ -25,7 +25,11 @@ export function TicketActions({
   participantName: string;
   onEditName: () => void;
 }) {
-  const { history, actions, feedback } = useTicketActions({ mode, eventId });
+  const { registrationsQuery, registrationMutation, retryMutation, register } = useTicketActions({
+    mode,
+    eventId,
+  });
+  const registrations = registrationsQuery.isSuccess ? registrationsQuery.data : [];
 
   return (
     <section className="mt-7">
@@ -43,37 +47,65 @@ export function TicketActions({
             <RegisterButtons
               tickets={ticketTypes}
               eventEndsAt={eventEndsAt}
-              registrations={history.items}
-              registrationsReady={history.ready}
-              busy={actions.busy}
-              register={actions.register}
+              registrations={registrations}
+              registrationsReady={registrationsQuery.isSuccess}
+              busy={registrationMutation.isPending}
+              register={register}
             />
           )}
-          {mode === "tickets" && history.query.isSuccess && (
+          {mode === "tickets" && registrationsQuery.isSuccess && (
             <RegistrationList
-              items={history.items}
-              busy={actions.busy}
-              register={actions.register}
+              items={registrations}
+              busy={registrationMutation.isPending}
+              register={register}
             />
           )}
-          {history.query.isPending && (
+          {registrationsQuery.isPending && (
             <p role="status" className="mt-4">
               申込履歴を読み込み中…
             </p>
           )}
-          {(history.query.error || feedback.syncFailed) && (
-            <RegistrationQueryAlert
-              error={history.query.error}
-              syncFailed={feedback.syncFailed}
-              message={feedback.message}
-              retrying={actions.retrying || history.query.isFetching}
-              onRetry={() => void actions.retry()}
-            />
-          )}
-          <RegistrationMessage message={feedback.syncFailed ? "" : feedback.message} />
+          <RegistrationFeedback
+            queryError={registrationsQuery.error}
+            actionError={registrationMutation.error}
+            actionMessage={registrationMutation.data?.status ?? ""}
+            retrying={retryMutation.isPending || registrationsQuery.isFetching}
+            onRetry={() => retryMutation.mutate()}
+          />
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+function RegistrationFeedback({
+  queryError,
+  actionError,
+  actionMessage,
+  retrying,
+  onRetry,
+}: {
+  queryError: Error | null;
+  actionError: Error | null;
+  actionMessage: string;
+  retrying: boolean;
+  onRetry: () => void;
+}) {
+  const syncError = actionError instanceof RegistrationSyncError ? actionError : null;
+  const message = syncError ? "" : (actionError?.message ?? actionMessage);
+  return (
+    <>
+      {(queryError || syncError) && (
+        <RegistrationQueryAlert
+          error={queryError}
+          syncFailed={syncError !== null}
+          message={syncError?.message ?? ""}
+          retrying={retrying}
+          onRetry={onRetry}
+        />
+      )}
+      <RegistrationMessage message={message} />
+    </>
   );
 }
 
@@ -275,12 +307,17 @@ function availabilityStatus(
   return registrationStatus(starts, ends, eventEnds, now);
 }
 
+class RegistrationSyncError extends Error {
+  constructor(status: string | undefined, cause: Error) {
+    super(`${status ?? "操作は完了しました"}。状態を更新できませんでした。再試行してください。`, {
+      cause,
+    });
+  }
+}
+
 function useTicketActions({ mode, eventId }: { mode: "tickets" | "event"; eventId: number }) {
   const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
-  const [message, setMessage] = useState("");
-  const [syncFailed, setSyncFailed] = useState(false);
-  const [retrying, setRetrying] = useState(false);
   const registrationsQuery = useQuery({
     queryKey: ["registrations", userId],
     enabled: Boolean(userId),
@@ -290,6 +327,21 @@ function useTicketActions({ mode, eventId }: { mode: "tickets" | "event"; eventI
       return result.value;
     },
   });
+  const syncQueries = () =>
+    Promise.all([
+      queryClient.invalidateQueries(
+        { queryKey: ["registrations", userId] },
+        { throwOnError: true },
+      ),
+      ...(mode === "event"
+        ? [
+            queryClient.invalidateQueries(
+              { queryKey: publicEventKeys.detail(eventId) },
+              { throwOnError: true },
+            ),
+          ]
+        : []),
+    ]);
   const registrationMutation = useMutation({
     mutationFn: async ({
       action,
@@ -298,96 +350,27 @@ function useTicketActions({ mode, eventId }: { mode: "tickets" | "event"; eventI
       action: "register" | "cancel";
       ticketTypeId: number;
     }) => {
-      const outcome = await submitRegistration(getToken, action, ticketTypeId);
-      if (Result.isFailure(outcome)) throw outcome.error;
-      return outcome.value;
-    },
-    onSuccess: async (outcome) => {
-      setSyncFailed(false);
-      setMessage(outcome.status ?? "完了しました");
-      const invalidation = await Result.try({
-        try: () =>
-          Promise.all([
-            queryClient.invalidateQueries(
-              { queryKey: ["registrations", userId] },
-              { throwOnError: true },
-            ),
-            ...(mode === "event"
-              ? [
-                  queryClient.invalidateQueries(
-                    { queryKey: publicEventKeys.detail(eventId) },
-                    { throwOnError: true },
-                  ),
-                ]
-              : []),
-          ]),
+      const result = await submitRegistration(getToken, action, ticketTypeId);
+      if (Result.isFailure(result)) throw result.error;
+      const syncResult = await Result.try({
+        try: syncQueries,
         catch: (error) =>
           error instanceof Error
             ? error
             : new Error("申込状態を更新できませんでした", { cause: error }),
       });
-      if (Result.isFailure(invalidation)) {
-        setSyncFailed(true);
-        setMessage(
-          `${outcome.status ?? "操作は完了しました"}。状態を更新できませんでした。再試行してください。`,
-        );
+      if (Result.isFailure(syncResult)) {
+        throw new RegistrationSyncError(result.value.status, syncResult.error);
       }
-    },
-    onError: (error) => {
-      setSyncFailed(false);
-      setMessage(error.message);
+      return result.value;
     },
   });
-  const currentItems = registrationsQuery.isSuccess ? registrationsQuery.data : [];
-  const registrationsReady = registrationsQuery.isSuccess;
-  const busy = registrationMutation.isPending;
+  const retryMutation = useMutation({
+    mutationFn: syncQueries,
+    onSuccess: () => registrationMutation.reset(),
+  });
   const register = (action: "register" | "cancel", ticketTypeId = eventId) =>
     registrationMutation.mutate({ action, ticketTypeId });
-  const retryQueries = async () => {
-    setRetrying(true);
-    const result = await Result.try({
-      try: () =>
-        Promise.all([
-          queryClient.invalidateQueries(
-            { queryKey: ["registrations", userId] },
-            { throwOnError: true },
-          ),
-          ...(mode === "event"
-            ? [
-                queryClient.invalidateQueries(
-                  { queryKey: publicEventKeys.detail(eventId) },
-                  { throwOnError: true },
-                ),
-              ]
-            : []),
-        ]),
-      catch: (error) =>
-        error instanceof Error
-          ? error
-          : new Error("申込状態を更新できませんでした", { cause: error }),
-    });
-    setRetrying(false);
-    if (Result.isSuccess(result)) {
-      setMessage("");
-      setSyncFailed(false);
-    }
-  };
 
-  return {
-    history: {
-      query: registrationsQuery,
-      items: currentItems,
-      ready: registrationsReady,
-    },
-    actions: {
-      busy,
-      register,
-      retry: retryQueries,
-      retrying,
-    },
-    feedback: {
-      syncFailed,
-      message,
-    },
-  };
+  return { registrationsQuery, registrationMutation, retryMutation, register };
 }
