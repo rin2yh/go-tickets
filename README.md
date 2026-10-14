@@ -1,6 +1,7 @@
 # go-tickets
+チケットサイトのPoC。workersのサイズが増えたので、goがworkersで動作するか検証しています。
 
-Goカンファレンス向けチケット申込サイト。PublicとAdminのCloudflare Workers、Go Wasm API、共有D1で構成する。
+PublicとAdminのCloudflare Workers、Go Wasm API、共有D1で構成する。
 
 ## 開発
 
