@@ -8,6 +8,7 @@ const packageWantOne = 2
 const packageWantTwo = 3
 
 func TestAddOne(t *testing.T) {
+	// This note does not change the test structure.
 	got := add(1)
 	want := 2
 	if got != want {
@@ -16,6 +17,7 @@ func TestAddOne(t *testing.T) {
 }
 
 func TestAddTwo(t *testing.T) { // want "テーブル駆動テストに統合"
+	// The wording can differ while the test structure stays the same.
 	actual := add(3)
 	expected := 4
 	if actual != expected {
@@ -251,9 +253,9 @@ func Testexample(t *testing.T) {
 	assertOther(t, 3)
 }
 
-func add(n int) int                  { return n + 1 }
-func multiply(n int) int             { return n * n }
-func identity[T any](value T) T      { return value }
-func sameValue(any, any) bool        { return true }
-func assertValue(*testing.T, int)    {}
-func assertOther(*testing.T, int)    {}
+func add(n int) int               { return n + 1 }
+func multiply(n int) int          { return n * n }
+func identity[T any](value T) T   { return value }
+func sameValue(any, any) bool     { return true }
+func assertValue(*testing.T, int) {}
+func assertOther(*testing.T, int) {}
