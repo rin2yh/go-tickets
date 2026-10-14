@@ -1,0 +1,11 @@
+coverage:
+  paths:
+    - backend/coverage.out
+  acceptable: 60%
+
+comment:
+  if: is_pull_request
+  updatePrevious: true
+
+summary:
+  if: true
