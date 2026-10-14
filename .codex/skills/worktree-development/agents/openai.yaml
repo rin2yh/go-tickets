@@ -1,0 +1,3 @@
+interface:
+  display_name: "Worktree Development"
+  short_description: "Develop safely in Git worktrees"
