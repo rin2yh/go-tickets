@@ -42,7 +42,7 @@ export function PublicEventDetail() {
   if (!event) return <Alert variant="destructive">イベントが見つかりません。</Alert>;
 
   return (
-    <div className="[body.needs-participant-name_&]:hidden">
+    <div>
       <div className="mb-7">
         <Badge>イベント詳細</Badge>
         <h1 className="mt-3 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">

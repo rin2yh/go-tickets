@@ -58,6 +58,15 @@ test("participant uses tickets across authenticated page transitions", async ({ 
     await expectSignedIn(page);
   });
 
+  await test.step("Change participant name", async () => {
+    const main = page.getByRole("main");
+    const updatedName = `Updated E2E Participant ${Date.now()}`;
+    await main.getByRole("button", { name: "参加者名を変更" }).click();
+    await main.getByLabel("参加者名").fill(updatedName);
+    await main.getByRole("button", { name: "保存して続ける" }).click();
+    await expect(main.getByText(updatedName)).toBeVisible();
+  });
+
   await test.step("Register and cancel a ticket", async () => {
     await eventDetail.registerButton(ticketName).click();
     await expect(page.getByText("registered")).toBeVisible();
@@ -79,6 +88,16 @@ test("participant uses tickets across authenticated page transitions", async ({ 
     await expectSignedIn(page);
     await page.goForward();
     await expect(page.getByRole("heading", { name: "自分のチケット" })).toBeVisible();
+    await expectSignedIn(page);
+  });
+
+  await test.step("Sign out and back in", async () => {
+    await clerk.signOut({ page });
+    await expect(page.getByRole("heading", { name: "イベント一覧" })).toBeVisible();
+    await myTickets.goto();
+    await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+
+    await clerk.signIn({ page, emailAddress: "go-tickets-e2e+clerk_test@example.com" });
     await expectSignedIn(page);
   });
 });
