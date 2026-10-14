@@ -1,6 +1,7 @@
 import { useAuth } from "@clerk/react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { Result } from "@praha/byethrow";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Button } from "@go-tickets/ui/components/button";
 import {
@@ -32,26 +33,31 @@ export function Events() {
     e.preventDefault();
     setBusy(true);
     setError("");
-    try {
-      const eventId = await createEvent(getToken, {
-        name,
-        description,
-        starts_at: toUTC(startsAt),
-        ends_at: toUTC(endsAt),
-        venue_name: venueName || null,
-        venue_address: venueAddress || null,
-        publication_status: publicationStatus,
-      });
-      await navigate({
-        to: "/events/$eventId",
-        params: { eventId: String(eventId) },
-        search: { tab: "basic", status: "active", ticket: "all", page: 1 },
-      });
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "作成に失敗しました");
-    } finally {
+    const created = await createEvent(getToken, {
+      name,
+      description,
+      starts_at: toUTC(startsAt),
+      ends_at: toUTC(endsAt),
+      venue_name: venueName || null,
+      venue_address: venueAddress || null,
+      publication_status: publicationStatus,
+    });
+    if (Result.isFailure(created)) {
+      setError(created.error.message);
       setBusy(false);
+      return;
     }
+    const navigation = await Result.try({
+      try: () =>
+        navigate({
+          to: "/events/$eventId",
+          params: { eventId: String(created.value) },
+          search: { tab: "basic", status: "active", ticket: "all", page: 1 },
+        }),
+      catch: (cause) => (cause instanceof Error ? cause : new Error("画面を開けません", { cause })),
+    });
+    if (Result.isFailure(navigation)) setError(navigation.error.message);
+    setBusy(false);
   }
   return (
     <main className="mx-auto w-full max-w-[1120px] px-4 py-8 sm:px-6">

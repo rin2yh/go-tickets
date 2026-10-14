@@ -1,3 +1,5 @@
+import { Result } from "@praha/byethrow";
+
 export interface PublicTicketType {
   id: number;
   name: string;
@@ -19,32 +21,44 @@ export interface PublicEvent {
   ticket_types: PublicTicketType[];
 }
 
-const eventCache = new Map<number, { expiresAt: number; request: Promise<PublicEvent> }>();
+const eventCache = new Map<
+  number,
+  { expiresAt: number; request: Promise<Result.Result<PublicEvent, Error>> }
+>();
 const cacheDurationMs = 15_000;
 
-export async function fetchPublicEvents(): Promise<PublicEvent[]> {
-  const response = await fetch("/api/events", { cache: "no-store" });
-  if (!response.ok) throw new Error(`イベントを取得できません (${response.status})`);
-  return response.json();
+export function fetchPublicEvents() {
+  return Result.try({
+    try: async () => {
+      const response = await fetch("/api/events", { cache: "no-store" });
+      if (!response.ok) throw new Error(`イベントを取得できません (${response.status})`);
+      const events: PublicEvent[] = await response.json();
+      return events;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
+  });
 }
 
-export function fetchPublicEvent(eventId: number): Promise<PublicEvent> {
+export function fetchPublicEvent(eventId: number): Promise<Result.Result<PublicEvent, Error>> {
   const cached = eventCache.get(eventId);
   if (cached && cached.expiresAt > Date.now()) return cached.request;
 
-  let entry: { expiresAt: number; request: Promise<PublicEvent> };
-  const request = Promise.resolve()
-    .then(() => fetch(`/api/events/${eventId}`, { cache: "no-store" }))
-    .then(async (response) => {
+  let entry: { expiresAt: number; request: Promise<Result.Result<PublicEvent, Error>> };
+  const request = Result.try({
+    try: async () => {
+      const response = await fetch(`/api/events/${eventId}`, { cache: "no-store" });
       if (!response.ok) throw new Error(`イベントを取得できません (${response.status})`);
       const event: PublicEvent = await response.json();
       entry.expiresAt = Date.now() + cacheDurationMs;
       return event;
-    })
-    .catch((error: Error) => {
-      if (eventCache.get(eventId) === entry) eventCache.delete(eventId);
-      throw error;
-    });
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
+  }).then((result) => {
+    if (Result.isFailure(result) && eventCache.get(eventId) === entry) eventCache.delete(eventId);
+    return result;
+  });
   entry = { expiresAt: Number.POSITIVE_INFINITY, request };
   eventCache.set(eventId, entry);
   return entry.request;

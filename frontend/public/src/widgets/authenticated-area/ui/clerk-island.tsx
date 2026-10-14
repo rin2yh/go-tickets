@@ -1,3 +1,4 @@
+import { Result } from "@praha/byethrow";
 import { useEffect, useState } from "react";
 import { ClerkProvider, SignIn, useAuth, useUser } from "@clerk/react";
 import { Alert } from "@go-tickets/ui/components/alert";
@@ -6,11 +7,17 @@ import { fetchPublicEvent } from "../../../entities/event";
 import { ParticipantNameForm } from "../../../features/participant-name";
 import { TicketActions, type TicketType } from "../../../features/ticket-registration";
 
-async function clerkKey(): Promise<string> {
-  const response = await fetch("/api/auth/config");
-  if (!response.ok) throw new Error(`認証設定を取得できません (${response.status})`);
-  const config: { publishableKey: string } = await response.json();
-  return config.publishableKey;
+function clerkKey() {
+  return Result.try({
+    try: async () => {
+      const response = await fetch("/api/auth/config");
+      if (!response.ok) throw new Error(`認証設定を取得できません (${response.status})`);
+      const config: { publishableKey: string } = await response.json();
+      return config.publishableKey;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("認証設定を取得できません", { cause: error }),
+  });
 }
 
 export function ClerkIsland() {
@@ -19,9 +26,11 @@ export function ClerkIsland() {
   const [pathname, setPathname] = useState("");
   useEffect(() => {
     let active = true;
-    void clerkKey()
-      .then((value) => active && setKey(value))
-      .catch((cause: Error) => active && setError(cause.message));
+    void clerkKey().then((result) => {
+      if (!active) return;
+      if (Result.isSuccess(result)) setKey(result.value);
+      else setError(result.error.message);
+    });
     return () => {
       active = false;
     };
@@ -83,17 +92,21 @@ function AuthenticatedContent() {
   useEffect(() => {
     if (!isSignedIn) return;
     let active = true;
-    void getToken()
-      .then((token) =>
-        fetch("/api/profile", { headers: { Authorization: `Bearer ${token ?? ""}` } }),
-      )
-      .then((response) => response?.json())
-      .then((payload) => {
-        if (active) setParticipantName(payload.name || "");
-      })
-      .catch(() => {
-        if (active) setParticipantName("");
-      });
+    void Result.try({
+      try: async () => {
+        const token = await getToken();
+        const response = await fetch("/api/profile", {
+          headers: { Authorization: `Bearer ${token ?? ""}` },
+        });
+        if (!response.ok) throw new Error(`参加者情報を取得できません (${response.status})`);
+        const payload: { name?: string } = await response.json();
+        return payload.name || "";
+      },
+      catch: (error) =>
+        error instanceof Error ? error : new Error("参加者情報を取得できません", { cause: error }),
+    }).then((result) => {
+      if (active) setParticipantName(Result.isSuccess(result) ? result.value : "");
+    });
     return () => {
       active = false;
     };
@@ -101,16 +114,12 @@ function AuthenticatedContent() {
   useEffect(() => {
     if (mode !== "event" || !eventId) return;
     let active = true;
-    void fetchPublicEvent(eventId)
-      .then((event) => {
-        if (active)
-          setTicketTypesForEvent({
-            eventId,
-            ticketTypes: event.ticket_types,
-            endsAt: event.ends_at,
-          });
-      })
-      .catch(() => {});
+    void fetchPublicEvent(eventId).then((result) => {
+      if (active && Result.isSuccess(result)) {
+        const event = result.value;
+        setTicketTypesForEvent({ eventId, ticketTypes: event.ticket_types, endsAt: event.ends_at });
+      }
+    });
     return () => {
       active = false;
     };

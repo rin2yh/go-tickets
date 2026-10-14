@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Result } from "@praha/byethrow";
 import { fetchPublicEvent, invalidatePublicEvent } from "./public-event";
 
 afterEach(() => {
@@ -25,9 +26,9 @@ describe("public event fetch cache", () => {
 
     const first = fetchPublicEvent(42);
     const second = fetchPublicEvent(42);
-    expect(await first).toEqual(response);
-    expect(await second).toEqual(response);
-    expect(await fetchPublicEvent(42)).toEqual(response);
+    expect(await first).toEqual(Result.succeed(response));
+    expect(await second).toEqual(Result.succeed(response));
+    expect(await fetchPublicEvent(42)).toEqual(Result.succeed(response));
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -54,5 +55,30 @@ describe("public event fetch cache", () => {
     await fetchPublicEvent(42);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns a failure for HTTP errors and retries instead of caching it", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 404 })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 42, name: "Recovered" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const failure = await fetchPublicEvent(42);
+    expect(Result.isFailure(failure)).toBe(true);
+    if (Result.isFailure(failure)) expect(failure.error.message).toContain("404");
+
+    const recovered = await fetchPublicEvent(42);
+    expect(Result.isSuccess(recovered)).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns network failures as Result failures", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("network unavailable")));
+
+    const result = await fetchPublicEvent(42);
+
+    expect(Result.isFailure(result)).toBe(true);
+    if (Result.isFailure(result)) expect(result.error.message).toBe("network unavailable");
   });
 });
