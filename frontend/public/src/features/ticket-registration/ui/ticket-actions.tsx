@@ -28,6 +28,8 @@ export function TicketActions({
   const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
+  const [syncFailed, setSyncFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const registrationsQuery = useQuery({
     queryKey: ["registrations", userId],
     enabled: Boolean(userId),
@@ -50,6 +52,7 @@ export function TicketActions({
       return outcome.value;
     },
     onSuccess: async (outcome) => {
+      setSyncFailed(false);
       setMessage(outcome.status ?? "完了しました");
       const invalidation = await Result.try({
         try: () =>
@@ -73,21 +76,50 @@ export function TicketActions({
             : new Error("申込状態を更新できませんでした", { cause: error }),
       });
       if (Result.isFailure(invalidation)) {
+        setSyncFailed(true);
         setMessage(
           `${outcome.status ?? "操作は完了しました"}。状態を更新できませんでした。再試行してください。`,
         );
       }
     },
-    onError: (error) => setMessage(error.message),
+    onError: (error) => {
+      setSyncFailed(false);
+      setMessage(error.message);
+    },
   });
   const currentItems = registrationsQuery.isSuccess ? registrationsQuery.data : [];
   const registrationsReady = registrationsQuery.isSuccess;
   const busy = registrationMutation.isPending;
   const register = (action: "register" | "cancel", ticketTypeId = eventId) =>
     registrationMutation.mutate({ action, ticketTypeId });
-  const retryRegistrations = async () => {
-    const result = await registrationsQuery.refetch();
-    if (result.isSuccess) setMessage("");
+  const retryQueries = async () => {
+    setRetrying(true);
+    const result = await Result.try({
+      try: () =>
+        Promise.all([
+          queryClient.invalidateQueries(
+            { queryKey: ["registrations", userId] },
+            { throwOnError: true },
+          ),
+          ...(mode === "event"
+            ? [
+                queryClient.invalidateQueries(
+                  { queryKey: publicEventKeys.detail(eventId) },
+                  { throwOnError: true },
+                ),
+              ]
+            : []),
+        ]),
+      catch: (error) =>
+        error instanceof Error
+          ? error
+          : new Error("申込状態を更新できませんでした", { cause: error }),
+    });
+    setRetrying(false);
+    if (Result.isSuccess(result)) {
+      setMessage("");
+      setSyncFailed(false);
+    }
   };
 
   return (
@@ -120,22 +152,43 @@ export function TicketActions({
               申込履歴を読み込み中…
             </p>
           )}
-          {registrationsQuery.error && (
-            <Alert variant="destructive" className="mt-4">
-              <p>{registrationsQuery.error.message}</p>
-              <Button
-                variant="outline"
-                disabled={registrationsQuery.isFetching}
-                onClick={() => void retryRegistrations()}
-              >
-                再試行
-              </Button>
-            </Alert>
+          {(registrationsQuery.error || syncFailed) && (
+            <RegistrationQueryAlert
+              error={registrationsQuery.error}
+              syncFailed={syncFailed}
+              message={message}
+              retrying={retrying || registrationsQuery.isFetching}
+              onRetry={() => void retryQueries()}
+            />
           )}
-          <RegistrationMessage message={message} />
+          <RegistrationMessage message={syncFailed ? "" : message} />
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+function RegistrationQueryAlert({
+  error,
+  syncFailed,
+  message,
+  retrying,
+  onRetry,
+}: {
+  error: Error | null;
+  syncFailed: boolean;
+  message: string;
+  retrying: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <Alert variant="destructive" className="mt-4">
+      {error && <p>{error.message}</p>}
+      {syncFailed && <p>{message}</p>}
+      <Button variant="outline" disabled={retrying} onClick={onRetry}>
+        再試行
+      </Button>
+    </Alert>
   );
 }
 

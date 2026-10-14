@@ -1,7 +1,9 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { publicEventQueryOptions } from "../../../entities/event";
 import { RegisterButtons, TicketActions, TicketAvailability } from "./ticket-actions";
 
 const { getTokenMock } = vi.hoisted(() => ({ getTokenMock: vi.fn() }));
@@ -10,6 +12,11 @@ vi.mock("@clerk/react", () => ({
   useAuth: () => ({ getToken: getTokenMock, userId: "user_1" }),
   UserButton: () => null,
 }));
+
+function EventQueryObserver() {
+  const query = useQuery(publicEventQueryOptions(42));
+  return <span>{query.data?.name}</span>;
+}
 
 afterEach(() => {
   cleanup();
@@ -183,5 +190,81 @@ describe("受付状態", () => {
     fireEvent.click(screen.getByRole("button", { name: "再試行" }));
     expect(await screen.findByText("申込済みのチケットはありません。")).toBeTruthy();
     expect(historyRequests).toBe(2);
+  });
+
+  it("イベント詳細の再取得だけ失敗した場合も、再試行で両方の状態を同期する", async () => {
+    const now = Date.now();
+    const startsAt = new Date(now - 60_000).toISOString();
+    const endsAt = new Date(now + 60_000).toISOString();
+    const eventEndsAt = new Date(now + 120_000).toISOString();
+    getTokenMock.mockResolvedValue("token");
+    let historyRequests = 0;
+    let eventRequests = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input === "/api/registrations" && !init?.method) {
+        historyRequests += 1;
+        return Response.json([]);
+      }
+      if (input === "/api/registrations" && init?.method === "POST") {
+        return Response.json({ status: "申込しました" });
+      }
+      if (input === "/api/events/42") {
+        eventRequests += 1;
+        if (eventRequests === 2) throw new TypeError("event refresh unavailable");
+        return Response.json({
+          id: 42,
+          name: eventRequests === 1 ? "Event" : "Event refreshed",
+          description: "",
+          starts_at: null,
+          ends_at: null,
+          venue_name: null,
+          venue_address: null,
+          publication_status: "published",
+          ticket_types: [],
+        });
+      }
+      throw new Error(`Unexpected request: ${input}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <EventQueryObserver />
+        <TicketActions
+          mode="event"
+          eventId={42}
+          ticketTypes={[
+            {
+              id: 7,
+              name: "General",
+              capacity: 10,
+              reserved: 0,
+              registration_starts_at: startsAt,
+              registration_ends_at: endsAt,
+            },
+          ]}
+          eventEndsAt={eventEndsAt}
+          participantName="Participant"
+          onEditName={() => {}}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("Event")).toBeTruthy();
+    const registerButton = await screen.findByRole("button", { name: "Generalに申込" });
+    await waitFor(() => expect(registerButton.hasAttribute("disabled")).toBe(false));
+    expect(registerButton.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(registerButton);
+
+    expect(await screen.findByText(/状態を更新できませんでした/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "再試行" })).toBeTruthy();
+    expect(historyRequests).toBe(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "再試行" }));
+    expect(await screen.findByText("Event refreshed")).toBeTruthy();
+    expect(screen.queryByText(/状態を更新できませんでした/)).toBeNull();
+    expect(historyRequests).toBe(3);
+    expect(eventRequests).toBe(3);
   });
 });
