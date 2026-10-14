@@ -20,13 +20,17 @@ export async function loadRegistrations(getToken: TokenGetter) {
     return Result.fail(new Error("申込状態を取得できません。ページを再読み込みしてください。"));
   }
 
+  return fetchRegistrations(token.value, "申込状態を取得できません");
+}
+
+async function fetchRegistrations(token: string, failureMessage: string) {
   const response = await Result.try({
     try: () =>
       fetch("/api/registrations", {
-        headers: { Authorization: `Bearer ${token.value}` },
+        headers: { Authorization: `Bearer ${token}` },
       }),
     catch: (error) =>
-      error instanceof Error ? error : new Error("申込状態を取得できません", { cause: error }),
+      error instanceof Error ? error : new Error(failureMessage, { cause: error }),
   });
   if (Result.isFailure(response)) return response;
   if (!response.value.ok) {
@@ -39,7 +43,7 @@ export async function loadRegistrations(getToken: TokenGetter) {
       return registrations;
     },
     catch: (error) =>
-      error instanceof Error ? error : new Error("申込状態を取得できません", { cause: error }),
+      error instanceof Error ? error : new Error(failureMessage, { cause: error }),
   });
 }
 
@@ -92,27 +96,7 @@ export async function refreshRegistrations(
   token: string | null,
 ): Promise<Result.Result<MyRegistration[] | null, Error>> {
   if (!token) return Result.succeed(null);
-  const response = await Result.try({
-    try: () =>
-      fetch("/api/registrations", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("申込を取得できません", { cause: error }),
-  });
-  if (Result.isFailure(response)) return response;
-  if (!response.value.ok) {
-    return Result.fail(new Error(`申込を取得できません (${response.value.status})`));
-  }
-
-  return Result.try({
-    try: async () => {
-      const registrations: MyRegistration[] = await response.value.json();
-      return registrations;
-    },
-    catch: (error) =>
-      error instanceof Error ? error : new Error("申込を取得できません", { cause: error }),
-  });
+  return fetchRegistrations(token, "申込を取得できません");
 }
 
 function registrationError(status: number, code?: string) {
