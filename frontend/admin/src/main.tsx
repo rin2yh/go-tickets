@@ -26,26 +26,32 @@ async function start() {
   const rootElement = document.getElementById("root");
   if (!rootElement) throw new Error("#root is missing");
   const root = createRoot(rootElement);
-  const config = await Result.try({
-    try: async () => {
-      const response = await fetch("/api/auth/config");
-      if (!response.ok) return { ok: false as const, status: response.status };
-      const authConfig: { publishableKey: string } = await response.json();
-      return { ok: true as const, config: authConfig };
-    },
-    catch: (error) =>
-      error instanceof Error ? error : new Error("認証を初期化できません", { cause: error }),
-  });
+  const config = await Result.pipe(
+    Result.try({
+      try: () => fetch("/api/auth/config"),
+      catch: (error) =>
+        error instanceof Error ? error : new Error("認証を初期化できません", { cause: error }),
+    }),
+    Result.andThen((response) => {
+      if (!response.ok) {
+        return Result.fail(new Error(`Clerk設定を取得できません (${response.status})`));
+      }
+      return Result.try({
+        try: async () => {
+          const authConfig: { publishableKey: string } = await response.json();
+          return authConfig;
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error("認証を初期化できません", { cause: error }),
+      });
+    }),
+  );
   if (Result.isFailure(config)) {
     root.render(<p role="alert">{config.error.message}</p>);
     return;
   }
-  if (!config.value.ok) {
-    root.render(<p role="alert">Clerk設定を取得できません ({config.value.status})</p>);
-    return;
-  }
   root.render(
-    <ClerkProvider publishableKey={config.value.config.publishableKey}>
+    <ClerkProvider publishableKey={config.value.publishableKey}>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
       </QueryClientProvider>
