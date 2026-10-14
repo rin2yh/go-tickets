@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -64,6 +65,31 @@ func TestSQLQuery(t *testing.T) {
 					t.Fatalf("ticket-filtered items = %#v", got.Items)
 				}
 			})
+		}
+	})
+	t.Run("admin registrations page boundaries", func(t *testing.T) {
+		if _, err := db.Exec(`UPDATE ticket_types SET capacity=100 WHERE id=12`); err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < 51; i++ {
+			if _, err := db.Exec(`INSERT INTO registrations(ticket_type_id,user_id) VALUES(12,?)`, fmt.Sprintf("pagination_%d", i)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, tc := range []struct {
+			page, wantItems int
+		}{
+			{page: 1, wantItems: 50},
+			{page: 2, wantItems: 3},
+			{page: 3, wantItems: 0},
+		} {
+			got, err := q.AdminRegistrations(ctx, 1, "active", "all", tc.page)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Total != 53 || got.Active != 53 || len(got.Items) != tc.wantItems {
+				t.Fatalf("page %d = total %d, active %d, items %d; want 53, 53, %d", tc.page, got.Total, got.Active, len(got.Items), tc.wantItems)
+			}
 		}
 	})
 }
