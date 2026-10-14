@@ -7,12 +7,13 @@ on:
   pull_request:
 
 jobs:
-  frontend:
-    name: Frontend ${{ matrix.task }}
+  frontend-lint:
+    name: Lint frontend ${{ matrix.app }}
     runs-on: &ubuntu ubuntu-26.04
     strategy:
+      fail-fast: false
       matrix:
-        task: [lint, test]
+        app: [public, admin, ui, e2e]
     permissions:
       contents: read
     steps:
@@ -27,10 +28,39 @@ jobs:
         with:
           version: 11.5.1
       - &install-frontend
+        id: frontend_dependencies
         run: pnpm install --frozen-lockfile
         working-directory: frontend
-      - run: pnpm run ${{ matrix.task }}
+      - name: Lint ${{ matrix.app }}
+        run: pnpm --filter @go-tickets/${{ matrix.app }} lint
         working-directory: frontend
+
+  frontend-test:
+    name: Test frontend ${{ matrix.app }}
+    runs-on: *ubuntu
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [public, admin, ui]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - *checkout
+      - *setup-node
+      - *setup-pnpm
+      - *install-frontend
+      - name: Run tests
+        run: pnpm --filter @go-tickets/${{ matrix.app }} test
+        working-directory: frontend
+      - name: Report coverage
+        if: always() && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
+        with:
+          name: ${{ matrix.app }}
+          working-directory: frontend/${{ matrix.app }}
+          json-summary-path: ../coverage/${{ matrix.app }}/coverage-summary.json
+          json-final-path: ../coverage/${{ matrix.app }}/coverage-final.json
 
   backend:
     name: Lint and test Go code

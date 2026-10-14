@@ -28,6 +28,7 @@
   "devDependencies": {
     "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "jsdom": "catalog:",
     "vitest": "catalog:"
   },

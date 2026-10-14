@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "oxlint . && pnpm --dir .. run format:check && pnpm --dir .. run typecheck",
     "test": "playwright test"
   },
   "devDependencies": {
