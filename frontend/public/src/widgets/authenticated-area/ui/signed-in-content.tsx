@@ -20,7 +20,13 @@ export function SignedInContent({
   route: Exclude<AuthenticatedRoute, null>;
   defaultName: string;
 }) {
-  const { userId, profileQuery, editingName, saveName, editName } = useParticipantProfile();
+  const { getToken, userId } = useAuth();
+  const queryClient = useQueryClient();
+  const profileQuery = useQuery({
+    ...participantNameQueryOptions(userId ?? "", getToken),
+    enabled: Boolean(userId),
+  });
+  const [editingName, setEditingName] = useState(false);
 
   if (!userId)
     return (
@@ -47,14 +53,21 @@ export function SignedInContent({
     );
   if (!profileQuery.data || editingName)
     return (
-      <ParticipantNameForm initialName={profileQuery.data || defaultName} onSaved={saveName} />
+      <ParticipantNameForm
+        initialName={profileQuery.data || defaultName}
+        onSaved={(name) => {
+          if (!userId) return;
+          queryClient.setQueryData(participantNameKey(userId), name);
+          setEditingName(false);
+        }}
+      />
     );
 
   return (
     <AuthenticatedTicketContent
       route={route}
       participantName={profileQuery.data}
-      onEditName={editName}
+      onEditName={() => setEditingName(true)}
     />
   );
 }
@@ -114,22 +127,4 @@ function AuthenticatedTicketContent({
       onEditName={onEditName}
     />
   );
-}
-
-function useParticipantProfile() {
-  const { getToken, userId } = useAuth();
-  const queryClient = useQueryClient();
-  const profileQuery = useQuery({
-    ...participantNameQueryOptions(userId ?? "", getToken),
-    enabled: Boolean(userId),
-  });
-  const [editingName, setEditingName] = useState(false);
-
-  const saveName = (name: string) => {
-    if (!userId) return;
-    queryClient.setQueryData(participantNameKey(userId), name);
-    setEditingName(false);
-  };
-  const editName = () => setEditingName(true);
-  return { userId, profileQuery, editingName, saveName, editName };
 }
