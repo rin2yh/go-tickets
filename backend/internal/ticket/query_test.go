@@ -10,6 +10,7 @@ import (
 
 	"github.com/rin2yh/go-tickets/internal/test/store"
 	"github.com/rin2yh/go-tickets/internal/ticket"
+	"github.com/rin2yh/go-tickets/x/testx"
 )
 
 func TestSQLQuery(t *testing.T) {
@@ -41,31 +42,32 @@ func TestSQLQuery(t *testing.T) {
 		}
 	})
 	t.Run("admin registrations filters", func(t *testing.T) {
-		for _, tc := range []struct {
-			name, status, ticketID string
-			page                   int
-			wantTotal              int64
-			wantCapacity           int64
-			wantActive             int64
-		}{
-			{name: "active all tickets", status: "active", ticketID: "all", page: 1, wantTotal: 2, wantCapacity: 5, wantActive: 2},
-			{name: "one ticket", status: "active", ticketID: "12", page: 1, wantTotal: 1, wantCapacity: 5, wantActive: 2},
-			{name: "cancelled", status: "cancelled", ticketID: "all", page: 1, wantCapacity: 5, wantActive: 2},
-			{name: "invalid status defaults to active", status: "unknown", ticketID: "", page: 1, wantTotal: 2, wantCapacity: 5, wantActive: 2},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				got, err := q.AdminRegistrations(ctx, 1, tc.status, tc.ticketID, tc.page)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if got.Total != tc.wantTotal || got.Capacity != tc.wantCapacity || got.Active != tc.wantActive || len(got.Items) != int(tc.wantTotal) {
-					t.Fatalf("AdminRegistrations() = %#v; want total=%d capacity=%d active=%d", got, tc.wantTotal, tc.wantCapacity, tc.wantActive)
-				}
-				if tc.ticketID == "12" && (got.Items[0].TicketTypeID != 12 || got.Items[0].TicketName != "Zed") {
-					t.Fatalf("ticket-filtered items = %#v", got.Items)
-				}
-			})
+		type input struct {
+			status, ticketID string
+			page             int
 		}
+		type want struct {
+			total, capacity, active int64
+			ticketTypeID            int64
+			ticketName              string
+		}
+		testx.Run(t, []testx.Case[input, want]{
+			{Name: "active all tickets", Input: input{status: "active", ticketID: "all", page: 1}, Want: want{total: 2, capacity: 5, active: 2}},
+			{Name: "one ticket", Input: input{status: "active", ticketID: "12", page: 1}, Want: want{total: 1, capacity: 5, active: 2, ticketTypeID: 12, ticketName: "Zed"}},
+			{Name: "cancelled", Input: input{status: "cancelled", ticketID: "all", page: 1}, Want: want{capacity: 5, active: 2}},
+			{Name: "invalid status defaults to active", Input: input{status: "unknown", page: 1}, Want: want{total: 2, capacity: 5, active: 2}},
+		}, func(t *testing.T, in input, want want) {
+			got, err := q.AdminRegistrations(ctx, 1, in.status, in.ticketID, in.page)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Total != want.total || got.Capacity != want.capacity || got.Active != want.active || len(got.Items) != int(want.total) {
+				t.Fatalf("AdminRegistrations() = %#v; want total=%d capacity=%d active=%d", got, want.total, want.capacity, want.active)
+			}
+			if want.ticketTypeID != 0 && (got.Items[0].TicketTypeID != want.ticketTypeID || got.Items[0].TicketName != want.ticketName) {
+				t.Fatalf("ticket-filtered items = %#v; want ticket type %d (%s)", got.Items, want.ticketTypeID, want.ticketName)
+			}
+		})
 	})
 	t.Run("admin registrations page boundaries", func(t *testing.T) {
 		if _, err := db.Exec(`UPDATE ticket_types SET capacity=100 WHERE id=12`); err != nil {
