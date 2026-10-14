@@ -1,45 +1,36 @@
-import { useEffect, useState } from "react";
-import { Result } from "@praha/byethrow";
+import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import { TicketAvailability } from "../../../features/ticket-registration";
-import { fetchPublicEvent, type PublicEvent } from "../../../entities/event";
+import { publicEventQueryOptions } from "../../../entities/event";
+import { QueryProvider } from "../../../shared/lib/query";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
 
 export function PublicEventDetail() {
-  const [event, setEvent] = useState<PublicEvent | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState("");
+  return (
+    <QueryProvider>
+      <PublicEventDetailContent />
+    </QueryProvider>
+  );
+}
 
-  useEffect(() => {
-    const eventId = window.location.pathname.match(/^\/events\/(\d+)\/?$/)?.[1];
-    async function loadEvent() {
-      const result = eventId
-        ? await fetchPublicEvent(Number(eventId))
-        : Result.fail(new Error("イベントが見つかりません。"));
-      if (Result.isSuccess(result)) setEvent(result.value);
-      else
-        setError(
-          result.error.message.includes("404")
-            ? "イベントが見つかりません。"
-            : result.error.message,
-        );
-      setLoaded(true);
-    }
-    void loadEvent();
-  }, []);
-
-  if (!loaded)
-    return (
-      <Card>
-        <CardContent>
-          <p aria-live="polite">イベントを読み込み中です。</p>
-        </CardContent>
-      </Card>
-    );
-  if (error) return <Alert variant="destructive">{error}</Alert>;
-  if (!event) return <Alert variant="destructive">イベントが見つかりません。</Alert>;
+function PublicEventDetailContent() {
+  const eventId = Number(window.location.pathname.match(/^\/events\/(\d+)\/?$/)?.[1] ?? 0);
+  const {
+    data: event,
+    error,
+    isPending,
+    refetch,
+    isFetching,
+  } = useQuery({
+    ...publicEventQueryOptions(eventId),
+    enabled: eventId > 0,
+  });
+  const status = eventQueryStatus(eventId, isPending, error, isFetching, () => void refetch());
+  if (status) return status;
+  if (!event) return null;
 
   return (
     <div>
@@ -102,6 +93,33 @@ export function PublicEventDetail() {
         </ul>
       )}
     </div>
+  );
+}
+
+function eventQueryStatus(
+  eventId: number,
+  isPending: boolean,
+  error: Error | null,
+  isFetching: boolean,
+  retry: () => void,
+): ReactNode {
+  if (!eventId) return <Alert variant="destructive">イベントが見つかりません。</Alert>;
+  if (isPending)
+    return (
+      <Card>
+        <CardContent>
+          <p aria-live="polite">イベントを読み込み中です。</p>
+        </CardContent>
+      </Card>
+    );
+  if (!error) return null;
+  return (
+    <Alert variant="destructive">
+      <p>{error.message.includes("404") ? "イベントが見つかりません。" : error.message}</p>
+      <button type="button" disabled={isFetching} onClick={retry}>
+        再試行
+      </button>
+    </Alert>
   );
 }
 

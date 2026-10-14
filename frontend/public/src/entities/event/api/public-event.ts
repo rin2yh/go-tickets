@@ -21,14 +21,6 @@ export interface PublicEvent {
   ticket_types: PublicTicketType[];
 }
 
-interface CachedEvent {
-  expiresAt: number;
-  request: Promise<Result.Result<PublicEvent, Error>>;
-}
-
-const eventCache = new Map<number, CachedEvent>();
-const cacheDurationMs = 15_000;
-
 export async function fetchPublicEvents() {
   const response = await Result.try({
     try: () => fetch("/api/events", { cache: "no-store" }),
@@ -51,21 +43,7 @@ export async function fetchPublicEvents() {
 }
 
 export function fetchPublicEvent(eventId: number): Promise<Result.Result<PublicEvent, Error>> {
-  const cached = eventCache.get(eventId);
-  if (cached && cached.expiresAt > Date.now()) return cached.request;
-
-  let entry!: CachedEvent;
-  const request = (async () => {
-    const result = await loadPublicEvent(eventId);
-    if (Result.isSuccess(result)) entry.expiresAt = Date.now() + cacheDurationMs;
-    if (Result.isFailure(result) && eventCache.get(eventId) === entry) {
-      eventCache.delete(eventId);
-    }
-    return result;
-  })();
-  entry = { expiresAt: Number.POSITIVE_INFINITY, request };
-  eventCache.set(eventId, entry);
-  return request;
+  return loadPublicEvent(eventId);
 }
 
 async function loadPublicEvent(eventId: number) {
@@ -87,8 +65,4 @@ async function loadPublicEvent(eventId: number) {
     catch: (error) =>
       error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
   });
-}
-
-export function invalidatePublicEvent(eventId: number) {
-  eventCache.delete(eventId);
 }

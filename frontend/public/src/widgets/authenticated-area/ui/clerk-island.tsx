@@ -1,6 +1,7 @@
 import { Result } from "@praha/byethrow";
 import { useEffect, useState } from "react";
 import { ClerkProvider } from "@clerk/react";
+import { QueryProvider } from "../../../shared/lib/query";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
 import { fetchClerkKey } from "../api/auth-config";
@@ -45,9 +46,11 @@ export function ClerkIsland() {
   if (!key) return null;
 
   return (
-    <ClerkProvider publishableKey={key}>
-      <AuthenticatedContent route={route} />
-    </ClerkProvider>
+    <QueryProvider>
+      <ClerkProvider publishableKey={key}>
+        <AuthenticatedContent route={route} />
+      </ClerkProvider>
+    </QueryProvider>
   );
 }
 

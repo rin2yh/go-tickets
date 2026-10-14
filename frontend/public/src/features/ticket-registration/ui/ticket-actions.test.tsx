@@ -1,12 +1,13 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RegisterButtons, TicketActions, TicketAvailability } from "./ticket-actions";
 
 const { getTokenMock } = vi.hoisted(() => ({ getTokenMock: vi.fn() }));
 
 vi.mock("@clerk/react", () => ({
-  useAuth: () => ({ getToken: getTokenMock }),
+  useAuth: () => ({ getToken: getTokenMock, userId: "user_1" }),
   UserButton: () => null,
 }));
 
@@ -87,7 +88,7 @@ describe("受付状態", () => {
     );
   });
 
-  it("申込成功後の履歴再取得失敗を申込失敗と区別して表示する", async () => {
+  it("申込後の履歴再取得に失敗したとき再試行できる", async () => {
     const now = Date.now();
     const startsAt = new Date(now - 60_000).toISOString();
     const endsAt = new Date(now + 60_000).toISOString();
@@ -107,31 +108,35 @@ describe("受付状態", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
-      <TicketActions
-        mode="event"
-        eventId={42}
-        ticketTypes={[
-          {
-            id: 7,
-            name: "General",
-            capacity: 10,
-            reserved: 0,
-            registration_starts_at: startsAt,
-            registration_ends_at: endsAt,
-          },
-        ]}
-        eventEndsAt={eventEndsAt}
-        participantName="Participant"
-        onEditName={() => {}}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <TicketActions
+          mode="event"
+          eventId={42}
+          ticketTypes={[
+            {
+              id: 7,
+              name: "General",
+              capacity: 10,
+              reserved: 0,
+              registration_starts_at: startsAt,
+              registration_ends_at: endsAt,
+            },
+          ]}
+          eventEndsAt={eventEndsAt}
+          participantName="Participant"
+          onEditName={() => {}}
+        />
+      </QueryClientProvider>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Generalに申込" }));
+    const registerButton = await screen.findByRole("button", { name: "Generalに申込" });
+    await waitFor(() => expect(registerButton.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(registerButton);
 
-    expect(
-      await screen.findByText("申込は完了しましたが、申込状態の再取得に失敗しました。"),
-    ).toBeTruthy();
+    expect(await screen.findByText("refresh unavailable")).toBeTruthy();
     expect(screen.queryByText("通信に失敗しました")).toBeNull();
+    expect(screen.getByText("申込しました")).toBeTruthy();
   });
 });

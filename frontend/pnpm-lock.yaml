@@ -157,6 +157,9 @@ importers:
       '@praha/byethrow':
         specifier: 'catalog:'
         version: 0.12.0(typescript@6.0.3)
+      '@tanstack/react-query':
+        specifier: ^5.104.0
+        version: 5.104.0(react@19.3.0)
       astro:
         specifier: 7.2.8
         version: 7.2.8(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@26.6.3)(jiti@2.7.0)(yaml@2.9.1)

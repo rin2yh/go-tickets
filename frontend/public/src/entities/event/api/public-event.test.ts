@@ -1,15 +1,28 @@
+import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Result } from "@praha/byethrow";
-import { fetchPublicEvent, fetchPublicEvents, invalidatePublicEvent } from "./public-event";
+import { fetchPublicEvent, fetchPublicEvents } from "./public-event";
+import { publicEventKeys, publicEventQueryOptions } from "./public-event-query";
+
+const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000 } } });
+const wrapper = ({ children }: { children: ReactNode }) =>
+  createElement(QueryClientProvider, { client: queryClient }, children);
 
 afterEach(() => {
+  cleanup();
+  queryClient.clear();
   vi.restoreAllMocks();
   vi.useRealTimers();
-  invalidatePublicEvent(42);
 });
 
-describe("public event fetch cache", () => {
-  it("shares an in-flight request and reuses its result briefly", async () => {
+describe("public event queries", () => {
+  it("uses a distinct key for each event", () => {
+    expect(publicEventKeys.detail(42)).not.toEqual(publicEventKeys.detail(43));
+  });
+
+  it("leaves request deduplication and caching to TanStack Query", async () => {
     const response = {
       id: 42,
       name: "Go Conference",
@@ -24,37 +37,34 @@ describe("public event fetch cache", () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => response });
     vi.stubGlobal("fetch", fetchMock);
 
-    const first = fetchPublicEvent(42);
-    const second = fetchPublicEvent(42);
-    expect(await first).toEqual(Result.succeed(response));
-    expect(await second).toEqual(Result.succeed(response));
     expect(await fetchPublicEvent(42)).toEqual(Result.succeed(response));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(await fetchPublicEvent(42)).toEqual(Result.succeed(response));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("expires cached data", async () => {
-    vi.useFakeTimers();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        id: 42,
-        name: "Go Conference",
-        description: "Details",
-        starts_at: null,
-        ends_at: null,
-        venue_name: null,
-        venue_address: null,
-        publication_status: "published",
-        ticket_types: [],
-      }),
-    });
+  it("deduplicates concurrent requests for the same event through QueryClient", async () => {
+    const response = {
+      id: 42,
+      name: "Go Conference",
+      description: "Details",
+      starts_at: null,
+      ends_at: null,
+      venue_name: null,
+      venue_address: null,
+      publication_status: "published" as const,
+      ticket_types: [],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => response });
     vi.stubGlobal("fetch", fetchMock);
+    const first = renderHook(() => useQuery(publicEventQueryOptions(42)), { wrapper });
+    const second = renderHook(() => useQuery(publicEventQueryOptions(42)), { wrapper });
 
-    await fetchPublicEvent(42);
-    await vi.advanceTimersByTimeAsync(15_001);
-    await fetchPublicEvent(42);
+    await waitFor(() => {
+      expect(first.result.current.isSuccess).toBe(true);
+      expect(second.result.current.isSuccess).toBe(true);
+    });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns a failure for HTTP errors and retries instead of caching it", async () => {

@@ -15,8 +15,8 @@ export function SignedInContent({
   route: Exclude<AuthenticatedRoute, null>;
   defaultName: string;
 }) {
-  const { getToken } = useAuth();
-  const { state: profile, updateName, retry } = useParticipantProfile(getToken, true);
+  const { getToken, userId } = useAuth();
+  const { state: profile, updateName, retry } = useParticipantProfile(getToken, true, userId ?? "");
   const [editingName, setEditingName] = useState(false);
 
   return (
@@ -111,7 +111,15 @@ function AuthenticatedTicketContent({
         </CardContent>
       </Card>
     );
-  if (event.status === "failed") return <Alert variant="destructive">{event.error}</Alert>;
+  if (event.status === "failed")
+    return (
+      <div className="grid justify-items-start gap-3">
+        <Alert variant="destructive">{event.error}</Alert>
+        <Button variant="outline" onClick={event.retry}>
+          もう一度試す
+        </Button>
+      </div>
+    );
 
   return (
     <TicketActions

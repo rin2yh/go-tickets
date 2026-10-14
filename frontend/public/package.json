@@ -13,6 +13,7 @@
     "@clerk/react": "catalog:",
     "@go-tickets/ui": "workspace:*",
     "@praha/byethrow": "catalog:",
+    "@tanstack/react-query": "^5.104.0",
     "astro": "7.2.8",
     "react": "catalog:",
     "react-dom": "catalog:",
