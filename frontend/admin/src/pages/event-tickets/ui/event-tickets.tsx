@@ -52,17 +52,13 @@ export function Tickets({ eventId }: { eventId: string }) {
         setNewRegistrationStarts("");
         setNewRegistrationEnds("");
       }
-      const refresh = await Result.try({
-        try: async () => {
-          await queryClient.invalidateQueries(
-            { queryKey: buildEventQueryOptions(eventId, getToken).queryKey, exact: true },
-            { throwOnError: true },
-          );
-        },
-        catch: (error) =>
-          error instanceof Error ? error : new Error("再取得できません", { cause: error }),
-      });
-      if (Result.isSuccess(refresh)) setRefreshWarning("");
+      const [refresh] = await Promise.allSettled([
+        queryClient.invalidateQueries(
+          { queryKey: buildEventQueryOptions(eventId, getToken).queryKey, exact: true },
+          { throwOnError: true },
+        ),
+      ]);
+      if (refresh.status === "fulfilled") setRefreshWarning("");
       else {
         setRefreshWarning(
           "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",

@@ -7,17 +7,33 @@ import { fetchPublicEvent } from "../../../entities/event";
 import { ParticipantNameForm } from "../../../features/participant-name";
 import { TicketActions, type TicketType } from "../../../features/ticket-registration";
 
-function clerkKey() {
-  return Result.try({
-    try: async () => {
-      const response = await fetch("/api/auth/config");
-      if (!response.ok) throw new Error(`認証設定を取得できません (${response.status})`);
-      const config: { publishableKey: string } = await response.json();
-      return config.publishableKey;
-    },
-    catch: (error) =>
-      error instanceof Error ? error : new Error("認証設定を取得できません", { cause: error }),
-  });
+async function clerkKey(): Promise<Result.Result<string, Error>> {
+  const response = await settle(fetch("/api/auth/config"), "認証設定を取得できません");
+  if (Result.isFailure(response)) return response;
+  if (!response.value.ok) {
+    return Result.fail(new Error(`認証設定を取得できません (${response.value.status})`));
+  }
+  const config = await settle<{ publishableKey: string }>(
+    response.value.json(),
+    "認証設定を取得できません",
+  );
+  if (Result.isFailure(config)) return config;
+  return Result.succeed(config.value.publishableKey);
+}
+
+async function settle<T>(
+  promise: Promise<T>,
+  fallback: string,
+): Promise<Result.Result<Awaited<T>, Error>> {
+  const [outcome] = await Promise.allSettled([promise]);
+  if (outcome.status === "rejected") {
+    return Result.fail(
+      outcome.reason instanceof Error
+        ? outcome.reason
+        : new Error(fallback, { cause: outcome.reason }),
+    );
+  }
+  return { type: "Success", value: outcome.value };
 }
 
 export function ClerkIsland() {
@@ -26,11 +42,13 @@ export function ClerkIsland() {
   const [pathname, setPathname] = useState("");
   useEffect(() => {
     let active = true;
-    void clerkKey().then((result) => {
+    async function loadKey() {
+      const result = await clerkKey();
       if (!active) return;
       if (Result.isSuccess(result)) setKey(result.value);
       else setError(result.error.message);
-    });
+    }
+    void loadKey();
     return () => {
       active = false;
     };
@@ -92,21 +110,27 @@ function AuthenticatedContent() {
   useEffect(() => {
     if (!isSignedIn) return;
     let active = true;
-    void Result.try({
-      try: async () => {
-        const token = await getToken();
-        const response = await fetch("/api/profile", {
-          headers: { Authorization: `Bearer ${token ?? ""}` },
-        });
-        if (!response.ok) throw new Error(`参加者情報を取得できません (${response.status})`);
-        const payload: { name?: string } = await response.json();
-        return payload.name || "";
-      },
-      catch: (error) =>
-        error instanceof Error ? error : new Error("参加者情報を取得できません", { cause: error }),
-    }).then((result) => {
-      if (active) setParticipantName(Result.isSuccess(result) ? result.value : "");
-    });
+    async function loadParticipant() {
+      const token = await settle(getToken(), "参加者情報を取得できません");
+      if (Result.isFailure(token)) {
+        if (active) setParticipantName("");
+        return;
+      }
+      const response = await settle(
+        fetch("/api/profile", { headers: { Authorization: `Bearer ${token.value ?? ""}` } }),
+        "参加者情報を取得できません",
+      );
+      if (Result.isFailure(response) || !response.value.ok) {
+        if (active) setParticipantName("");
+        return;
+      }
+      const payload = await settle<{ name?: string }>(
+        response.value.json(),
+        "参加者情報を取得できません",
+      );
+      if (active) setParticipantName(Result.isSuccess(payload) ? payload.value.name || "" : "");
+    }
+    void loadParticipant();
     return () => {
       active = false;
     };
@@ -114,12 +138,14 @@ function AuthenticatedContent() {
   useEffect(() => {
     if (mode !== "event" || !eventId) return;
     let active = true;
-    void fetchPublicEvent(eventId).then((result) => {
+    async function loadEvent() {
+      const result = await fetchPublicEvent(eventId);
       if (active && Result.isSuccess(result)) {
         const event = result.value;
         setTicketTypesForEvent({ eventId, ticketTypes: event.ticket_types, endsAt: event.ends_at });
       }
-    });
+    }
+    void loadEvent();
     return () => {
       active = false;
     };

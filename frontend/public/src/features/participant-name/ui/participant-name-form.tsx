@@ -28,24 +28,7 @@ export function ParticipantNameForm({
             if (!normalized) return;
             setBusy(true);
             setError("");
-            const result = await Result.try({
-              try: async () => {
-                const token = await getToken();
-                const response = await fetch("/api/profile", {
-                  method: "PUT",
-                  headers: {
-                    Authorization: `Bearer ${token ?? ""}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({ name: normalized }),
-                });
-                if (!response.ok) throw new Error("参加者名を保存できません");
-                const payload: { name: string } = await response.json();
-                return payload.name;
-              },
-              catch: (cause) =>
-                cause instanceof Error ? cause : new Error("保存に失敗しました", { cause }),
-            });
+            const result = await saveParticipantName(getToken, normalized);
             if (Result.isFailure(result)) setError(result.error.message);
             else onSaved(result.value);
             setBusy(false);
@@ -72,4 +55,46 @@ export function ParticipantNameForm({
       </CardContent>
     </Card>
   );
+}
+
+async function saveParticipantName(
+  getToken: () => Promise<string | null>,
+  name: string,
+): Promise<Result.Result<string, Error>> {
+  const [token] = await Promise.allSettled([getToken()]);
+  if (token.status === "rejected") {
+    return Result.fail(
+      token.reason instanceof Error
+        ? token.reason
+        : new Error("保存に失敗しました", { cause: token.reason }),
+    );
+  }
+  const [response] = await Promise.allSettled([
+    fetch("/api/profile", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token.value ?? ""}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name }),
+    }),
+  ]);
+  if (response.status === "rejected") {
+    return Result.fail(
+      response.reason instanceof Error
+        ? response.reason
+        : new Error("保存に失敗しました", { cause: response.reason }),
+    );
+  }
+  if (!response.value.ok) return Result.fail(new Error("参加者名を保存できません"));
+  const [payload] = await Promise.allSettled([response.value.json()]);
+  if (payload.status === "rejected") {
+    return Result.fail(
+      payload.reason instanceof Error
+        ? payload.reason
+        : new Error("保存に失敗しました", { cause: payload.reason }),
+    );
+  }
+  const participant: { name: string } = payload.value;
+  return Result.succeed(participant.name);
 }

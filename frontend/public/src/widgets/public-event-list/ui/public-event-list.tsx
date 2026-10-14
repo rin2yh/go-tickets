@@ -10,10 +10,12 @@ export function PublicEventList() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void fetchPublicEvents().then((result) => {
+    async function loadEvents() {
+      const result = await fetchPublicEvents();
       if (Result.isSuccess(result)) setEvents(result.value);
       else setError(result.error.message);
-    });
+    }
+    void loadEvents();
   }, []);
 
   if (error) return <Alert variant="destructive">{error}</Alert>;

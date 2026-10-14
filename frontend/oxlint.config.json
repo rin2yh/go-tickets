@@ -121,15 +121,19 @@
       "error",
       {
         "selector": "TryStatement",
-        "message": "Handle expected errors with a Result value instead of try/catch."
+        "message": "Handle failures as Result values; try/catch is forbidden."
       },
       {
         "selector": "CallExpression[callee.property.name='catch']",
-        "message": "Handle Promise failures as Result values; do not use Promise.catch()."
+        "message": "Handle Promise failures as Result values; Promise.catch() is forbidden."
       },
       {
-        "selector": "CallExpression[callee.property.name='then'][arguments.length>1]",
-        "message": "Handle Promise failures as Result values instead of a second .then() callback."
+        "selector": "CallExpression[callee.property.name='then']",
+        "message": "Use async/await and Promise.allSettled; Promise.then() is forbidden."
+      },
+      {
+        "selector": "CallExpression[callee.object.name='Result'][callee.property.name='try']",
+        "message": "Create Result success and failure values explicitly; Result.try is forbidden."
       }
     ]
   },

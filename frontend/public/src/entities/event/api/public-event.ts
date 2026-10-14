@@ -28,40 +28,67 @@ const eventCache = new Map<
 const cacheDurationMs = 15_000;
 
 export function fetchPublicEvents() {
-  return Result.try({
-    try: async () => {
-      const response = await fetch("/api/events", { cache: "no-store" });
-      if (!response.ok) throw new Error(`イベントを取得できません (${response.status})`);
-      const events: PublicEvent[] = await response.json();
-      return events;
-    },
-    catch: (error) =>
-      error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
-  });
+  return loadPublicEvents();
+}
+
+async function settle<T>(promise: Promise<T>): Promise<Result.Result<Awaited<T>, Error>> {
+  const [outcome] = await Promise.allSettled([promise]);
+  if (outcome.status === "rejected") {
+    return Result.fail(
+      outcome.reason instanceof Error
+        ? outcome.reason
+        : new Error("通信に失敗しました", { cause: outcome.reason }),
+    );
+  }
+  return { type: "Success", value: outcome.value };
+}
+
+async function loadPublicEvents(): Promise<Result.Result<PublicEvent[], Error>> {
+  const response = await settle(fetch("/api/events", { cache: "no-store" }));
+  if (Result.isFailure(response)) return response;
+  if (!response.value.ok) {
+    return Result.fail(new Error(`イベントを取得できません (${response.value.status})`));
+  }
+  return settle<PublicEvent[]>(response.value.json());
 }
 
 export function fetchPublicEvent(eventId: number): Promise<Result.Result<PublicEvent, Error>> {
   const cached = eventCache.get(eventId);
   if (cached && cached.expiresAt > Date.now()) return cached.request;
 
-  let entry: { expiresAt: number; request: Promise<Result.Result<PublicEvent, Error>> };
-  const request = Result.try({
-    try: async () => {
-      const response = await fetch(`/api/events/${eventId}`, { cache: "no-store" });
-      if (!response.ok) throw new Error(`イベントを取得できません (${response.status})`);
-      const event: PublicEvent = await response.json();
-      entry.expiresAt = Date.now() + cacheDurationMs;
-      return event;
-    },
-    catch: (error) =>
-      error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
-  }).then((result) => {
-    if (Result.isFailure(result) && eventCache.get(eventId) === entry) eventCache.delete(eventId);
+  let entry: { expiresAt: number; request: Promise<Result.Result<PublicEvent, Error>> } | null =
+    null;
+  const request = (async () => {
+    const result = await loadPublicEvent(eventId, () => {
+      if (entry && eventCache.get(eventId) === entry) entry.expiresAt = 0;
+    });
     return result;
-  });
+  })();
   entry = { expiresAt: Number.POSITIVE_INFINITY, request };
   eventCache.set(eventId, entry);
   return entry.request;
+}
+
+async function loadPublicEvent(
+  eventId: number,
+  onFailure: () => void,
+): Promise<Result.Result<PublicEvent, Error>> {
+  const response = await settle(fetch(`/api/events/${eventId}`, { cache: "no-store" }));
+  if (Result.isFailure(response)) {
+    onFailure();
+    return response;
+  }
+  if (!response.value.ok) {
+    onFailure();
+    return Result.fail(new Error(`イベントを取得できません (${response.value.status})`));
+  }
+  const event = await settle<PublicEvent>(response.value.json());
+  if (Result.isFailure(event)) onFailure();
+  else {
+    const cached = eventCache.get(eventId);
+    if (cached) cached.expiresAt = Date.now() + cacheDurationMs;
+  }
+  return event;
 }
 
 export function invalidatePublicEvent(eventId: number) {
