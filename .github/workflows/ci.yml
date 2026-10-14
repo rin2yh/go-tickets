@@ -29,8 +29,24 @@ jobs:
       - &install-frontend
         run: pnpm install --frozen-lockfile
         working-directory: frontend
-      - run: pnpm run ${{ matrix.task }}
+      - if: matrix.task == 'lint'
+        run: pnpm run lint
         working-directory: frontend
+      - if: matrix.task == 'test'
+        run: |
+          coverage_status=0
+          pnpm --filter @go-tickets/public test -- --coverage.enabled || coverage_status=1
+          pnpm --filter @go-tickets/admin test -- --coverage.enabled || coverage_status=1
+          pnpm --filter @go-tickets/ui test -- --coverage.enabled || coverage_status=1
+          test "$coverage_status" -eq 0
+        working-directory: frontend
+      - name: Upload frontend coverage
+        if: always() && matrix.task == 'test'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          if-no-files-found: ignore
 
   backend:
     name: Lint and test Go code

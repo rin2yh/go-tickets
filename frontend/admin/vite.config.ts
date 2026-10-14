@@ -1,6 +1,6 @@
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import babel from "@rolldown/plugin-babel";
 import reactCompiler from "babel-plugin-react-compiler";
 import { tailwindcss } from "@go-tickets/ui/vite";
@@ -17,4 +17,11 @@ export default defineConfig({
     }),
   ],
   build: { outDir: "../../backend/build/admin-assets", emptyOutDir: true },
+  test: {
+    coverage: {
+      reporter: ["text", "json-summary", "json"],
+      reportOnFailure: true,
+      reportsDirectory: "../coverage/admin",
+    },
+  },
 });

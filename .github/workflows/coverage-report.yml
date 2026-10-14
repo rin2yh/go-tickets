@@ -1,0 +1,53 @@
+name: Frontend coverage report
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+jobs:
+  report:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Download frontend coverage
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Report public coverage
+        if: steps.download.outcome == 'success'
+        uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
+        with:
+          name: Public
+          working-directory: frontend
+          json-summary-path: coverage/public/coverage-summary.json
+          json-final-path: coverage/public/coverage-final.json
+          vite-config-path: public/vitest.config.ts
+      - name: Report admin coverage
+        if: steps.download.outcome == 'success'
+        uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
+        with:
+          name: Admin
+          working-directory: frontend
+          json-summary-path: coverage/admin/coverage-summary.json
+          json-final-path: coverage/admin/coverage-final.json
+          vite-config-path: admin/vite.config.ts
+      - name: Report UI coverage
+        if: steps.download.outcome == 'success'
+        uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
+        with:
+          name: UI
+          working-directory: frontend
+          json-summary-path: coverage/ui/coverage-summary.json
+          json-final-path: coverage/ui/coverage-final.json
