@@ -1,25 +1,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PublicEventList } from "./public-event-list";
-
-vi.mock("../../../shared/lib/query", async () => {
-  const [{ createElement }, { QueryClient, QueryClientProvider }] = await Promise.all([
-    import("react"),
-    import("@tanstack/react-query"),
-  ]);
-  return {
-    QueryProvider: ({ children }: { children: ReactNode }) =>
-      createElement(
-        QueryClientProvider,
-        { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
-        children,
-      ),
-  };
-});
+import { queryClient } from "../../../shared/lib/query";
 
 afterEach(() => {
   cleanup();
+  queryClient.clear();
   vi.unstubAllGlobals();
 });
 

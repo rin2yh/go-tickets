@@ -6,6 +6,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function expectFailureMessage<T>(result: Result.Result<T, Error>, message: string) {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.error.message).toBe(message);
+}
+
 describe("event API results", () => {
   it("returns the created event id on success", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ id: 42 })));
@@ -23,31 +28,13 @@ describe("event API results", () => {
     expect(result).toEqual(Result.succeed(42));
   });
 
-  it("returns validation failures without throwing", async () => {
+  it.each([
+    ["invalid_name", "イベント名は200文字以内で入力してください"],
+    ["unknown", "イベントを作成できません"],
+  ])("maps create error %s to its user-facing message", async (code, message) => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(Response.json({ error: "invalid_name" }, { status: 400 })),
-    );
-
-    const result = await createEvent(async () => "token", {
-      name: "",
-      description: "",
-      starts_at: null,
-      ends_at: null,
-      venue_name: null,
-      venue_address: null,
-      publication_status: "draft",
-    });
-
-    expect(Result.isFailure(result)).toBe(true);
-    if (Result.isFailure(result))
-      expect(result.error.message).toBe("イベント名は200文字以内で入力してください");
-  });
-
-  it("uses a generic message for an unknown create validation error", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(Response.json({ error: "unknown" }, { status: 400 })),
+      vi.fn().mockResolvedValue(Response.json({ error: code }, { status: 400 })),
     );
 
     const result = await createEvent(async () => null, {
@@ -60,8 +47,7 @@ describe("event API results", () => {
       publication_status: "draft",
     });
 
-    expect(Result.isFailure(result)).toBe(true);
-    if (Result.isFailure(result)) expect(result.error.message).toBe("イベントを作成できません");
+    expectFailureMessage(result, message);
   });
 
   it("requires an id in a successful create response", async () => {
@@ -77,7 +63,7 @@ describe("event API results", () => {
       publication_status: "draft",
     });
 
-    expect(Result.isFailure(result)).toBe(true);
+    expectFailureMessage(result, "イベントを作成できません");
   });
 
   it("returns network failures as Result failures", async () => {
@@ -85,8 +71,7 @@ describe("event API results", () => {
 
     const result = await fetchEvents(async () => "token");
 
-    expect(Result.isFailure(result)).toBe(true);
-    if (Result.isFailure(result)) expect(result.error.message).toBe("network unavailable");
+    expectFailureMessage(result, "network unavailable");
   });
 
   it("returns an HTTP failure when loading the event list", async () => {
@@ -94,8 +79,7 @@ describe("event API results", () => {
 
     const result = await fetchEvents(async () => null);
 
-    expect(Result.isFailure(result)).toBe(true);
-    if (Result.isFailure(result)) expect(result.error.message).toBe("イベントを読み込めません");
+    expectFailureMessage(result, "イベントを読み込めません");
   });
 
   it("preserves HTTP status for event query errors", async () => {
@@ -110,31 +94,18 @@ describe("event API results", () => {
     }
   });
 
-  it("maps event update validation errors to a user-facing message", async () => {
+  it.each([
+    ["invalid_event_period", "開催終了日時は開始日時より後にしてください"],
+    ["unknown", "保存できませんでした"],
+  ])("maps update error %s to its user-facing message", async (code, message) => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(Response.json({ error: "invalid_event_period" }, { status: 400 })),
-    );
-
-    const result = await saveEventChange(async () => "token", "/api/events/42", "PUT", {
-      name: "Event",
-    });
-
-    expect(Result.isFailure(result)).toBe(true);
-    if (Result.isFailure(result))
-      expect(result.error.message).toBe("開催終了日時は開始日時より後にしてください");
-  });
-
-  it("reports unrecognized validation errors with the generic message", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(Response.json({ error: "unknown" }, { status: 400 })),
+      vi.fn().mockResolvedValue(Response.json({ error: code }, { status: 400 })),
     );
 
     const result = await saveEventChange(async () => null, "/api/events/42", "PUT", {});
 
-    expect(Result.isFailure(result)).toBe(true);
-    if (Result.isFailure(result)) expect(result.error.message).toBe("保存できませんでした");
+    expectFailureMessage(result, message);
   });
 
   it("returns a failure when a successful event update has invalid JSON", async () => {
@@ -143,5 +114,6 @@ describe("event API results", () => {
     const result = await saveEventChange(async () => "token", "/api/events/42", "PUT", {});
 
     expect(Result.isFailure(result)).toBe(true);
+    if (Result.isFailure(result)) expect(result.error).toBeInstanceOf(SyntaxError);
   });
 });
