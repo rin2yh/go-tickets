@@ -36,26 +36,15 @@ interface Change {
 }
 
 export function Tickets({ eventId }: { eventId: string }) {
-  const {
-    event,
-    tickets,
-    newTicket,
-    updateNewTicket,
-    notice,
-    refreshWarning,
-    mutation,
-    updateTicket,
-    saveTicket,
-    createTicket,
-  } = useTicketSettings(eventId);
+  const { ticketSettings, newTicket, saveState } = useTicketSettings(eventId);
 
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="text-xl font-semibold tracking-tight">チケット種別</h2>
-        <Badge variant="secondary">{event.ticket_types.length} 件</Badge>
+        <Badge variant="secondary">{ticketSettings.event.ticket_types.length} 件</Badge>
       </div>
-      {event.ticket_types.length === 0 && (
+      {ticketSettings.event.ticket_types.length === 0 && (
         <Card className="mb-4">
           <CardContent>
             <p className="text-sm text-muted-foreground">チケット種別はありません。</p>
@@ -63,36 +52,36 @@ export function Tickets({ eventId }: { eventId: string }) {
         </Card>
       )}
       <div className="space-y-4">
-        {tickets.map(({ ticket, value }) => (
+        {ticketSettings.items.map(({ ticket, value }) => (
           <TicketEditor
             key={ticket.id}
             ticket={ticket}
             value={value}
-            busy={mutation.isPending}
-            onChange={(next) => updateTicket(ticket.id, next)}
-            onSave={(next) => saveTicket(ticket.id, next)}
+            busy={ticketSettings.busy}
+            onChange={(next) => ticketSettings.update(ticket.id, next)}
+            onSave={(next) => ticketSettings.save(ticket.id, next)}
           />
         ))}
       </div>
       <NewTicketForm
-        value={newTicket}
-        onChange={updateNewTicket}
-        onSubmit={createTicket}
-        busy={mutation.isPending}
+        value={newTicket.value}
+        onChange={newTicket.update}
+        onSubmit={newTicket.submit}
+        busy={ticketSettings.busy}
       />
-      {mutation.isError && (
+      {saveState.error && (
         <Alert className="mt-4" variant="destructive">
-          {mutation.error.message}
+          {saveState.error}
         </Alert>
       )}
-      {notice && (
+      {saveState.notice && (
         <p className="mt-4 text-sm font-medium text-primary" role="status">
-          {notice}
+          {saveState.notice}
         </p>
       )}
-      {refreshWarning && (
+      {saveState.refreshWarning && (
         <Alert className="mt-4" variant="destructive" role="alert">
-          {refreshWarning}
+          {saveState.refreshWarning}
         </Alert>
       )}
     </>
@@ -182,16 +171,23 @@ function useTicketSettings(eventId: string) {
   }));
 
   return {
-    event,
-    tickets,
-    newTicket,
-    updateNewTicket,
-    notice,
-    refreshWarning,
-    mutation,
-    updateTicket,
-    saveTicket,
-    createTicket,
+    ticketSettings: {
+      event,
+      items: tickets,
+      busy: mutation.isPending,
+      update: updateTicket,
+      save: saveTicket,
+    },
+    newTicket: {
+      value: newTicket,
+      update: updateNewTicket,
+      submit: createTicket,
+    },
+    saveState: {
+      error: mutation.isError ? mutation.error.message : "",
+      notice,
+      refreshWarning,
+    },
   };
 }
 
