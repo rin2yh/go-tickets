@@ -16,76 +16,121 @@ import (
 )
 
 func TestPublicHandler(t *testing.T) {
+	type input struct{ path string }
+	type want struct{ status int }
+	testx.NewTable[input, want](t,
+		testx.NewCase("events are public", input{path: "/api/events"}, want{status: http.StatusOK}),
+		testx.NewCase("event detail is public", input{path: "/api/events/1"}, want{status: http.StatusOK}),
+		testx.NewCase("Clerk config is public", input{path: "/api/auth/config"}, want{status: http.StatusOK}),
+		testx.NewCase("my registrations", input{path: "/api/registrations"}, want{status: http.StatusOK}),
+		testx.NewCase("legacy registrations path is gone", input{path: "/registrations"}, want{status: http.StatusNotFound}),
+	).Run(func(t *testing.T, in input, want want) {
+		r := httptest.NewRequest(http.MethodGet, in.path, nil)
+		r.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
+		w := httptest.NewRecorder()
+		testPublicMux(&fakeStore{}).ServeHTTP(w, r)
+		if w.Code != want.status {
+			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
+		}
+	})
+}
+
+func TestRegisterHandler(t *testing.T) {
 	type input struct {
-		method, path, body string
-		store              fakeStore
-		checkErrorBody     bool
-		checkRegistration  bool
-		checkCancellation  bool
+		body  string
+		store fakeStore
 	}
 	type want struct{ status int }
 	testx.NewTable[input, want](t,
-		testx.NewCase("events are public", input{method: http.MethodGet, path: "/api/events"}, want{status: http.StatusOK}),
-		testx.NewCase("event detail is public", input{method: http.MethodGet, path: "/api/events/1"}, want{status: http.StatusOK}),
-		testx.NewCase("Clerk config is public", input{method: http.MethodGet, path: "/api/auth/config"}, want{status: http.StatusOK}),
-		testx.NewCase("my registrations", input{method: http.MethodGet, path: "/api/registrations"}, want{status: http.StatusOK}),
-		testx.NewCase("legacy registrations path is gone", input{method: http.MethodGet, path: "/registrations"}, want{status: http.StatusNotFound}),
-		testx.NewCase("register ignores body user id", input{method: http.MethodPost, path: "/api/registrations", body: `{"ticket_type_id":1,"user_id":"user_Attacker"}`, checkRegistration: true}, want{status: http.StatusCreated}),
-		testx.NewCase("sold out", input{method: http.MethodPost, path: "/api/registrations", body: `{"ticket_type_id":1}`, store: fakeStore{registerErr: ticket.ErrSoldOut}, checkRegistration: true}, want{status: http.StatusConflict}),
-		testx.NewCase("duplicate", input{method: http.MethodPost, path: "/api/registrations", body: `{"ticket_type_id":1}`, store: fakeStore{registerErr: ticket.ErrDuplicate}, checkRegistration: true}, want{status: http.StatusConflict}),
-		testx.NewCase("bad register body", input{method: http.MethodPost, path: "/api/registrations", body: `{`, checkErrorBody: true}, want{status: http.StatusBadRequest}),
-		testx.NewCase("cancel", input{method: http.MethodPost, path: "/api/registrations/cancel", body: `{"ticket_type_id":1,"user_id":"user_Attacker"}`, checkCancellation: true}, want{status: http.StatusOK}),
-		testx.NewCase("bad cancel body", input{method: http.MethodPost, path: "/api/registrations/cancel", body: `{`, checkErrorBody: true}, want{status: http.StatusBadRequest}),
-		testx.NewCase("missing", input{method: http.MethodPost, path: "/api/registrations/cancel", body: `{"ticket_type_id":1}`, store: fakeStore{cancelErr: ticket.ErrNotFound}}, want{status: http.StatusNotFound}),
+		testx.NewCase("ignores body user id", input{body: `{"ticket_type_id":1,"user_id":"user_Attacker"}`}, want{status: http.StatusCreated}),
+		testx.NewCase("sold out", input{body: `{"ticket_type_id":1}`, store: fakeStore{registerErr: ticket.ErrSoldOut}}, want{status: http.StatusConflict}),
+		testx.NewCase("duplicate", input{body: `{"ticket_type_id":1}`, store: fakeStore{registerErr: ticket.ErrDuplicate}}, want{status: http.StatusConflict}),
 	).Run(func(t *testing.T, in input, want want) {
 		store := &in.store
-		r := httptest.NewRequest(in.method, in.path, strings.NewReader(in.body))
+		r := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(in.body))
 		r.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
 		w := httptest.NewRecorder()
 		testPublicMux(store).ServeHTTP(w, r)
 		if w.Code != want.status {
 			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
 		}
-		if in.checkErrorBody {
-			var response map[string]string
-			decoder := json.NewDecoder(w.Body)
-			if err := decoder.Decode(&response); err != nil {
-				t.Fatalf("error response is not JSON: %v", err)
-			}
-			if response["error"] != "invalid_request" {
-				t.Fatalf("error response = %#v", response)
-			}
-			if err := decoder.Decode(&response); !errors.Is(err, io.EOF) {
-				t.Fatalf("error response contains additional data: %v", err)
-			}
-		}
-		if in.checkRegistration && store.registeredUser != "user_Authenticated" {
+		if store.registeredUser != "user_Authenticated" {
 			t.Fatalf("registered user = %q", store.registeredUser)
 		}
-		if in.checkCancellation && store.cancelledUser != "user_Authenticated" {
+	})
+}
+
+func TestPublicHandlerInvalidRequestBodies(t *testing.T) {
+	type input struct{ path string }
+	type want struct{ status int }
+	testx.NewTable[input, want](t,
+		testx.NewCase("register", input{path: "/api/registrations"}, want{status: http.StatusBadRequest}),
+		testx.NewCase("cancel", input{path: "/api/registrations/cancel"}, want{status: http.StatusBadRequest}),
+	).Run(func(t *testing.T, in input, want want) {
+		r := httptest.NewRequest(http.MethodPost, in.path, strings.NewReader(`{`))
+		r.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
+		w := httptest.NewRecorder()
+		testPublicMux(&fakeStore{}).ServeHTTP(w, r)
+		if w.Code != want.status {
+			t.Fatalf("status = %d, want %d", w.Code, want.status)
+		}
+		var response map[string]string
+		decoder := json.NewDecoder(w.Body)
+		if err := decoder.Decode(&response); err != nil {
+			t.Fatalf("error response is not JSON: %v", err)
+		}
+		if response["error"] != "invalid_request" {
+			t.Fatalf("error response = %#v", response)
+		}
+		if err := decoder.Decode(&response); !errors.Is(err, io.EOF) {
+			t.Fatalf("error response contains additional data: %v", err)
+		}
+	})
+}
+
+func TestCancelRegistrationHandler(t *testing.T) {
+	type input struct {
+		store fakeStore
+	}
+	type want struct{ status int }
+	testx.NewTable[input, want](t,
+		testx.NewCase("uses authenticated user id", input{}, want{status: http.StatusOK}),
+		testx.NewCase("not found", input{store: fakeStore{cancelErr: ticket.ErrNotFound}}, want{status: http.StatusNotFound}),
+	).Run(func(t *testing.T, in input, want want) {
+		store := &in.store
+		r := httptest.NewRequest(http.MethodPost, "/api/registrations/cancel", strings.NewReader(`{"ticket_type_id":1,"user_id":"user_Attacker"}`))
+		r.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
+		w := httptest.NewRecorder()
+		testPublicMux(store).ServeHTTP(w, r)
+		if w.Code != want.status {
+			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
+		}
+		if store.cancelledUser != "user_Authenticated" {
 			t.Fatalf("cancelled user = %q", store.cancelledUser)
 		}
 	})
-	t.Run("unauthenticated", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1,"user_id":"user_Forged"}`))
-		w := httptest.NewRecorder()
-		testPublicMux(&fakeStore{}).ServeHTTP(w, r)
-		if w.Code != http.StatusUnauthorized {
-			t.Fatalf("status = %d, want 401", w.Code)
-		}
-	})
-	t.Run("registration requires a Clerk participant name", func(t *testing.T) {
-		h := ticket.NewHandler(&fakeStore{}, &fakeStore{}, testAuthenticatedUserID, fakeParticipantProfile{})
-		mux := http.NewServeMux()
-		mux.Handle("POST /api/registrations", auth.Authenticated(testAuthenticatedUserID)(http.HandlerFunc(h.Register)))
-		req := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1}`))
-		req.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
-		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, req)
-		if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "participant_name_required") {
-			t.Fatalf("response = %d %s", w.Code, w.Body.String())
-		}
-	})
+}
+
+func TestRegisterHandlerUnauthenticated(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1,"user_id":"user_Forged"}`))
+	w := httptest.NewRecorder()
+	testPublicMux(&fakeStore{}).ServeHTTP(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", w.Code)
+	}
+}
+
+func TestRegisterHandlerRequiresParticipantName(t *testing.T) {
+	h := ticket.NewHandler(&fakeStore{}, &fakeStore{}, testAuthenticatedUserID, fakeParticipantProfile{})
+	mux := http.NewServeMux()
+	mux.Handle("POST /api/registrations", auth.Authenticated(testAuthenticatedUserID)(http.HandlerFunc(h.Register)))
+	req := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1}`))
+	req.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "participant_name_required") {
+		t.Fatalf("response = %d %s", w.Code, w.Body.String())
+	}
 }
 
 func TestAdminHandler(t *testing.T) {
@@ -93,22 +138,14 @@ func TestAdminHandler(t *testing.T) {
 		path  string
 		store fakeStore
 	}
-	type want struct {
-		status           int
-		checkAdminLookup bool
-		checkStatus      bool
-		statusID         int64
-	}
+	type want struct{ status int }
 	testx.NewTable[input, want](t,
-		testx.NewCase("admin events are restricted", input{path: "/api/admin/events", store: fakeStore{admin: true}}, want{status: http.StatusOK, checkAdminLookup: true}),
-		testx.NewCase("admin events reject regular users", input{path: "/api/admin/events"}, want{status: http.StatusForbidden, checkAdminLookup: true}),
-		testx.NewCase("admin status", input{path: "/api/ticket-types/1/status", store: fakeStore{admin: true}}, want{status: http.StatusOK, checkAdminLookup: true, checkStatus: true, statusID: 1}),
-		testx.NewCase("requested type id", input{path: "/api/ticket-types/2/status", store: fakeStore{admin: true}}, want{status: http.StatusOK, checkAdminLookup: true, checkStatus: true, statusID: 2}),
-		testx.NewCase("legacy status path is gone", input{path: "/ticket-types/1/status", store: fakeStore{admin: true}}, want{status: http.StatusNotFound}),
-		testx.NewCase("invalid ticket type id", input{path: "/api/ticket-types/nope/status", store: fakeStore{admin: true}}, want{status: http.StatusBadRequest, checkAdminLookup: true}),
-		testx.NewCase("database error", input{path: "/api/ticket-types/1/status", store: fakeStore{admin: true, statusErr: errors.New("db")}}, want{status: http.StatusInternalServerError, checkAdminLookup: true}),
-		testx.NewCase("general user", input{path: "/api/ticket-types/1/status"}, want{status: http.StatusForbidden, checkAdminLookup: true}),
-		testx.NewCase("administrator lookup error", input{path: "/api/ticket-types/1/status", store: fakeStore{adminErr: errors.New("db")}}, want{status: http.StatusInternalServerError, checkAdminLookup: true}),
+		testx.NewCase("admin events are restricted", input{path: "/api/admin/events", store: fakeStore{admin: true}}, want{status: http.StatusOK}),
+		testx.NewCase("admin events reject regular users", input{path: "/api/admin/events"}, want{status: http.StatusForbidden}),
+		testx.NewCase("invalid ticket type id", input{path: "/api/ticket-types/nope/status", store: fakeStore{admin: true}}, want{status: http.StatusBadRequest}),
+		testx.NewCase("database error", input{path: "/api/ticket-types/1/status", store: fakeStore{admin: true, statusErr: errors.New("db")}}, want{status: http.StatusInternalServerError}),
+		testx.NewCase("general user", input{path: "/api/ticket-types/1/status"}, want{status: http.StatusForbidden}),
+		testx.NewCase("administrator lookup error", input{path: "/api/ticket-types/1/status", store: fakeStore{adminErr: errors.New("db")}}, want{status: http.StatusInternalServerError}),
 	).Run(func(t *testing.T, in input, want want) {
 		store := &in.store
 		r := httptest.NewRequest(http.MethodGet, in.path, nil)
@@ -118,17 +155,43 @@ func TestAdminHandler(t *testing.T) {
 		if w.Code != want.status {
 			t.Fatalf("status = %d, want %d", w.Code, want.status)
 		}
-		if want.checkAdminLookup && store.adminUser != "user_ValidUser" {
+		if store.adminUser != "user_ValidUser" {
 			t.Fatalf("admin lookup user = %q", store.adminUser)
 		}
-		if want.checkStatus {
-			var s ticket.Status
-			if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil || s.Reserved != 1 {
-				t.Fatalf("status body: %s: %v", w.Body.String(), err)
-			}
-			if store.statusID != want.statusID || s.TicketTypeID != want.statusID {
-				t.Fatalf("status queried id = %d, response id = %d", store.statusID, s.TicketTypeID)
-			}
+	})
+
+	legacy := httptest.NewRecorder()
+	testAdminMux(&fakeStore{admin: true}).ServeHTTP(legacy, httptest.NewRequest(http.MethodGet, "/ticket-types/1/status", nil))
+	if legacy.Code != http.StatusNotFound {
+		t.Fatalf("legacy status path = %d, want %d", legacy.Code, http.StatusNotFound)
+	}
+
+	type statusInput struct {
+		path  string
+		store fakeStore
+	}
+	type statusWant struct {
+		status   int
+		ticketID int64
+	}
+	testx.NewTable[statusInput, statusWant](t,
+		testx.NewCase("admin status", statusInput{path: "/api/ticket-types/1/status", store: fakeStore{admin: true}}, statusWant{status: http.StatusOK, ticketID: 1}),
+		testx.NewCase("requested type id", statusInput{path: "/api/ticket-types/2/status", store: fakeStore{admin: true}}, statusWant{status: http.StatusOK, ticketID: 2}),
+	).Run(func(t *testing.T, in statusInput, want statusWant) {
+		store := &in.store
+		r := httptest.NewRequest(http.MethodGet, in.path, nil)
+		r.Header.Set("X-Test-Authenticated-User", "user_ValidUser")
+		w := httptest.NewRecorder()
+		testAdminMux(store).ServeHTTP(w, r)
+		if w.Code != want.status {
+			t.Fatalf("status = %d, want %d", w.Code, want.status)
+		}
+		var status ticket.Status
+		if err := json.Unmarshal(w.Body.Bytes(), &status); err != nil || status.Reserved != 1 {
+			t.Fatalf("status body: %s: %v", w.Body.String(), err)
+		}
+		if store.statusID != want.ticketID || status.TicketTypeID != want.ticketID {
+			t.Fatalf("status queried id = %d, response id = %d", store.statusID, status.TicketTypeID)
 		}
 	})
 	t.Run("unauthenticated", func(t *testing.T) {
