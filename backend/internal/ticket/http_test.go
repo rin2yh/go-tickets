@@ -16,10 +16,12 @@ import (
 )
 
 type fakeStore struct {
-	registerErr, cancelErr, statusErr, adminErr error
-	admin                                       bool
-	registeredUser, cancelledUser, adminUser    string
-	statusID                                    int64
+	registerErr, cancelErr, statusErr, adminErr, adminRegistrationsErr error
+	admin                                                              bool
+	registeredUser, cancelledUser, adminUser                           string
+	statusID, registrationsEventID                                     int64
+	registrationsStatus, registrationsTicket                           string
+	registrationsPage                                                  int
 }
 type fakeParticipantProfile struct {
 	name string
@@ -61,8 +63,12 @@ func (f *fakeStore) Registrations(_ context.Context, user string) ([]ticket.Regi
 	f.registeredUser = user
 	return []ticket.Registration{{TicketTypeID: 1, EventName: "event", TicketName: "ticket", Status: "active"}}, nil
 }
-func (f *fakeStore) AdminRegistrations(context.Context, int64, string, string, int) (ticket.RegistrationPage, error) {
-	return ticket.RegistrationPage{Items: []ticket.AdminRegistration{}}, nil
+func (f *fakeStore) AdminRegistrations(_ context.Context, eventID int64, status, ticketID string, page int) (ticket.RegistrationPage, error) {
+	f.registrationsEventID = eventID
+	f.registrationsStatus = status
+	f.registrationsTicket = ticketID
+	f.registrationsPage = page
+	return ticket.RegistrationPage{Items: []ticket.AdminRegistration{}}, f.adminRegistrationsErr
 }
 func (f *fakeStore) CreateEvent(context.Context, event.EventInput) (int64, error) { return 2, nil }
 func (f *fakeStore) UpdateEvent(context.Context, int64, event.EventInput) error   { return nil }
@@ -194,6 +200,38 @@ func TestAdminHandler(t *testing.T) {
 			t.Fatal("admin lookup ran for unauthenticated request")
 		}
 	})
+}
+
+func TestAdminRegistrationsHandler(t *testing.T) {
+	for _, tc := range []struct {
+		name, path           string
+		store                fakeStore
+		wantStatus, wantPage int
+		wantEventID          int64
+		wantFilterStatus     string
+		wantTicket           string
+	}{
+		{name: "defaults page and filters", path: "/api/admin/events/7/registrations", store: fakeStore{admin: true}, wantStatus: http.StatusOK, wantPage: 1, wantEventID: 7},
+		{name: "forwards filters and page", path: "/api/admin/events/7/registrations?status=cancelled&ticket=12&page=3", store: fakeStore{admin: true}, wantStatus: http.StatusOK, wantPage: 3, wantEventID: 7, wantFilterStatus: "cancelled", wantTicket: "12"},
+		{name: "rejects invalid event id", path: "/api/admin/events/0/registrations", store: fakeStore{admin: true}, wantStatus: http.StatusBadRequest},
+		{name: "rejects nonnumeric page", path: "/api/admin/events/7/registrations?page=abc", store: fakeStore{admin: true}, wantStatus: http.StatusBadRequest},
+		{name: "rejects page below one", path: "/api/admin/events/7/registrations?page=0", store: fakeStore{admin: true}, wantStatus: http.StatusBadRequest},
+		{name: "reports query errors", path: "/api/admin/events/7/registrations", store: fakeStore{admin: true, adminRegistrationsErr: errors.New("db")}, wantStatus: http.StatusInternalServerError},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &tc.store
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req.Header.Set("X-Test-Authenticated-User", "user_admin")
+			w := httptest.NewRecorder()
+			testAdminMux(store).ServeHTTP(w, req)
+			if w.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d: %s", w.Code, tc.wantStatus, w.Body.String())
+			}
+			if tc.wantStatus == http.StatusOK && (store.registrationsEventID != tc.wantEventID || store.registrationsPage != tc.wantPage || store.registrationsStatus != tc.wantFilterStatus || store.registrationsTicket != tc.wantTicket) {
+				t.Fatalf("query args = event %d, status %q, ticket %q, page %d", store.registrationsEventID, store.registrationsStatus, store.registrationsTicket, store.registrationsPage)
+			}
+		})
+	}
 }
 
 func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
