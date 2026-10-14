@@ -29,45 +29,7 @@ interface BasicForm {
 }
 
 export function BasicInformation({ eventId }: { eventId: string }) {
-  const event = useEvent();
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  const [form, setForm] = useState<BasicForm>(() => ({
-    name: event.name,
-    description: event.description,
-    startsAt: toLocal(event.starts_at),
-    endsAt: toLocal(event.ends_at),
-    venueName: event.venue_name ?? "",
-    venueAddress: event.venue_address ?? "",
-    publicationStatus: event.publication_status,
-  }));
-  const [notice, setNotice] = useState("");
-  const [refreshWarning, setRefreshWarning] = useState("");
-  const mutation = useMutation({
-    mutationFn: async (body: Record<string, string | number | null>) =>
-      Result.unwrap(await saveEventChange(getToken, `/api/events/${event.id}`, "PUT", body)),
-    onSuccess: async () => {
-      setNotice("変更を保存しました。");
-      const refresh = await Result.try({
-        try: async () => {
-          await queryClient.invalidateQueries(
-            { queryKey: buildEventQueryOptions(eventId, getToken).queryKey, exact: true },
-            { throwOnError: true },
-          );
-        },
-        catch: (error) =>
-          error instanceof Error ? error : new Error("再取得できません", { cause: error }),
-      });
-      if (Result.isSuccess(refresh)) setRefreshWarning("");
-      else {
-        setRefreshWarning(
-          "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",
-        );
-      }
-    },
-  });
-  const update = <K extends keyof BasicForm>(key: K, value: BasicForm[K]) =>
-    setForm((current) => ({ ...current, [key]: value }));
+  const { form, update, mutation, notice, refreshWarning, submit } = useBasicInformation(eventId);
 
   return (
     <>
@@ -79,23 +41,7 @@ export function BasicInformation({ eventId }: { eventId: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form
-            className="mx-auto grid w-full max-w-[720px] gap-5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setNotice("");
-              setRefreshWarning("");
-              mutation.mutate({
-                name: form.name,
-                description: form.description,
-                starts_at: toUTC(form.startsAt),
-                ends_at: toUTC(form.endsAt),
-                venue_name: form.venueName,
-                venue_address: form.venueAddress,
-                publication_status: form.publicationStatus,
-              });
-            }}
-          >
+          <form className="mx-auto grid w-full max-w-[720px] gap-5" onSubmit={submit}>
             <div className="grid gap-2">
               <Label htmlFor="event-name">イベント名</Label>
               <Input
@@ -190,4 +136,62 @@ export function BasicInformation({ eventId }: { eventId: string }) {
       )}
     </>
   );
+}
+
+function useBasicInformation(eventId: string) {
+  const event = useEvent();
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<BasicForm>(() => ({
+    name: event.name,
+    description: event.description,
+    startsAt: toLocal(event.starts_at),
+    endsAt: toLocal(event.ends_at),
+    venueName: event.venue_name ?? "",
+    venueAddress: event.venue_address ?? "",
+    publicationStatus: event.publication_status,
+  }));
+  const [notice, setNotice] = useState("");
+  const [refreshWarning, setRefreshWarning] = useState("");
+  const mutation = useMutation({
+    mutationFn: async (body: Record<string, string | number | null>) =>
+      Result.unwrap(await saveEventChange(getToken, `/api/events/${event.id}`, "PUT", body)),
+    onSuccess: async () => {
+      setNotice("変更を保存しました。");
+      const refresh = await Result.try({
+        try: async () => {
+          await queryClient.invalidateQueries(
+            { queryKey: buildEventQueryOptions(eventId, getToken).queryKey, exact: true },
+            { throwOnError: true },
+          );
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error("再取得できません", { cause: error }),
+      });
+      if (Result.isSuccess(refresh)) setRefreshWarning("");
+      else {
+        setRefreshWarning(
+          "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",
+        );
+      }
+    },
+  });
+  const update = <K extends keyof BasicForm>(key: K, value: BasicForm[K]) =>
+    setForm((current) => ({ ...current, [key]: value }));
+
+  const submit = (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setNotice("");
+    setRefreshWarning("");
+    mutation.mutate({
+      name: form.name,
+      description: form.description,
+      starts_at: toUTC(form.startsAt),
+      ends_at: toUTC(form.endsAt),
+      venue_name: form.venueName,
+      venue_address: form.venueAddress,
+      publication_status: form.publicationStatus,
+    });
+  };
+  return { form, update, mutation, notice, refreshWarning, submit };
 }

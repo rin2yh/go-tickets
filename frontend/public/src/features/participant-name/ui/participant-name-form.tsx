@@ -14,27 +14,12 @@ export function ParticipantNameForm({
   initialName: string;
   onSaved: (name: string) => void;
 }) {
-  const { getToken } = useAuth();
-  const [name, setName] = useState(initialName);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { name, setName, busy, error, save } = useParticipantNameForm({ initialName, onSaved });
+
   return (
     <Card>
       <CardContent>
-        <form
-          className="mx-auto grid w-full max-w-lg gap-4"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const normalized = name.trim();
-            if (!normalized) return;
-            setBusy(true);
-            setError("");
-            const result = await saveParticipantName(getToken, normalized);
-            if (Result.isFailure(result)) setError(result.error.message);
-            else onSaved(result.value);
-            setBusy(false);
-          }}
-        >
+        <form className="mx-auto grid w-full max-w-lg gap-4" onSubmit={save}>
           <h2 className="m-0 text-2xl font-semibold text-foreground">参加者名を設定</h2>
           <p className="m-0 leading-relaxed text-muted-foreground">
             イベントの参加者一覧などで使う名前です。実名・ハンドルネームのどちらでも構いません。あとから変更できます。
@@ -56,4 +41,29 @@ export function ParticipantNameForm({
       </CardContent>
     </Card>
   );
+}
+
+function useParticipantNameForm({
+  initialName,
+  onSaved,
+}: {
+  initialName: string;
+  onSaved: (name: string) => void;
+}) {
+  const { getToken } = useAuth();
+  const [name, setName] = useState(initialName);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const save = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const normalized = name.trim();
+    if (!normalized) return;
+    setBusy(true);
+    setError("");
+    const result = await saveParticipantName(getToken, normalized);
+    if (Result.isFailure(result)) setError(result.error.message);
+    else onSaved(result.value);
+    setBusy(false);
+  };
+  return { name, setName, busy, error, save };
 }

@@ -56,6 +56,7 @@ export function SignedInContent({
       <ParticipantNameForm
         initialName={profileQuery.data || defaultName}
         onSaved={(name) => {
+          if (!userId) return;
           queryClient.setQueryData(participantNameKey(userId), name);
           setEditingName(false);
         }}

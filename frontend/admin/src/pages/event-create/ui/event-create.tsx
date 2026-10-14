@@ -17,48 +17,19 @@ import { NativeSelect, NativeSelectOption } from "@go-tickets/ui/components/nati
 import { Textarea } from "@go-tickets/ui/components/textarea";
 import { toUTC } from "../../../shared/lib/datetime";
 import { createEvent } from "../../../entities/event";
+interface EventForm {
+  name: string;
+  description: string;
+  startsAt: string;
+  endsAt: string;
+  venueName: string;
+  venueAddress: string;
+  publicationStatus: "draft" | "published";
+}
+
 export function Events() {
-  const { getToken } = useAuth();
-  const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [endsAt, setEndsAt] = useState("");
-  const [venueName, setVenueName] = useState("");
-  const [venueAddress, setVenueAddress] = useState("");
-  const [publicationStatus, setPublicationStatus] = useState<"draft" | "published">("draft");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    const created = await createEvent(getToken, {
-      name,
-      description,
-      starts_at: toUTC(startsAt),
-      ends_at: toUTC(endsAt),
-      venue_name: venueName || null,
-      venue_address: venueAddress || null,
-      publication_status: publicationStatus,
-    });
-    if (Result.isFailure(created)) {
-      setError(created.error.message);
-      setBusy(false);
-      return;
-    }
-    const navigation = await Result.try({
-      try: () =>
-        navigate({
-          to: "/events/$eventId",
-          params: { eventId: String(created.value) },
-          search: { tab: "basic", status: "active", ticket: "all", page: 1 },
-        }),
-      catch: (cause) => (cause instanceof Error ? cause : new Error("画面を開けません", { cause })),
-    });
-    if (Result.isFailure(navigation)) setError(navigation.error.message);
-    setBusy(false);
-  }
+  const { form, update, error, busy, create } = useEventCreation();
+
   return (
     <main className="mx-auto w-full max-w-[1120px] px-4 py-8 sm:px-6">
       <div className="mb-6 flex items-center">
@@ -84,8 +55,8 @@ export function Events() {
               <Label htmlFor="event-name">イベント名</Label>
               <Input
                 id="event-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={form.name}
+                onChange={(e) => update("name", e.target.value)}
                 maxLength={200}
                 placeholder="例: 春のカンファレンス"
               />
@@ -94,9 +65,9 @@ export function Events() {
               <Label htmlFor="event-description">イベント説明（Markdown）</Label>
               <Textarea
                 id="event-description"
-                value={description}
+                value={form.description}
                 rows={8}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => update("description", e.target.value)}
               />
             </div>
             <div className="grid gap-5 md:grid-cols-2">
@@ -105,8 +76,8 @@ export function Events() {
                 <Input
                   id="event-starts-at"
                   type="datetime-local"
-                  value={startsAt}
-                  onChange={(e) => setStartsAt(e.target.value)}
+                  value={form.startsAt}
+                  onChange={(e) => update("startsAt", e.target.value)}
                 />
               </div>
               <div className="grid gap-2">
@@ -114,8 +85,8 @@ export function Events() {
                 <Input
                   id="event-ends-at"
                   type="datetime-local"
-                  value={endsAt}
-                  onChange={(e) => setEndsAt(e.target.value)}
+                  value={form.endsAt}
+                  onChange={(e) => update("endsAt", e.target.value)}
                 />
               </div>
             </div>
@@ -123,25 +94,28 @@ export function Events() {
               <Label htmlFor="event-venue-name">会場名</Label>
               <Input
                 id="event-venue-name"
-                value={venueName}
-                onChange={(e) => setVenueName(e.target.value)}
+                value={form.venueName}
+                onChange={(e) => update("venueName", e.target.value)}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="event-venue-address">会場住所</Label>
               <Input
                 id="event-venue-address"
-                value={venueAddress}
-                onChange={(e) => setVenueAddress(e.target.value)}
+                value={form.venueAddress}
+                onChange={(e) => update("venueAddress", e.target.value)}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="event-publication-status">公開状態</Label>
               <NativeSelect
                 id="event-publication-status"
-                value={publicationStatus}
+                value={form.publicationStatus}
                 onChange={(e) =>
-                  setPublicationStatus(e.target.value === "published" ? "published" : "draft")
+                  update(
+                    "publicationStatus",
+                    e.target.value === "published" ? "published" : "draft",
+                  )
                 }
               >
                 <NativeSelectOption value="draft">下書き</NativeSelectOption>
@@ -161,4 +135,53 @@ export function Events() {
       )}
     </main>
   );
+}
+
+function useEventCreation() {
+  const { getToken } = useAuth();
+  const navigate = useNavigate();
+  const [form, setForm] = useState<EventForm>({
+    name: "",
+    description: "",
+    startsAt: "",
+    endsAt: "",
+    venueName: "",
+    venueAddress: "",
+    publicationStatus: "draft",
+  });
+  const update = <K extends keyof EventForm>(key: K, value: EventForm[K]) =>
+    setForm((current) => ({ ...current, [key]: value }));
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function create(e: React.SubmitEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const created = await createEvent(getToken, {
+      name: form.name,
+      description: form.description,
+      starts_at: toUTC(form.startsAt),
+      ends_at: toUTC(form.endsAt),
+      venue_name: form.venueName || null,
+      venue_address: form.venueAddress || null,
+      publication_status: form.publicationStatus,
+    });
+    if (Result.isFailure(created)) {
+      setError(created.error.message);
+      setBusy(false);
+      return;
+    }
+    const navigation = await Result.try({
+      try: () =>
+        navigate({
+          to: "/events/$eventId",
+          params: { eventId: String(created.value) },
+          search: { tab: "basic", status: "active", ticket: "all", page: 1 },
+        }),
+      catch: (cause) => (cause instanceof Error ? cause : new Error("画面を開けません", { cause })),
+    });
+    if (Result.isFailure(navigation)) setError(navigation.error.message);
+    setBusy(false);
+  }
+  return { form, update, error, busy, create };
 }
