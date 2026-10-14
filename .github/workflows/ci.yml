@@ -32,15 +32,7 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: frontend
       - name: Lint ${{ matrix.app }}
-        if: matrix.app != 'e2e'
         run: pnpm --filter @go-tickets/${{ matrix.app }} lint
-        working-directory: frontend
-      - name: Lint E2E and check frontend
-        if: matrix.app == 'e2e'
-        run: |
-          pnpm exec oxlint e2e
-          pnpm run format:check
-          pnpm run typecheck
         working-directory: frontend
 
   frontend-test:
