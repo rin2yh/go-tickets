@@ -21,4 +21,8 @@ mise run dry
 mise run e2e
 ```
 
+`mise run check`には、テーブル駆動テストにまとめられる重複を検出するGo Analyzerも含まれる。個別に実行する場合は `mise run lint-tabledriven` を使う。`*_test.go` の `TestXxx` 間と、同じブロックに直接書かれた `t.Run` 間で、テスト本体全体の構造を比較する。リテラルや同じ型の値変数、ローカル変数名の違いは許容する一方、呼び出し先、演算子、文や制御フローの違いは重複として扱わない。テスト本体に `for range` がある場合と、`for range` 内の `t.Run` は対象外で、自動修正もしない。
+
+既存の[dupl](https://github.com/mibk/dupl)は一般的なコードクローンをトークン列で検出し、[go-criticの`dupSubExpr`](https://github.com/go-critic/go-critic/blob/master/docs/overview.md)は重複した式を検出する。テスト本体やサブテストを比較単位とするルールではないため、このAnalyzerで補う。
+
 ローカル手順は[開発ガイド](docs/development.md)、デプロイとSecretsは[運用ガイド](docs/deployment.md)を参照。

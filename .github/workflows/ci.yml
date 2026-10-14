@@ -82,6 +82,12 @@ jobs:
       - name: Check Go architecture
         run: go tool go-arch-lint check --project-path .
         working-directory: backend
+      - name: Test Go test linter
+        run: go test ./...
+        working-directory: tool/lint
+      - name: Check duplicated Go tests
+        run: go run . --dir ../../backend ./...
+        working-directory: tool/lint
       - name: Run tests with coverage
         run: go test ./... -coverpkg=./... -coverprofile=coverage.out
         working-directory: backend
