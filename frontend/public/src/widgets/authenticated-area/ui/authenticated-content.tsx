@@ -7,22 +7,26 @@ export function AuthenticatedContent({ route }: { route: AuthenticatedRoute }) {
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
 
-  if (!route) return null;
-  if (!isLoaded)
-    return (
-      <Card>
-        <CardContent>
-          <p aria-live="polite">ログイン状態を確認しています…</p>
-        </CardContent>
-      </Card>
-    );
-  if (!isSignedIn)
+  if (route === null) return null;
+  if (isLoaded) {
+    if (isSignedIn)
+      return (
+        <SignedInContent route={route} defaultName={user?.fullName || user?.firstName || ""} />
+      );
+
     return (
       <SignIn
         routing="hash"
         appearance={{ elements: { rootBox: "!w-full", cardBox: "!w-full" } }}
       />
     );
+  }
 
-  return <SignedInContent route={route} defaultName={user?.fullName || user?.firstName || ""} />;
+  return (
+    <Card>
+      <CardContent>
+        <p aria-live="polite">ログイン状態を確認しています…</p>
+      </CardContent>
+    </Card>
+  );
 }
