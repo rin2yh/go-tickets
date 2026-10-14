@@ -92,12 +92,7 @@ test("participant uses tickets across authenticated page transitions", async ({ 
   });
 
   await test.step("Sign out and back in", async () => {
-    await page.evaluate(async () => {
-      const clerk = (globalThis as typeof globalThis & { Clerk?: { signOut: () => Promise<void> } })
-        .Clerk;
-      if (!clerk) throw new Error("Clerk is not initialized");
-      await clerk.signOut();
-    });
+    await clerk.signOut({ page });
     await expect(page.getByRole("heading", { name: "イベント一覧" })).toBeVisible();
     await myTickets.goto();
     await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
