@@ -51,20 +51,44 @@ export function TicketActions({
     },
     onSuccess: async (outcome) => {
       setMessage(outcome.status ?? "完了しました");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["registrations", userId] }),
-        ...(mode === "event"
-          ? [queryClient.invalidateQueries({ queryKey: publicEventKeys.detail(eventId) })]
-          : []),
-      ]);
+      const invalidation = await Result.try({
+        try: () =>
+          Promise.all([
+            queryClient.invalidateQueries(
+              { queryKey: ["registrations", userId] },
+              { throwOnError: true },
+            ),
+            ...(mode === "event"
+              ? [
+                  queryClient.invalidateQueries(
+                    { queryKey: publicEventKeys.detail(eventId) },
+                    { throwOnError: true },
+                  ),
+                ]
+              : []),
+          ]),
+        catch: (error) =>
+          error instanceof Error
+            ? error
+            : new Error("申込状態を更新できませんでした", { cause: error }),
+      });
+      if (Result.isFailure(invalidation)) {
+        setMessage(
+          `${outcome.status ?? "操作は完了しました"}。状態を更新できませんでした。再試行してください。`,
+        );
+      }
     },
     onError: (error) => setMessage(error.message),
   });
-  const currentItems = registrationsQuery.data ?? [];
+  const currentItems = registrationsQuery.isSuccess ? registrationsQuery.data : [];
   const registrationsReady = registrationsQuery.isSuccess;
   const busy = registrationMutation.isPending;
   const register = (action: "register" | "cancel", ticketTypeId = eventId) =>
     registrationMutation.mutate({ action, ticketTypeId });
+  const retryRegistrations = async () => {
+    const result = await registrationsQuery.refetch();
+    if (result.isSuccess) setMessage("");
+  };
 
   return (
     <section className="mt-7">
@@ -88,8 +112,13 @@ export function TicketActions({
               register={register}
             />
           )}
-          {mode === "tickets" && (
+          {mode === "tickets" && registrationsQuery.isSuccess && (
             <RegistrationList items={currentItems} busy={busy} register={register} />
+          )}
+          {registrationsQuery.isPending && (
+            <p role="status" className="mt-4">
+              申込履歴を読み込み中…
+            </p>
           )}
           {registrationsQuery.error && (
             <Alert variant="destructive" className="mt-4">
@@ -97,7 +126,7 @@ export function TicketActions({
               <Button
                 variant="outline"
                 disabled={registrationsQuery.isFetching}
-                onClick={() => void registrationsQuery.refetch()}
+                onClick={() => void retryRegistrations()}
               >
                 再試行
               </Button>
@@ -202,6 +231,7 @@ function RegistrationList({
 }) {
   return (
     <ul className="grid list-none gap-3 p-0">
+      {items.length === 0 && <li>申込済みのチケットはありません。</li>}
       {items.map((item) => (
         <li
           className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5"

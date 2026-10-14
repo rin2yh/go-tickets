@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -88,21 +88,34 @@ describe("受付状態", () => {
     );
   });
 
-  it("申込後の履歴再取得に失敗したとき再試行できる", async () => {
-    const now = Date.now();
-    const startsAt = new Date(now - 60_000).toISOString();
-    const endsAt = new Date(now + 60_000).toISOString();
-    const eventEndsAt = new Date(now + 120_000).toISOString();
+  it("キャンセル後の履歴再取得に失敗しても古い申込を操作できず、再試行で同期する", async () => {
     getTokenMock.mockResolvedValue("token");
     let historyRequests = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (input === "/api/registrations" && !init?.method) {
         historyRequests += 1;
-        if (historyRequests === 1) return Response.json([]);
-        throw new TypeError("refresh unavailable");
+        if (historyRequests === 1) {
+          return Response.json([
+            {
+              ticket_type_id: 7,
+              event_name: "Event",
+              ticket_name: "General",
+              status: "active",
+            },
+          ]);
+        }
+        if (historyRequests === 2) throw new TypeError("refresh unavailable");
+        return Response.json([
+          {
+            ticket_type_id: 7,
+            event_name: "Event",
+            ticket_name: "General",
+            status: "cancelled",
+          },
+        ]);
       }
-      if (input === "/api/registrations" && init?.method === "POST") {
-        return Response.json({ status: "申込しました" });
+      if (input === "/api/registrations/cancel" && init?.method === "POST") {
+        return Response.json({ status: "キャンセルしました" });
       }
       throw new Error(`Unexpected request: ${input}`);
     });
@@ -112,31 +125,63 @@ describe("受付状態", () => {
     render(
       <QueryClientProvider client={queryClient}>
         <TicketActions
-          mode="event"
+          mode="tickets"
           eventId={42}
-          ticketTypes={[
-            {
-              id: 7,
-              name: "General",
-              capacity: 10,
-              reserved: 0,
-              registration_starts_at: startsAt,
-              registration_ends_at: endsAt,
-            },
-          ]}
-          eventEndsAt={eventEndsAt}
+          ticketTypes={[]}
+          eventEndsAt={null}
           participantName="Participant"
           onEditName={() => {}}
         />
       </QueryClientProvider>,
     );
 
-    const registerButton = await screen.findByRole("button", { name: "Generalに申込" });
-    await waitFor(() => expect(registerButton.hasAttribute("disabled")).toBe(false));
-    fireEvent.click(registerButton);
+    const cancelButton = await screen.findByRole("button", { name: "キャンセル" });
+    fireEvent.click(cancelButton);
 
     expect(await screen.findByText("refresh unavailable")).toBeTruthy();
-    expect(screen.queryByText("通信に失敗しました")).toBeNull();
-    expect(screen.getByText("申込しました")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "キャンセル" })).toBeNull();
+    expect(screen.queryByText("Event / General")).toBeNull();
+    expect(
+      screen.getByText("キャンセルしました。状態を更新できませんでした。再試行してください。"),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "再試行" }));
+    expect(await screen.findByText("キャンセル済み")).toBeTruthy();
+    expect(screen.queryByText("状態を更新できませんでした")).toBeNull();
+    expect(historyRequests).toBe(3);
+  });
+
+  it("履歴の初回取得に失敗したとき空一覧を出さず、再試行後に空状態を表示する", async () => {
+    getTokenMock.mockResolvedValue("token");
+    let historyRequests = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (input === "/api/registrations") {
+        historyRequests += 1;
+        if (historyRequests === 1) throw new TypeError("history unavailable");
+        return Response.json([]);
+      }
+      throw new Error(`Unexpected request: ${input}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TicketActions
+          mode="tickets"
+          eventId={42}
+          ticketTypes={[]}
+          eventEndsAt={null}
+          participantName="Participant"
+          onEditName={() => {}}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("history unavailable")).toBeTruthy();
+    expect(screen.queryByText("申込済みのチケットはありません。")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "再試行" }));
+    expect(await screen.findByText("申込済みのチケットはありません。")).toBeTruthy();
+    expect(historyRequests).toBe(2);
   });
 });
