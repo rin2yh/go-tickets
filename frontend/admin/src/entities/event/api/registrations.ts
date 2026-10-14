@@ -16,29 +16,32 @@ export function buildRegistrationsQueryOptions(
   page: number,
   getToken: () => Promise<string | null>,
 ) {
-  async function load() {
-    const response = await Result.try({
-      try: async () => {
-        const token = await getToken();
-        return await fetch(
-          `/api/admin/events/${eventId}/registrations?status=${status}&ticket=${ticket}&page=${page}`,
-          { headers: { Authorization: `Bearer ${token ?? ""}` } },
-        );
-      },
-      catch: (error) =>
-        error instanceof Error ? error : new Error("参加者を読み込めません", { cause: error }),
-    });
-    if (Result.isFailure(response)) return response;
-    if (!response.value.ok) return Result.fail(new Error("参加者を読み込めません"));
+  function load() {
+    return Result.pipe(
+      Result.try({
+        try: async () => {
+          const token = await getToken();
+          return fetch(
+            `/api/admin/events/${eventId}/registrations?status=${status}&ticket=${ticket}&page=${page}`,
+            { headers: { Authorization: `Bearer ${token ?? ""}` } },
+          );
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error("参加者を読み込めません", { cause: error }),
+      }),
+      Result.andThen((response) => {
+        if (!response.ok) return Result.fail(new Error("参加者を読み込めません"));
 
-    return Result.try({
-      try: async () => {
-        const registrationPage: RegistrationPage = await response.value.json();
-        return registrationPage;
-      },
-      catch: (error) =>
-        error instanceof Error ? error : new Error("参加者を読み込めません", { cause: error }),
-    });
+        return Result.try({
+          try: async () => {
+            const registrationPage: RegistrationPage = await response.json();
+            return registrationPage;
+          },
+          catch: (error) =>
+            error instanceof Error ? error : new Error("参加者を読み込めません", { cause: error }),
+        });
+      }),
+    );
   }
 
   return queryOptions({

@@ -9,87 +9,104 @@ export interface MyRegistration {
   status: "active" | "cancelled";
 }
 
-export async function loadRegistrations(getToken: TokenGetter) {
-  const token = await Result.try({
-    try: () => getToken(),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("申込状態を取得できません", { cause: error }),
-  });
-  if (Result.isFailure(token)) return token;
-  if (!token.value) {
-    return Result.fail(new Error("申込状態を取得できません。ページを再読み込みしてください。"));
-  }
+export function loadRegistrations(getToken: TokenGetter) {
+  return Result.pipe(
+    Result.try({
+      try: () => getToken(),
+      catch: (error) =>
+        error instanceof Error ? error : new Error("申込状態を取得できません", { cause: error }),
+    }),
+    Result.andThen((token) => {
+      if (!token) {
+        return Result.fail(new Error("申込状態を取得できません。ページを再読み込みしてください。"));
+      }
 
-  return fetchRegistrations(token.value, "申込状態を取得できません");
+      return fetchRegistrations(token, "申込状態を取得できません");
+    }),
+  );
 }
 
-async function fetchRegistrations(token: string, failureMessage: string) {
-  const response = await Result.try({
-    try: () =>
-      fetch("/api/registrations", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-    catch: (error) =>
-      error instanceof Error ? error : new Error(failureMessage, { cause: error }),
-  });
-  if (Result.isFailure(response)) return response;
-  if (!response.value.ok) {
-    return Result.fail(new Error(`申込を取得できません (${response.value.status})`));
-  }
+function fetchRegistrations(token: string, failureMessage: string) {
+  return Result.pipe(
+    Result.try({
+      try: () =>
+        fetch("/api/registrations", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      catch: (error) =>
+        error instanceof Error ? error : new Error(failureMessage, { cause: error }),
+    }),
+    Result.andThen((response) => {
+      if (!response.ok) {
+        return Result.fail(new Error(`申込を取得できません (${response.status})`));
+      }
 
-  return Result.try({
-    try: async () => {
-      const registrations: MyRegistration[] = await response.value.json();
-      return registrations;
-    },
-    catch: (error) =>
-      error instanceof Error ? error : new Error(failureMessage, { cause: error }),
-  });
+      return Result.try({
+        try: async () => {
+          const registrations: MyRegistration[] = await response.json();
+          return registrations;
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error(failureMessage, { cause: error }),
+      });
+    }),
+  );
 }
 
-export async function submitRegistration(
+export function submitRegistration(
   getToken: TokenGetter,
   action: "register" | "cancel",
   ticketTypeId: number,
 ) {
-  const token = await Result.try({
-    try: () => getToken(),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
-  });
-  if (Result.isFailure(token)) return token;
+  return Result.pipe(
+    Result.try({
+      try: () => getToken(),
+      catch: (error) =>
+        error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
+    }),
+    Result.andThen((token) =>
+      Result.pipe(
+        Result.try({
+          try: () =>
+            fetch(action === "register" ? "/api/registrations" : "/api/registrations/cancel", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token ?? ""}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ ticket_type_id: ticketTypeId }),
+            }),
+          catch: (error) =>
+            error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
+        }),
+        Result.andThen((response) => {
+          const payload = Result.try({
+            try: async () => {
+              const result: { error?: string; status?: string } = await response.json();
+              return result;
+            },
+            catch: (error) =>
+              error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
+          });
 
-  const response = await Result.try({
-    try: () =>
-      fetch(action === "register" ? "/api/registrations" : "/api/registrations/cancel", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token.value ?? ""}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ticket_type_id: ticketTypeId }),
-      }),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
-  });
-  if (Result.isFailure(response)) return response;
+          if (!response.ok) {
+            return Result.pipe(
+              payload,
+              Result.orElse(() => Result.succeed(undefined)),
+              Result.andThen((result) =>
+                Result.fail(new Error(registrationError(response.status, result?.error))),
+              ),
+            );
+          }
 
-  const payload = await Result.try({
-    try: async () => {
-      const result: { error?: string; status?: string } = await response.value.json();
-      return result;
-    },
-    catch: (error) =>
-      error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
-  });
-  if (!response.value.ok) {
-    if (Result.isFailure(payload)) {
-      return Result.fail(new Error(registrationError(response.value.status)));
-    }
-    return Result.fail(new Error(registrationError(response.value.status, payload.value.error)));
-  }
-  if (Result.isFailure(payload)) return payload;
-  return Result.succeed({ token: token.value, status: payload.value.status });
+          return Result.pipe(
+            payload,
+            Result.map((result) => ({ token, status: result.status })),
+          );
+        }),
+      ),
+    ),
+  );
 }
 
 export async function refreshRegistrations(
