@@ -21,12 +21,7 @@ func TestStoreName(t *testing.T) {
 		name            string
 		patch, hasError bool
 	}
-	testx.Run(t, []testx.Case[input, want]{
-		{Name: "reads and trims Clerk metadata", Input: input{metadata: `{"participant_name":"  Ada Lovelace  "}`}, Want: want{name: "Ada Lovelace"}},
-		{Name: "migrates legacy projection", Input: input{legacyName: "Grace Hopper"}, Want: want{name: "Grace Hopper", patch: true}},
-		{Name: "missing name is empty", Want: want{}},
-		{Name: "non-object metadata is rejected", Input: input{metadata: `["unexpected"]`}, Want: want{hasError: true}},
-	}, func(t *testing.T, in input, want want) {
+	testx.Run[input, want](t, func(t *testing.T, in input, want want) {
 		var patched bool
 		serverHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("Authorization") != "Bearer sk_test_profile" {
@@ -74,7 +69,12 @@ func TestStoreName(t *testing.T) {
 				t.Fatalf("projection = %q, %v; want %q", projected, err, want.name)
 			}
 		}
-	})
+	},
+		testx.NewCase("reads and trims Clerk metadata", input{metadata: `{"participant_name":"  Ada Lovelace  "}`}, want{name: "Ada Lovelace"}),
+		testx.NewCase("migrates legacy projection", input{legacyName: "Grace Hopper"}, want{name: "Grace Hopper", patch: true}),
+		testx.NewCase("missing name is empty", input{}, want{}),
+		testx.NewCase("non-object metadata is rejected", input{metadata: `["unexpected"]`}, want{hasError: true}),
+	)
 }
 
 func TestStoreNameErrors(t *testing.T) {
@@ -113,10 +113,7 @@ func TestStoreNameErrors(t *testing.T) {
 func TestStoreSave(t *testing.T) {
 	type input struct{ status int }
 	type want struct{ hasError bool }
-	testx.Run(t, []testx.Case[input, want]{
-		{Name: "updates metadata and projection", Input: input{status: http.StatusOK}},
-		{Name: "returns Clerk failure", Input: input{status: http.StatusBadGateway}, Want: want{hasError: true}},
-	}, func(t *testing.T, in input, want want) {
+	testx.Run[input, want](t, func(t *testing.T, in input, want want) {
 		s, db := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPatch || r.URL.Path != "/v1/users/user_1/metadata" {
 				t.Errorf("request = %s %s", r.Method, r.URL.Path)
@@ -141,7 +138,10 @@ func TestStoreSave(t *testing.T) {
 				t.Fatalf("projection = %q, %v", name, err)
 			}
 		}
-	})
+	},
+		testx.NewCase("updates metadata and projection", input{status: http.StatusOK}, want{}),
+		testx.NewCase("returns Clerk failure", input{status: http.StatusBadGateway}, want{hasError: true}),
+	)
 }
 
 func TestProfileHandler(t *testing.T) {

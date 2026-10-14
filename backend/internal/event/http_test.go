@@ -21,12 +21,7 @@ func TestHandlerListEndpoints(t *testing.T) {
 		status     int
 		containsID bool
 	}
-	testx.Run(t, []testx.Case[input, want]{
-		{Name: "public list", Input: input{query: httpQuery{events: []event.Event{{ID: 1, Name: "Published"}}}}, Want: want{status: http.StatusOK, containsID: true}},
-		{Name: "public list database error", Input: input{query: httpQuery{err: errors.New("db")}}, Want: want{status: http.StatusInternalServerError}},
-		{Name: "admin list includes drafts", Input: input{admin: true, query: httpQuery{events: []event.Event{{ID: 2, PublicationStatus: "draft"}}}}, Want: want{status: http.StatusOK, containsID: true}},
-		{Name: "admin list database error", Input: input{admin: true, query: httpQuery{err: errors.New("db")}}, Want: want{status: http.StatusInternalServerError}},
-	}, func(t *testing.T, in input, want want) {
+	testx.Run[input, want](t, func(t *testing.T, in input, want want) {
 		h := event.NewHandler(in.query, httpCommand{})
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodGet, "/events", nil)
@@ -41,7 +36,12 @@ func TestHandlerListEndpoints(t *testing.T) {
 		if want.containsID && !strings.Contains(w.Body.String(), `"id":`) {
 			t.Fatalf("response = %s", w.Body.String())
 		}
-	})
+	},
+		testx.NewCase("public list", input{query: httpQuery{events: []event.Event{{ID: 1, Name: "Published"}}}}, want{status: http.StatusOK, containsID: true}),
+		testx.NewCase("public list database error", input{query: httpQuery{err: errors.New("db")}}, want{status: http.StatusInternalServerError}),
+		testx.NewCase("admin list includes drafts", input{admin: true, query: httpQuery{events: []event.Event{{ID: 2, PublicationStatus: "draft"}}}}, want{status: http.StatusOK, containsID: true}),
+		testx.NewCase("admin list database error", input{admin: true, query: httpQuery{err: errors.New("db")}}, want{status: http.StatusInternalServerError}),
+	)
 }
 
 func TestHandlerAdminEvent(t *testing.T) {
@@ -50,12 +50,7 @@ func TestHandlerAdminEvent(t *testing.T) {
 		id    string
 	}
 	type want struct{ status int }
-	testx.Run(t, []testx.Case[input, want]{
-		{Name: "returns draft", Input: input{query: httpQuery{adminEvent: event.Event{ID: 2, Name: "Draft"}}, id: "2"}, Want: want{status: http.StatusOK}},
-		{Name: "not found", Input: input{query: httpQuery{err: sql.ErrNoRows}, id: "2"}, Want: want{status: http.StatusNotFound}},
-		{Name: "database failure", Input: input{query: httpQuery{err: errors.New("db")}, id: "2"}, Want: want{status: http.StatusInternalServerError}},
-		{Name: "invalid id", Input: input{query: httpQuery{}, id: "bad"}, Want: want{status: http.StatusBadRequest}},
-	}, func(t *testing.T, in input, want want) {
+	testx.Run[input, want](t, func(t *testing.T, in input, want want) {
 		r := httptest.NewRequest(http.MethodGet, "/events/"+in.id, nil)
 		r.SetPathValue("id", in.id)
 		w := httptest.NewRecorder()
@@ -63,7 +58,12 @@ func TestHandlerAdminEvent(t *testing.T) {
 		if w.Code != want.status {
 			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
 		}
-	})
+	},
+		testx.NewCase("returns draft", input{query: httpQuery{adminEvent: event.Event{ID: 2, Name: "Draft"}}, id: "2"}, want{status: http.StatusOK}),
+		testx.NewCase("not found", input{query: httpQuery{err: sql.ErrNoRows}, id: "2"}, want{status: http.StatusNotFound}),
+		testx.NewCase("database failure", input{query: httpQuery{err: errors.New("db")}, id: "2"}, want{status: http.StatusInternalServerError}),
+		testx.NewCase("invalid id", input{query: httpQuery{}, id: "bad"}, want{status: http.StatusBadRequest}),
+	)
 }
 
 func TestHandlerEventEndpoints(t *testing.T) {

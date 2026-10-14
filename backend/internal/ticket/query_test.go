@@ -51,12 +51,7 @@ func TestSQLQuery(t *testing.T) {
 			ticketTypeID            int64
 			ticketName              string
 		}
-		testx.Run(t, []testx.Case[input, want]{
-			{Name: "active all tickets", Input: input{status: "active", ticketID: "all", page: 1}, Want: want{total: 2, capacity: 5, active: 2}},
-			{Name: "one ticket", Input: input{status: "active", ticketID: "12", page: 1}, Want: want{total: 1, capacity: 5, active: 2, ticketTypeID: 12, ticketName: "Zed"}},
-			{Name: "cancelled", Input: input{status: "cancelled", ticketID: "all", page: 1}, Want: want{capacity: 5, active: 2}},
-			{Name: "invalid status defaults to active", Input: input{status: "unknown", page: 1}, Want: want{total: 2, capacity: 5, active: 2}},
-		}, func(t *testing.T, in input, want want) {
+		testx.Run[input, want](t, func(t *testing.T, in input, want want) {
 			got, err := q.AdminRegistrations(ctx, 1, in.status, in.ticketID, in.page)
 			if err != nil {
 				t.Fatal(err)
@@ -67,7 +62,12 @@ func TestSQLQuery(t *testing.T) {
 			if want.ticketTypeID != 0 && (got.Items[0].TicketTypeID != want.ticketTypeID || got.Items[0].TicketName != want.ticketName) {
 				t.Fatalf("ticket-filtered items = %#v; want ticket type %d (%s)", got.Items, want.ticketTypeID, want.ticketName)
 			}
-		})
+		},
+			testx.NewCase("active all tickets", input{status: "active", ticketID: "all", page: 1}, want{total: 2, capacity: 5, active: 2}),
+			testx.NewCase("one ticket", input{status: "active", ticketID: "12", page: 1}, want{total: 1, capacity: 5, active: 2, ticketTypeID: 12, ticketName: "Zed"}),
+			testx.NewCase("cancelled", input{status: "cancelled", ticketID: "all", page: 1}, want{capacity: 5, active: 2}),
+			testx.NewCase("invalid status defaults to active", input{status: "unknown", page: 1}, want{total: 2, capacity: 5, active: 2}),
+		)
 	}
 	if _, err := db.Exec(`UPDATE ticket_types SET capacity=100 WHERE id=12`); err != nil {
 		t.Fatal(err)
@@ -79,11 +79,7 @@ func TestSQLQuery(t *testing.T) {
 	}
 	type pageInput struct{ page int }
 	type pageWant struct{ items int }
-	testx.Run(t, []testx.Case[pageInput, pageWant]{
-		{Name: "admin registrations page 1", Input: pageInput{page: 1}, Want: pageWant{items: 50}},
-		{Name: "admin registrations page 2", Input: pageInput{page: 2}, Want: pageWant{items: 3}},
-		{Name: "admin registrations page 3 is empty", Input: pageInput{page: 3}, Want: pageWant{items: 0}},
-	}, func(t *testing.T, in pageInput, want pageWant) {
+	testx.Run[pageInput, pageWant](t, func(t *testing.T, in pageInput, want pageWant) {
 		got, err := q.AdminRegistrations(ctx, 1, "active", "all", in.page)
 		if err != nil {
 			t.Fatal(err)
@@ -91,5 +87,9 @@ func TestSQLQuery(t *testing.T) {
 		if got.Total != 53 || got.Active != 53 || len(got.Items) != want.items {
 			t.Fatalf("page %d = total %d, active %d, items %d; want 53, 53, %d", in.page, got.Total, got.Active, len(got.Items), want.items)
 		}
-	})
+	},
+		testx.NewCase("admin registrations page 1", pageInput{page: 1}, pageWant{items: 50}),
+		testx.NewCase("admin registrations page 2", pageInput{page: 2}, pageWant{items: 3}),
+		testx.NewCase("admin registrations page 3 is empty", pageInput{page: 3}, pageWant{items: 0}),
+	)
 }

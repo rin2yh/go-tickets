@@ -10,8 +10,13 @@ type Case[Input, Want any] struct {
 	Want  Want
 }
 
+// NewCase creates a named test case from its input and expected result.
+func NewCase[Input, Want any](name string, input Input, want Want) Case[Input, Want] {
+	return Case[Input, Want]{Name: name, Input: input, Want: want}
+}
+
 // Run executes each case as a named subtest.
-func Run[Input, Want any](t *testing.T, cases []Case[Input, Want], run func(*testing.T, Input, Want)) {
+func Run[Input, Want any](t *testing.T, run func(*testing.T, Input, Want), cases ...Case[Input, Want]) {
 	t.Helper()
 	for _, tc := range cases {
 		t.Run(tc.Name, func(t *testing.T) {
