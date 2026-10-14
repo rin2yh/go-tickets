@@ -15,6 +15,7 @@ jobs:
         task: [lint, test]
     permissions:
       contents: read
+      pull-requests: write
     steps:
       - &checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -27,6 +28,7 @@ jobs:
         with:
           version: 11.5.1
       - &install-frontend
+        id: frontend_dependencies
         run: pnpm install --frozen-lockfile
         working-directory: frontend
       - if: matrix.task == 'lint'
@@ -35,18 +37,37 @@ jobs:
       - if: matrix.task == 'test'
         run: |
           coverage_status=0
-          pnpm --filter @go-tickets/public test -- --coverage.enabled || coverage_status=1
-          pnpm --filter @go-tickets/admin test -- --coverage.enabled || coverage_status=1
-          pnpm --filter @go-tickets/ui test -- --coverage.enabled || coverage_status=1
+          pnpm --filter @go-tickets/public test || coverage_status=1
+          pnpm --filter @go-tickets/admin test || coverage_status=1
+          pnpm --filter @go-tickets/ui test || coverage_status=1
           test "$coverage_status" -eq 0
         working-directory: frontend
-      - name: Upload frontend coverage
-        if: always() && matrix.task == 'test'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - name: Report public coverage
+        if: always() && matrix.task == 'test' && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
         with:
-          name: frontend-coverage
-          path: frontend/coverage
-          if-no-files-found: ignore
+          name: Public
+          working-directory: frontend
+          json-summary-path: coverage/public/coverage-summary.json
+          json-final-path: coverage/public/coverage-final.json
+          vite-config-path: public/vitest.config.ts
+      - name: Report admin coverage
+        if: always() && matrix.task == 'test' && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
+        with:
+          name: Admin
+          working-directory: frontend
+          json-summary-path: coverage/admin/coverage-summary.json
+          json-final-path: coverage/admin/coverage-final.json
+          vite-config-path: admin/vite.config.ts
+      - name: Report UI coverage
+        if: always() && matrix.task == 'test' && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
+        with:
+          name: UI
+          working-directory: frontend
+          json-summary-path: coverage/ui/coverage-summary.json
+          json-final-path: coverage/ui/coverage-final.json
 
   backend:
     name: Lint and test Go code

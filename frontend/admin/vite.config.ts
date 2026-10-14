@@ -19,6 +19,7 @@ export default defineConfig({
   build: { outDir: "../../backend/build/admin-assets", emptyOutDir: true },
   test: {
     coverage: {
+      enabled: true,
       reporter: ["text", "json-summary", "json"],
       reportOnFailure: true,
       reportsDirectory: "../coverage/admin",
