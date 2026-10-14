@@ -1,7 +1,6 @@
 package event_test
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -10,85 +9,61 @@ import (
 	"testing"
 
 	"github.com/rin2yh/go-tickets/internal/event"
+	"github.com/rin2yh/go-tickets/x/testx"
 )
 
-type httpQuery struct {
-	err        error
-	events     []event.Event
-	event      event.Event
-	adminEvent event.Event
-}
-
-func (q httpQuery) Events(context.Context) ([]event.Event, error)      { return q.events, q.err }
-func (q httpQuery) AdminEvents(context.Context) ([]event.Event, error) { return q.events, q.err }
-func (q httpQuery) Event(context.Context, int64) (event.Event, error)  { return q.event, q.err }
-func (q httpQuery) AdminEvent(context.Context, int64) (event.Event, error) {
-	return q.adminEvent, q.err
-}
-
-type httpCommand struct {
-	createErr error
-	updateErr error
-}
-
-func (c httpCommand) CreateEvent(context.Context, event.EventInput) (int64, error) {
-	return 42, c.createErr
-}
-func (c httpCommand) UpdateEvent(context.Context, int64, event.EventInput) error { return c.updateErr }
-
 func TestHandlerListEndpoints(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
+	type input struct {
 		admin bool
 		query httpQuery
-		want  int
-	}{
-		{name: "public list", query: httpQuery{events: []event.Event{{ID: 1, Name: "Published"}}}, want: http.StatusOK},
-		{name: "public list database error", query: httpQuery{err: errors.New("db")}, want: http.StatusInternalServerError},
-		{name: "admin list includes drafts", admin: true, query: httpQuery{events: []event.Event{{ID: 2, PublicationStatus: "draft"}}}, want: http.StatusOK},
-		{name: "admin list database error", admin: true, query: httpQuery{err: errors.New("db")}, want: http.StatusInternalServerError},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			h := event.NewHandler(tc.query, httpCommand{})
-			w := httptest.NewRecorder()
-			r := httptest.NewRequest(http.MethodGet, "/events", nil)
-			if tc.admin {
-				h.AdminEvents(w, r)
-			} else {
-				h.Events(w, r)
-			}
-			if w.Code != tc.want {
-				t.Fatalf("status = %d, want %d", w.Code, tc.want)
-			}
-			if tc.want == http.StatusOK && !strings.Contains(w.Body.String(), `"id":`) {
-				t.Fatalf("response = %s", w.Body.String())
-			}
-		})
 	}
+	type want struct {
+		status     int
+		containsID bool
+	}
+	testx.Run(t, []testx.Case[input, want]{
+		{Name: "public list", Input: input{query: httpQuery{events: []event.Event{{ID: 1, Name: "Published"}}}}, Want: want{status: http.StatusOK, containsID: true}},
+		{Name: "public list database error", Input: input{query: httpQuery{err: errors.New("db")}}, Want: want{status: http.StatusInternalServerError}},
+		{Name: "admin list includes drafts", Input: input{admin: true, query: httpQuery{events: []event.Event{{ID: 2, PublicationStatus: "draft"}}}}, Want: want{status: http.StatusOK, containsID: true}},
+		{Name: "admin list database error", Input: input{admin: true, query: httpQuery{err: errors.New("db")}}, Want: want{status: http.StatusInternalServerError}},
+	}, func(t *testing.T, in input, want want) {
+		h := event.NewHandler(in.query, httpCommand{})
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/events", nil)
+		if in.admin {
+			h.AdminEvents(w, r)
+		} else {
+			h.Events(w, r)
+		}
+		if w.Code != want.status {
+			t.Fatalf("status = %d, want %d", w.Code, want.status)
+		}
+		if want.containsID && !strings.Contains(w.Body.String(), `"id":`) {
+			t.Fatalf("response = %s", w.Body.String())
+		}
+	})
 }
 
 func TestHandlerAdminEvent(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
+	type input struct {
 		query httpQuery
 		id    string
-		want  int
-	}{
-		{name: "returns draft", query: httpQuery{adminEvent: event.Event{ID: 2, Name: "Draft"}}, id: "2", want: http.StatusOK},
-		{name: "not found", query: httpQuery{err: sql.ErrNoRows}, id: "2", want: http.StatusNotFound},
-		{name: "database failure", query: httpQuery{err: errors.New("db")}, id: "2", want: http.StatusInternalServerError},
-		{name: "invalid id", query: httpQuery{}, id: "bad", want: http.StatusBadRequest},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			r := httptest.NewRequest(http.MethodGet, "/events/"+tc.id, nil)
-			r.SetPathValue("id", tc.id)
-			w := httptest.NewRecorder()
-			event.NewHandler(tc.query, httpCommand{}).AdminEvent(w, r)
-			if w.Code != tc.want {
-				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
-			}
-		})
 	}
+	type want struct{ status int }
+	testx.Run(t, []testx.Case[input, want]{
+		{Name: "returns draft", Input: input{query: httpQuery{adminEvent: event.Event{ID: 2, Name: "Draft"}}, id: "2"}, Want: want{status: http.StatusOK}},
+		{Name: "not found", Input: input{query: httpQuery{err: sql.ErrNoRows}, id: "2"}, Want: want{status: http.StatusNotFound}},
+		{Name: "database failure", Input: input{query: httpQuery{err: errors.New("db")}, id: "2"}, Want: want{status: http.StatusInternalServerError}},
+		{Name: "invalid id", Input: input{query: httpQuery{}, id: "bad"}, Want: want{status: http.StatusBadRequest}},
+	}, func(t *testing.T, in input, want want) {
+		r := httptest.NewRequest(http.MethodGet, "/events/"+in.id, nil)
+		r.SetPathValue("id", in.id)
+		w := httptest.NewRecorder()
+		event.NewHandler(in.query, httpCommand{}).AdminEvent(w, r)
+		if w.Code != want.status {
+			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
+		}
+	})
 }
 
 func TestHandlerEventEndpoints(t *testing.T) {
