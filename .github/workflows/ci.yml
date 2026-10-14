@@ -7,15 +7,11 @@ on:
   pull_request:
 
 jobs:
-  frontend:
-    name: Frontend ${{ matrix.task }}
+  frontend-lint:
+    name: Lint frontend
     runs-on: &ubuntu ubuntu-26.04
-    strategy:
-      matrix:
-        task: [lint, test]
     permissions:
       contents: read
-      pull-requests: write
     steps:
       - &checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,11 +27,21 @@ jobs:
         id: frontend_dependencies
         run: pnpm install --frozen-lockfile
         working-directory: frontend
-      - if: matrix.task == 'lint'
-        run: pnpm run lint
+      - run: pnpm run lint
         working-directory: frontend
-      - if: matrix.task == 'test'
-        run: |
+
+  frontend-test:
+    name: Test frontend
+    runs-on: *ubuntu
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - *checkout
+      - *setup-node
+      - *setup-pnpm
+      - *install-frontend
+      - run: |
           coverage_status=0
           pnpm --filter @go-tickets/public test || coverage_status=1
           pnpm --filter @go-tickets/admin test || coverage_status=1
@@ -43,7 +49,7 @@ jobs:
           test "$coverage_status" -eq 0
         working-directory: frontend
       - name: Report public coverage
-        if: always() && matrix.task == 'test' && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: always() && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
         with:
           name: Public
@@ -52,7 +58,7 @@ jobs:
           json-final-path: coverage/public/coverage-final.json
           vite-config-path: public/vitest.config.ts
       - name: Report admin coverage
-        if: always() && matrix.task == 'test' && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: always() && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
         with:
           name: Admin
@@ -61,7 +67,7 @@ jobs:
           json-final-path: coverage/admin/coverage-final.json
           vite-config-path: admin/vite.config.ts
       - name: Report UI coverage
-        if: always() && matrix.task == 'test' && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: always() && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
         with:
           name: UI
