@@ -9,6 +9,7 @@ pnpm = "11.5.1"
 includes = [
   "backend/tasks.toml",
   "frontend/tasks.toml",
+  "tool/lint/tasks.toml",
 ]
 
 [tasks.audit-frontend]

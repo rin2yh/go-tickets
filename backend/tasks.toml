@@ -8,12 +8,6 @@ hide = true
 dir = "backend"
 run = "go test ./..."
 
-[test-linter]
-description = "Run Go test linter analyzer tests"
-hide = true
-dir = "tool/lint"
-run = "go test ./..."
-
 [lint-go]
 description = "Lint Go packages with golangci-lint"
 hide = true
@@ -25,12 +19,6 @@ description = "Check Go package dependency rules"
 hide = true
 dir = "backend"
 run = "go tool go-arch-lint check --project-path ."
-
-[lint-tabledriven]
-description = "Find duplicated Go tests that should be table-driven"
-hide = true
-dir = "tool/lint"
-run = "go run . --dir ../../backend ./..."
 
 [d1-local-migrate]
 description = "Apply local D1 migrations"
