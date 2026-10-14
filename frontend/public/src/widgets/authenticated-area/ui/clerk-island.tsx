@@ -3,28 +3,8 @@ import { useEffect, useState } from "react";
 import { ClerkProvider } from "@clerk/react";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
+import { fetchClerkKey } from "../api/auth-config";
 import { AuthenticatedContent } from "./authenticated-content";
-
-async function clerkKey() {
-  const response = await Result.try({
-    try: () => fetch("/api/auth/config"),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("認証設定を取得できません", { cause: error }),
-  });
-  if (Result.isFailure(response)) return response;
-  if (!response.value.ok) {
-    return Result.fail(new Error(`認証設定を取得できません (${response.value.status})`));
-  }
-
-  return Result.try({
-    try: async () => {
-      const config: { publishableKey: string } = await response.value.json();
-      return config.publishableKey;
-    },
-    catch: (error) =>
-      error instanceof Error ? error : new Error("認証設定を取得できません", { cause: error }),
-  });
-}
 
 export function ClerkIsland() {
   const [key, setKey] = useState("");
@@ -34,7 +14,7 @@ export function ClerkIsland() {
   useEffect(() => {
     let active = true;
     async function loadKey() {
-      const result = await clerkKey();
+      const result = await fetchClerkKey();
       if (!active) return;
       if (Result.isSuccess(result)) setKey(result.value);
       else setError(result.error.message);

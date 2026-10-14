@@ -207,86 +207,8 @@
     {
       "files": ["e2e/**/*.ts", "e2e/**/*.tsx"],
       "rules": {
-        "no-restricted-properties": [
+        "eslint-js/no-restricted-properties": [
           "error",
-          {
-            "property": "then",
-            "message": "Use async/await instead of Promise.then()."
-          },
-          {
-            "property": "catch",
-            "message": "Use Result.try instead of Promise.catch()."
-          },
-          {
-            "object": "Result",
-            "property": "pipe",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "andThen",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "orElse",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "andThrough",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "orThrough",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "map",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "mapError",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "bind",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "collect",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "sequence",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "do",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "inspect",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "inspectError",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
-          {
-            "object": "Result",
-            "property": "fn",
-            "message": "Use async/await and early returns instead of Result composition."
-          },
           {
             "property": "getByTestId",
             "message": "Use a user-facing role, label, or text locator."
