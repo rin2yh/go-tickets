@@ -21,48 +21,54 @@ export interface PublicEvent {
   ticket_types: PublicTicketType[];
 }
 
-export async function fetchPublicEvents() {
-  const response = await Result.try({
-    try: () => fetch("/api/events", { cache: "no-store" }),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
-  });
-  if (Result.isFailure(response)) return response;
-  if (!response.value.ok) {
-    return Result.fail(new Error(`イベントを取得できません (${response.value.status})`));
-  }
+export function fetchPublicEvents() {
+  return Result.pipe(
+    Result.try({
+      try: () => fetch("/api/events", { cache: "no-store" }),
+      catch: (error) =>
+        error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
+    }),
+    Result.andThen((response) => {
+      if (!response.ok) {
+        return Result.fail(new Error(`イベントを取得できません (${response.status})`));
+      }
 
-  return Result.try({
-    try: async () => {
-      const events: PublicEvent[] = await response.value.json();
-      return events;
-    },
-    catch: (error) =>
-      error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
-  });
+      return Result.try({
+        try: async () => {
+          const events: PublicEvent[] = await response.json();
+          return events;
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
+      });
+    }),
+  );
 }
 
 export function fetchPublicEvent(eventId: number): Promise<Result.Result<PublicEvent, Error>> {
   return loadPublicEvent(eventId);
 }
 
-async function loadPublicEvent(eventId: number) {
-  const response = await Result.try({
-    try: () => fetch(`/api/events/${eventId}`, { cache: "no-store" }),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
-  });
-  if (Result.isFailure(response)) return response;
-  if (!response.value.ok) {
-    return Result.fail(new Error(`イベントを取得できません (${response.value.status})`));
-  }
+function loadPublicEvent(eventId: number) {
+  return Result.pipe(
+    Result.try({
+      try: () => fetch(`/api/events/${eventId}`, { cache: "no-store" }),
+      catch: (error) =>
+        error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
+    }),
+    Result.andThen((response) => {
+      if (!response.ok) {
+        return Result.fail(new Error(`イベントを取得できません (${response.status})`));
+      }
 
-  return Result.try({
-    try: async () => {
-      const event: PublicEvent = await response.value.json();
-      return event;
-    },
-    catch: (error) =>
-      error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
-  });
+      return Result.try({
+        try: async () => {
+          const event: PublicEvent = await response.json();
+          return event;
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error("イベントを取得できません", { cause: error }),
+      });
+    }),
+  );
 }

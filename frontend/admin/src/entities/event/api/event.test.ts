@@ -50,6 +50,25 @@ describe("event API results", () => {
     expectFailureMessage(result, message);
   });
 
+  it("maps create HTTP errors when the response body is invalid JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("invalid json", { status: 400 })),
+    );
+
+    const result = await createEvent(async () => null, {
+      name: "Event",
+      description: "",
+      starts_at: null,
+      ends_at: null,
+      venue_name: null,
+      venue_address: null,
+      publication_status: "draft",
+    });
+
+    expectFailureMessage(result, "イベントを作成できません");
+  });
+
   it("requires an id in a successful create response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({})));
 
@@ -106,6 +125,17 @@ describe("event API results", () => {
     const result = await saveEventChange(async () => null, "/api/events/42", "PUT", {});
 
     expectFailureMessage(result, message);
+  });
+
+  it("maps update HTTP errors when the response body is invalid JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("invalid json", { status: 400 })),
+    );
+
+    const result = await saveEventChange(async () => null, "/api/events/42", "PUT", {});
+
+    expectFailureMessage(result, "保存できませんでした");
   });
 
   it("returns a failure when a successful event update has invalid JSON", async () => {

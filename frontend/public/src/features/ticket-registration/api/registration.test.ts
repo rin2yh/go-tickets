@@ -29,6 +29,19 @@ describe("registration API", () => {
     });
   });
 
+  it("returns token retrieval failures without sending a request", async () => {
+    const tokenError = new Error("token unavailable");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadRegistrations(async () => {
+      throw tokenError;
+    });
+
+    expect(result).toEqual(Result.fail(tokenError));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("returns an empty refresh result when there is no token", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -69,5 +82,33 @@ describe("registration API", () => {
       },
       body: JSON.stringify({ ticket_type_id: 7 }),
     });
+  });
+
+  it("keeps the HTTP error when a failed response body is invalid JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("invalid JSON", { status: 500 })),
+    );
+
+    const result = await submitRegistration(async () => "token", "register", 7);
+
+    expect(result).toEqual(Result.fail(new Error("500: request_failed")));
+  });
+
+  it("returns JSON parsing failures for successful responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError("invalid JSON");
+        },
+      }),
+    );
+
+    const result = await submitRegistration(async () => "token", "register", 7);
+
+    expect(result).toEqual(Result.fail(new SyntaxError("invalid JSON")));
   });
 });
