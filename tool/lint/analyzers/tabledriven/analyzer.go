@@ -59,7 +59,7 @@ func run(pass *analysis.Pass) (any, error) {
 		if containsRange(tests[i].decl.Body) {
 			continue
 		}
-		for j := 0; j < i; j++ {
+		for j := range i {
 			if containsRange(tests[j].decl.Body) {
 				continue
 			}
