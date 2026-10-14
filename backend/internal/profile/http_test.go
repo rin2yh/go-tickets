@@ -21,7 +21,12 @@ func TestStoreName(t *testing.T) {
 		name            string
 		patch, hasError bool
 	}
-	run := func(t *testing.T, in input, want want) {
+	testx.NewTable[input, want](t,
+		testx.NewCase("reads and trims Clerk metadata", input{metadata: `{"participant_name":"  Ada Lovelace  "}`}, want{name: "Ada Lovelace"}),
+		testx.NewCase("migrates legacy projection", input{legacyName: "Grace Hopper"}, want{name: "Grace Hopper", patch: true}),
+		testx.NewCase("missing name is empty", input{}, want{}),
+		testx.NewCase("non-object metadata is rejected", input{metadata: `["unexpected"]`}, want{hasError: true}),
+	).Run(func(t *testing.T, in input, want want) {
 		var patched bool
 		serverHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("Authorization") != "Bearer sk_test_profile" {
@@ -69,13 +74,7 @@ func TestStoreName(t *testing.T) {
 				t.Fatalf("projection = %q, %v; want %q", projected, err, want.name)
 			}
 		}
-	}
-	testx.NewTable[input, want](
-		testx.NewCase("reads and trims Clerk metadata", input{metadata: `{"participant_name":"  Ada Lovelace  "}`}, want{name: "Ada Lovelace"}),
-		testx.NewCase("migrates legacy projection", input{legacyName: "Grace Hopper"}, want{name: "Grace Hopper", patch: true}),
-		testx.NewCase("missing name is empty", input{}, want{}),
-		testx.NewCase("non-object metadata is rejected", input{metadata: `["unexpected"]`}, want{hasError: true}),
-	).Run(t, run)
+	})
 }
 
 func TestStoreNameErrors(t *testing.T) {
@@ -114,7 +113,10 @@ func TestStoreNameErrors(t *testing.T) {
 func TestStoreSave(t *testing.T) {
 	type input struct{ status int }
 	type want struct{ hasError bool }
-	run := func(t *testing.T, in input, want want) {
+	testx.NewTable[input, want](t,
+		testx.NewCase("updates metadata and projection", input{status: http.StatusOK}, want{}),
+		testx.NewCase("returns Clerk failure", input{status: http.StatusBadGateway}, want{hasError: true}),
+	).Run(func(t *testing.T, in input, want want) {
 		s, db := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPatch || r.URL.Path != "/v1/users/user_1/metadata" {
 				t.Errorf("request = %s %s", r.Method, r.URL.Path)
@@ -139,11 +141,7 @@ func TestStoreSave(t *testing.T) {
 				t.Fatalf("projection = %q, %v", name, err)
 			}
 		}
-	}
-	testx.NewTable[input, want](
-		testx.NewCase("updates metadata and projection", input{status: http.StatusOK}, want{}),
-		testx.NewCase("returns Clerk failure", input{status: http.StatusBadGateway}, want{hasError: true}),
-	).Run(t, run)
+	})
 }
 
 func TestProfileHandler(t *testing.T) {
@@ -187,7 +185,12 @@ func TestProfileHandler(t *testing.T) {
 
 	type input struct{ body string }
 	type want struct{ status int }
-	run := func(t *testing.T, in input, want want) {
+	testx.NewTable[input, want](t,
+		testx.NewCase("Save malformed JSON", input{body: `{`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("Save missing name", input{body: `{"name":"  "}`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("Save name over 100 characters", input{body: `{"name":"` + strings.Repeat("a", 101) + `"}`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("Save body over size limit", input{body: `{"name":"` + strings.Repeat("a", 4096) + `"}`}, want{status: http.StatusBadRequest}),
+	).Run(func(t *testing.T, in input, want want) {
 		s, _ := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			t.Error("Clerk should not be called for invalid input")
 			http.Error(w, "unexpected", http.StatusInternalServerError)
@@ -197,13 +200,7 @@ func TestProfileHandler(t *testing.T) {
 		if w.Code != want.status {
 			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
 		}
-	}
-	testx.NewTable[input, want](
-		testx.NewCase("Save malformed JSON", input{body: `{`}, want{status: http.StatusBadRequest}),
-		testx.NewCase("Save missing name", input{body: `{"name":"  "}`}, want{status: http.StatusBadRequest}),
-		testx.NewCase("Save name over 100 characters", input{body: `{"name":"` + strings.Repeat("a", 101) + `"}`}, want{status: http.StatusBadRequest}),
-		testx.NewCase("Save body over size limit", input{body: `{"name":"` + strings.Repeat("a", 4096) + `"}`}, want{status: http.StatusBadRequest}),
-	).Run(t, run)
+	})
 	t.Run("Save maps Clerk errors to bad gateway", func(t *testing.T) {
 		s, _ := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "unavailable", http.StatusServiceUnavailable)

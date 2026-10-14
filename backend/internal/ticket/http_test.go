@@ -24,7 +24,20 @@ func TestPublicHandler(t *testing.T) {
 		checkCancellation  bool
 	}
 	type want struct{ status int }
-	run := func(t *testing.T, in input, want want) {
+	testx.NewTable[input, want](t,
+		testx.NewCase("events are public", input{method: http.MethodGet, path: "/api/events"}, want{status: http.StatusOK}),
+		testx.NewCase("event detail is public", input{method: http.MethodGet, path: "/api/events/1"}, want{status: http.StatusOK}),
+		testx.NewCase("Clerk config is public", input{method: http.MethodGet, path: "/api/auth/config"}, want{status: http.StatusOK}),
+		testx.NewCase("my registrations", input{method: http.MethodGet, path: "/api/registrations"}, want{status: http.StatusOK}),
+		testx.NewCase("legacy registrations path is gone", input{method: http.MethodGet, path: "/registrations"}, want{status: http.StatusNotFound}),
+		testx.NewCase("register ignores body user id", input{method: http.MethodPost, path: "/api/registrations", body: `{"ticket_type_id":1,"user_id":"user_Attacker"}`, checkRegistration: true}, want{status: http.StatusCreated}),
+		testx.NewCase("sold out", input{method: http.MethodPost, path: "/api/registrations", body: `{"ticket_type_id":1}`, store: fakeStore{registerErr: ticket.ErrSoldOut}, checkRegistration: true}, want{status: http.StatusConflict}),
+		testx.NewCase("duplicate", input{method: http.MethodPost, path: "/api/registrations", body: `{"ticket_type_id":1}`, store: fakeStore{registerErr: ticket.ErrDuplicate}, checkRegistration: true}, want{status: http.StatusConflict}),
+		testx.NewCase("bad register body", input{method: http.MethodPost, path: "/api/registrations", body: `{`, checkErrorBody: true}, want{status: http.StatusBadRequest}),
+		testx.NewCase("cancel", input{method: http.MethodPost, path: "/api/registrations/cancel", body: `{"ticket_type_id":1,"user_id":"user_Attacker"}`, checkCancellation: true}, want{status: http.StatusOK}),
+		testx.NewCase("bad cancel body", input{method: http.MethodPost, path: "/api/registrations/cancel", body: `{`, checkErrorBody: true}, want{status: http.StatusBadRequest}),
+		testx.NewCase("missing", input{method: http.MethodPost, path: "/api/registrations/cancel", body: `{"ticket_type_id":1}`, store: fakeStore{cancelErr: ticket.ErrNotFound}}, want{status: http.StatusNotFound}),
+	).Run(func(t *testing.T, in input, want want) {
 		store := &in.store
 		r := httptest.NewRequest(in.method, in.path, strings.NewReader(in.body))
 		r.Header.Set("X-Test-Authenticated-User", "user_Authenticated")
@@ -52,21 +65,7 @@ func TestPublicHandler(t *testing.T) {
 		if in.checkCancellation && store.cancelledUser != "user_Authenticated" {
 			t.Fatalf("cancelled user = %q", store.cancelledUser)
 		}
-	}
-	testx.NewTable[input, want](
-		testx.NewCase("events are public", input{method: http.MethodGet, path: "/api/events"}, want{status: http.StatusOK}),
-		testx.NewCase("event detail is public", input{method: http.MethodGet, path: "/api/events/1"}, want{status: http.StatusOK}),
-		testx.NewCase("Clerk config is public", input{method: http.MethodGet, path: "/api/auth/config"}, want{status: http.StatusOK}),
-		testx.NewCase("my registrations", input{method: http.MethodGet, path: "/api/registrations"}, want{status: http.StatusOK}),
-		testx.NewCase("legacy registrations path is gone", input{method: http.MethodGet, path: "/registrations"}, want{status: http.StatusNotFound}),
-		testx.NewCase("register ignores body user id", input{method: http.MethodPost, path: "/api/registrations", body: `{"ticket_type_id":1,"user_id":"user_Attacker"}`, checkRegistration: true}, want{status: http.StatusCreated}),
-		testx.NewCase("sold out", input{method: http.MethodPost, path: "/api/registrations", body: `{"ticket_type_id":1}`, store: fakeStore{registerErr: ticket.ErrSoldOut}, checkRegistration: true}, want{status: http.StatusConflict}),
-		testx.NewCase("duplicate", input{method: http.MethodPost, path: "/api/registrations", body: `{"ticket_type_id":1}`, store: fakeStore{registerErr: ticket.ErrDuplicate}, checkRegistration: true}, want{status: http.StatusConflict}),
-		testx.NewCase("bad register body", input{method: http.MethodPost, path: "/api/registrations", body: `{`, checkErrorBody: true}, want{status: http.StatusBadRequest}),
-		testx.NewCase("cancel", input{method: http.MethodPost, path: "/api/registrations/cancel", body: `{"ticket_type_id":1,"user_id":"user_Attacker"}`, checkCancellation: true}, want{status: http.StatusOK}),
-		testx.NewCase("bad cancel body", input{method: http.MethodPost, path: "/api/registrations/cancel", body: `{`, checkErrorBody: true}, want{status: http.StatusBadRequest}),
-		testx.NewCase("missing", input{method: http.MethodPost, path: "/api/registrations/cancel", body: `{"ticket_type_id":1}`, store: fakeStore{cancelErr: ticket.ErrNotFound}}, want{status: http.StatusNotFound}),
-	).Run(t, run)
+	})
 	t.Run("unauthenticated", func(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1,"user_id":"user_Forged"}`))
 		w := httptest.NewRecorder()
@@ -100,7 +99,17 @@ func TestAdminHandler(t *testing.T) {
 		checkStatus      bool
 		statusID         int64
 	}
-	run := func(t *testing.T, in input, want want) {
+	testx.NewTable[input, want](t,
+		testx.NewCase("admin events are restricted", input{path: "/api/admin/events", store: fakeStore{admin: true}}, want{status: http.StatusOK, checkAdminLookup: true}),
+		testx.NewCase("admin events reject regular users", input{path: "/api/admin/events"}, want{status: http.StatusForbidden, checkAdminLookup: true}),
+		testx.NewCase("admin status", input{path: "/api/ticket-types/1/status", store: fakeStore{admin: true}}, want{status: http.StatusOK, checkAdminLookup: true, checkStatus: true, statusID: 1}),
+		testx.NewCase("requested type id", input{path: "/api/ticket-types/2/status", store: fakeStore{admin: true}}, want{status: http.StatusOK, checkAdminLookup: true, checkStatus: true, statusID: 2}),
+		testx.NewCase("legacy status path is gone", input{path: "/ticket-types/1/status", store: fakeStore{admin: true}}, want{status: http.StatusNotFound}),
+		testx.NewCase("invalid ticket type id", input{path: "/api/ticket-types/nope/status", store: fakeStore{admin: true}}, want{status: http.StatusBadRequest, checkAdminLookup: true}),
+		testx.NewCase("database error", input{path: "/api/ticket-types/1/status", store: fakeStore{admin: true, statusErr: errors.New("db")}}, want{status: http.StatusInternalServerError, checkAdminLookup: true}),
+		testx.NewCase("general user", input{path: "/api/ticket-types/1/status"}, want{status: http.StatusForbidden, checkAdminLookup: true}),
+		testx.NewCase("administrator lookup error", input{path: "/api/ticket-types/1/status", store: fakeStore{adminErr: errors.New("db")}}, want{status: http.StatusInternalServerError, checkAdminLookup: true}),
+	).Run(func(t *testing.T, in input, want want) {
 		store := &in.store
 		r := httptest.NewRequest(http.MethodGet, in.path, nil)
 		r.Header.Set("X-Test-Authenticated-User", "user_ValidUser")
@@ -121,18 +130,7 @@ func TestAdminHandler(t *testing.T) {
 				t.Fatalf("status queried id = %d, response id = %d", store.statusID, s.TicketTypeID)
 			}
 		}
-	}
-	testx.NewTable[input, want](
-		testx.NewCase("admin events are restricted", input{path: "/api/admin/events", store: fakeStore{admin: true}}, want{status: http.StatusOK, checkAdminLookup: true}),
-		testx.NewCase("admin events reject regular users", input{path: "/api/admin/events"}, want{status: http.StatusForbidden, checkAdminLookup: true}),
-		testx.NewCase("admin status", input{path: "/api/ticket-types/1/status", store: fakeStore{admin: true}}, want{status: http.StatusOK, checkAdminLookup: true, checkStatus: true, statusID: 1}),
-		testx.NewCase("requested type id", input{path: "/api/ticket-types/2/status", store: fakeStore{admin: true}}, want{status: http.StatusOK, checkAdminLookup: true, checkStatus: true, statusID: 2}),
-		testx.NewCase("legacy status path is gone", input{path: "/ticket-types/1/status", store: fakeStore{admin: true}}, want{status: http.StatusNotFound}),
-		testx.NewCase("invalid ticket type id", input{path: "/api/ticket-types/nope/status", store: fakeStore{admin: true}}, want{status: http.StatusBadRequest, checkAdminLookup: true}),
-		testx.NewCase("database error", input{path: "/api/ticket-types/1/status", store: fakeStore{admin: true, statusErr: errors.New("db")}}, want{status: http.StatusInternalServerError, checkAdminLookup: true}),
-		testx.NewCase("general user", input{path: "/api/ticket-types/1/status"}, want{status: http.StatusForbidden, checkAdminLookup: true}),
-		testx.NewCase("administrator lookup error", input{path: "/api/ticket-types/1/status", store: fakeStore{adminErr: errors.New("db")}}, want{status: http.StatusInternalServerError, checkAdminLookup: true}),
-	).Run(t, run)
+	})
 	t.Run("unauthenticated", func(t *testing.T) {
 		store := &fakeStore{admin: true}
 		w := httptest.NewRecorder()
@@ -158,7 +156,14 @@ func TestAdminRegistrationsHandler(t *testing.T) {
 		filterStatus string
 		ticket       string
 	}
-	run := func(t *testing.T, in input, want want) {
+	testx.NewTable[input, want](t,
+		testx.NewCase("defaults page and filters", input{path: "/api/admin/events/7/registrations", store: fakeStore{admin: true}}, want{status: http.StatusOK, page: 1, eventID: 7}),
+		testx.NewCase("forwards filters and page", input{path: "/api/admin/events/7/registrations?status=cancelled&ticket=12&page=3", store: fakeStore{admin: true}}, want{status: http.StatusOK, page: 3, eventID: 7, filterStatus: "cancelled", ticket: "12"}),
+		testx.NewCase("rejects invalid event id", input{path: "/api/admin/events/0/registrations", store: fakeStore{admin: true}}, want{status: http.StatusBadRequest}),
+		testx.NewCase("rejects nonnumeric page", input{path: "/api/admin/events/7/registrations?page=abc", store: fakeStore{admin: true}}, want{status: http.StatusBadRequest}),
+		testx.NewCase("rejects page below one", input{path: "/api/admin/events/7/registrations?page=0", store: fakeStore{admin: true}}, want{status: http.StatusBadRequest}),
+		testx.NewCase("reports query errors", input{path: "/api/admin/events/7/registrations", store: fakeStore{admin: true, adminRegistrationsErr: errors.New("db")}}, want{status: http.StatusInternalServerError}),
+	).Run(func(t *testing.T, in input, want want) {
 		store := &in.store
 		req := httptest.NewRequest(http.MethodGet, in.path, nil)
 		req.Header.Set("X-Test-Authenticated-User", "user_admin")
@@ -170,21 +175,21 @@ func TestAdminRegistrationsHandler(t *testing.T) {
 		if want.status == http.StatusOK && (store.registrationsEventID != want.eventID || store.registrationsPage != want.page || store.registrationsStatus != want.filterStatus || store.registrationsTicket != want.ticket) {
 			t.Fatalf("query args = event %d, status %q, ticket %q, page %d", store.registrationsEventID, store.registrationsStatus, store.registrationsTicket, store.registrationsPage)
 		}
-	}
-	testx.NewTable[input, want](
-		testx.NewCase("defaults page and filters", input{path: "/api/admin/events/7/registrations", store: fakeStore{admin: true}}, want{status: http.StatusOK, page: 1, eventID: 7}),
-		testx.NewCase("forwards filters and page", input{path: "/api/admin/events/7/registrations?status=cancelled&ticket=12&page=3", store: fakeStore{admin: true}}, want{status: http.StatusOK, page: 3, eventID: 7, filterStatus: "cancelled", ticket: "12"}),
-		testx.NewCase("rejects invalid event id", input{path: "/api/admin/events/0/registrations", store: fakeStore{admin: true}}, want{status: http.StatusBadRequest}),
-		testx.NewCase("rejects nonnumeric page", input{path: "/api/admin/events/7/registrations?page=abc", store: fakeStore{admin: true}}, want{status: http.StatusBadRequest}),
-		testx.NewCase("rejects page below one", input{path: "/api/admin/events/7/registrations?page=0", store: fakeStore{admin: true}}, want{status: http.StatusBadRequest}),
-		testx.NewCase("reports query errors", input{path: "/api/admin/events/7/registrations", store: fakeStore{admin: true, adminRegistrationsErr: errors.New("db")}}, want{status: http.StatusInternalServerError}),
-	).Run(t, run)
+	})
 }
 
 func TestRegisterCommandErrors(t *testing.T) {
 	type input struct{ err error }
 	type want struct{ status int }
-	run := func(t *testing.T, in input, want want) {
+	testx.NewTable[input, want](t,
+		testx.NewCase("sold out", input{err: ticket.ErrSoldOut}, want{status: http.StatusConflict}),
+		testx.NewCase("duplicate", input{err: ticket.ErrDuplicate}, want{status: http.StatusConflict}),
+		testx.NewCase("unpublished", input{err: ticket.ErrUnpublished}, want{status: http.StatusConflict}),
+		testx.NewCase("registration not started", input{err: ticket.ErrRegistrationNotStarted}, want{status: http.StatusConflict}),
+		testx.NewCase("registration ended", input{err: ticket.ErrRegistrationEnded}, want{status: http.StatusConflict}),
+		testx.NewCase("event ended", input{err: ticket.ErrEventEnded}, want{status: http.StatusConflict}),
+		testx.NewCase("unexpected database error", input{err: errors.New("db")}, want{status: http.StatusInternalServerError}),
+	).Run(func(t *testing.T, in input, want want) {
 		store := &fakeStore{registerErr: in.err}
 		req := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1}`))
 		req.Header.Set("X-Test-Authenticated-User", "user_1")
@@ -193,16 +198,7 @@ func TestRegisterCommandErrors(t *testing.T) {
 		if w.Code != want.status {
 			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
 		}
-	}
-	testx.NewTable[input, want](
-		testx.NewCase("sold out", input{err: ticket.ErrSoldOut}, want{status: http.StatusConflict}),
-		testx.NewCase("duplicate", input{err: ticket.ErrDuplicate}, want{status: http.StatusConflict}),
-		testx.NewCase("unpublished", input{err: ticket.ErrUnpublished}, want{status: http.StatusConflict}),
-		testx.NewCase("registration not started", input{err: ticket.ErrRegistrationNotStarted}, want{status: http.StatusConflict}),
-		testx.NewCase("registration ended", input{err: ticket.ErrRegistrationEnded}, want{status: http.StatusConflict}),
-		testx.NewCase("event ended", input{err: ticket.ErrEventEnded}, want{status: http.StatusConflict}),
-		testx.NewCase("unexpected database error", input{err: errors.New("db")}, want{status: http.StatusInternalServerError}),
-	).Run(t, run)
+	})
 }
 
 func TestAdminTicketMutationErrors(t *testing.T) {
@@ -211,7 +207,13 @@ func TestAdminTicketMutationErrors(t *testing.T) {
 		store              fakeStore
 	}
 	type want struct{ status int }
-	run := func(t *testing.T, in input, want want) {
+	testx.NewTable[input, want](t,
+		testx.NewCase("create rejects foreign key", input{method: http.MethodPost, path: "/api/events/1/ticket-types", body: `{"name":"General","capacity":1}`, store: fakeStore{admin: true, createTicketTypeErr: errors.New("FOREIGN KEY constraint failed")}}, want{status: http.StatusNotFound}),
+		testx.NewCase("create rejects invalid registration period", input{method: http.MethodPost, path: "/api/events/1/ticket-types", body: `{"name":"General","capacity":1}`, store: fakeStore{admin: true, createTicketTypeErr: errors.New("invalid_registration_period")}}, want{status: http.StatusBadRequest}),
+		testx.NewCase("create maps capacity constraint", input{method: http.MethodPost, path: "/api/events/1/ticket-types", body: `{"name":"General","capacity":1}`, store: fakeStore{admin: true, createTicketTypeErr: errors.New("CHECK constraint failed")}}, want{status: http.StatusConflict}),
+		testx.NewCase("update maps missing ticket type", input{method: http.MethodPut, path: "/api/ticket-types/1", body: `{"name":"General","capacity":1}`, store: fakeStore{admin: true, updateTicketTypeErr: ticket.ErrNotFound}}, want{status: http.StatusNotFound}),
+		testx.NewCase("update reports database failure", input{method: http.MethodPut, path: "/api/ticket-types/1", body: `{"name":"General","capacity":1}`, store: fakeStore{admin: true, updateTicketTypeErr: errors.New("db")}}, want{status: http.StatusInternalServerError}),
+	).Run(func(t *testing.T, in input, want want) {
 		req := httptest.NewRequest(in.method, in.path, strings.NewReader(in.body))
 		req.Header.Set("X-Test-Authenticated-User", "user_admin")
 		w := httptest.NewRecorder()
@@ -219,14 +221,7 @@ func TestAdminTicketMutationErrors(t *testing.T) {
 		if w.Code != want.status {
 			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
 		}
-	}
-	testx.NewTable[input, want](
-		testx.NewCase("create rejects foreign key", input{method: http.MethodPost, path: "/api/events/1/ticket-types", body: `{"name":"General","capacity":1}`, store: fakeStore{admin: true, createTicketTypeErr: errors.New("FOREIGN KEY constraint failed")}}, want{status: http.StatusNotFound}),
-		testx.NewCase("create rejects invalid registration period", input{method: http.MethodPost, path: "/api/events/1/ticket-types", body: `{"name":"General","capacity":1}`, store: fakeStore{admin: true, createTicketTypeErr: errors.New("invalid_registration_period")}}, want{status: http.StatusBadRequest}),
-		testx.NewCase("create maps capacity constraint", input{method: http.MethodPost, path: "/api/events/1/ticket-types", body: `{"name":"General","capacity":1}`, store: fakeStore{admin: true, createTicketTypeErr: errors.New("CHECK constraint failed")}}, want{status: http.StatusConflict}),
-		testx.NewCase("update maps missing ticket type", input{method: http.MethodPut, path: "/api/ticket-types/1", body: `{"name":"General","capacity":1}`, store: fakeStore{admin: true, updateTicketTypeErr: ticket.ErrNotFound}}, want{status: http.StatusNotFound}),
-		testx.NewCase("update reports database failure", input{method: http.MethodPut, path: "/api/ticket-types/1", body: `{"name":"General","capacity":1}`, store: fakeStore{admin: true, updateTicketTypeErr: errors.New("db")}}, want{status: http.StatusInternalServerError}),
-	).Run(t, run)
+	})
 }
 
 func TestRegistrationListDatabaseError(t *testing.T) {
@@ -262,7 +257,11 @@ func TestCancelRegistrationDatabaseError(t *testing.T) {
 func TestRegisterProfileRequirements(t *testing.T) {
 	type input struct{ profile ticket.ParticipantProfile }
 	type want struct{ status int }
-	run := func(t *testing.T, in input, want want) {
+	testx.NewTable[input, want](t,
+		testx.NewCase("profile store unavailable", input{profile: nil}, want{status: http.StatusBadGateway}),
+		testx.NewCase("profile lookup fails", input{profile: fakeParticipantProfile{err: errors.New("Clerk unavailable")}}, want{status: http.StatusBadGateway}),
+		testx.NewCase("participant name missing", input{profile: fakeParticipantProfile{}}, want{status: http.StatusForbidden}),
+	).Run(func(t *testing.T, in input, want want) {
 		store := &fakeStore{}
 		h := ticket.NewHandler(store, store, testAuthenticatedUserID, in.profile)
 		req := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(`{"ticket_type_id":1}`))
@@ -272,18 +271,17 @@ func TestRegisterProfileRequirements(t *testing.T) {
 		if w.Code != want.status || store.registeredUser != "" {
 			t.Fatalf("status = %d, registered user = %q; want %d and no registration", w.Code, store.registeredUser, want.status)
 		}
-	}
-	testx.NewTable[input, want](
-		testx.NewCase("profile store unavailable", input{profile: nil}, want{status: http.StatusBadGateway}),
-		testx.NewCase("profile lookup fails", input{profile: fakeParticipantProfile{err: errors.New("Clerk unavailable")}}, want{status: http.StatusBadGateway}),
-		testx.NewCase("participant name missing", input{profile: fakeParticipantProfile{}}, want{status: http.StatusForbidden}),
-	).Run(t, run)
+	})
 }
 
 func TestRegistrationInputValidation(t *testing.T) {
 	type input struct{ body string }
 	type want struct{ status int }
-	run := func(t *testing.T, in input, want want) {
+	testx.NewTable[input, want](t,
+		testx.NewCase("malformed JSON", input{body: `{`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("zero ticket id", input{body: `{"ticket_type_id":0}`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("negative ticket id", input{body: `{"ticket_type_id":-1}`}, want{status: http.StatusBadRequest}),
+	).Run(func(t *testing.T, in input, want want) {
 		store := &fakeStore{}
 		h := ticket.NewHandler(store, store, testAuthenticatedUserID, fakeParticipantProfile{name: "Ada"})
 		req := httptest.NewRequest(http.MethodPost, "/api/registrations", strings.NewReader(in.body))
@@ -292,28 +290,13 @@ func TestRegistrationInputValidation(t *testing.T) {
 		if w.Code != want.status || store.registeredUser != "" {
 			t.Fatalf("status = %d, registered user = %q; want status %d", w.Code, store.registeredUser, want.status)
 		}
-	}
-	testx.NewTable[input, want](
-		testx.NewCase("malformed JSON", input{body: `{`}, want{status: http.StatusBadRequest}),
-		testx.NewCase("zero ticket id", input{body: `{"ticket_type_id":0}`}, want{status: http.StatusBadRequest}),
-		testx.NewCase("negative ticket id", input{body: `{"ticket_type_id":-1}`}, want{status: http.StatusBadRequest}),
-	).Run(t, run)
+	})
 }
 
 func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 	type input struct{ method, path, body string }
 	type want struct{ status int }
-	run := func(t *testing.T, in input, want want) {
-		store := &fakeStore{admin: true}
-		req := httptest.NewRequest(in.method, in.path, strings.NewReader(in.body))
-		req.Header.Set("X-Test-Authenticated-User", "user_admin")
-		w := httptest.NewRecorder()
-		testAdminMux(store).ServeHTTP(w, req)
-		if w.Code != want.status {
-			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
-		}
-	}
-	testx.NewTable[input, want](
+	testx.NewTable[input, want](t,
 		testx.NewCase("create event", input{http.MethodPost, "/api/events", `{"name":" GoConf "}`}, want{http.StatusCreated}),
 		testx.NewCase("draft may omit event name", input{http.MethodPost, "/api/events", `{}`}, want{http.StatusCreated}),
 		testx.NewCase("published event requires details", input{http.MethodPost, "/api/events", `{"publication_status":"published"}`}, want{http.StatusBadRequest}),
@@ -323,7 +306,16 @@ func TestAdminEventAndTicketManagementBehavior(t *testing.T) {
 		testx.NewCase("reject negative capacity", input{http.MethodPost, "/api/events/1/ticket-types", `{"name":"General","capacity":-1}`}, want{http.StatusBadRequest}),
 		testx.NewCase("reject equal registration datetime boundary", input{http.MethodPost, "/api/events/1/ticket-types", `{"name":"General","capacity":1,"registration_starts_at":"2027-01-01T00:00:00.000Z","registration_ends_at":"2027-01-01T00:00:00Z"}`}, want{http.StatusBadRequest}),
 		testx.NewCase("edit ticket type", input{http.MethodPut, "/api/ticket-types/1", `{"name":"General","capacity":20}`}, want{http.StatusOK}),
-	).Run(t, run)
+	).Run(func(t *testing.T, in input, want want) {
+		store := &fakeStore{admin: true}
+		req := httptest.NewRequest(in.method, in.path, strings.NewReader(in.body))
+		req.Header.Set("X-Test-Authenticated-User", "user_admin")
+		w := httptest.NewRecorder()
+		testAdminMux(store).ServeHTTP(w, req)
+		if w.Code != want.status {
+			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
+		}
+	})
 	t.Run("management requires administrator", func(t *testing.T) {
 		store := &fakeStore{}
 		req := httptest.NewRequest(http.MethodPost, "/api/events", strings.NewReader(`{"name":"GoConf"}`))

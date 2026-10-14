@@ -12,6 +12,7 @@ type Case[Input, Want any] struct {
 
 // Table stores the cases to execute as subtests.
 type Table[Input, Want any] struct {
+	t     *testing.T
 	cases []Case[Input, Want]
 }
 
@@ -21,12 +22,14 @@ func NewCase[Input, Want any](name string, input Input, want Want) Case[Input, W
 }
 
 // NewTable creates a table containing the provided cases.
-func NewTable[Input, Want any](cases ...Case[Input, Want]) Table[Input, Want] {
-	return Table[Input, Want]{cases: cases}
+func NewTable[Input, Want any](t *testing.T, cases ...Case[Input, Want]) Table[Input, Want] {
+	t.Helper()
+	return Table[Input, Want]{t: t, cases: cases}
 }
 
 // Run executes each case as a named subtest.
-func (table Table[Input, Want]) Run(t *testing.T, run func(*testing.T, Input, Want)) {
+func (table Table[Input, Want]) Run(run func(*testing.T, Input, Want)) {
+	t := table.t
 	t.Helper()
 	for _, tc := range table.cases {
 		t.Run(tc.Name, func(t *testing.T) {
