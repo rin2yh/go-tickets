@@ -1,10 +1,6 @@
----
-paths:
-  - "**/*.ts"
-  - "**/*.tsx"
----
+# frontend の byethrow 規約
 
-# byethrow の Result 合成
+以下は `frontend/` 配下の `.ts` と `.tsx` を編集するときだけ適用します。
 
 - 例外を `Result` に変換する境界には `Result.try` を使い、依存する処理は `Result.pipe` と `Result.andThen` でつなぎます。途中で値を取り出して失敗判定を繰り返すより、失敗の伝播を保ちやすくなります。
 - 成功値の変換には `Result.map`、失敗から回復または失敗を置き換える処理には `Result.orElse` を使います。`Result.isFailure` は Query 関数など、呼び出し先の規約に合わせて `Result` を例外や別の戻り値へ変換する境界で使います。
