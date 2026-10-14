@@ -16,7 +16,8 @@
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^7.2.0",
     "oxfmt": "0.71.0",
-    "oxlint": "1.86.0"
+    "oxlint": "1.86.0",
+    "oxlint-plugin-eslint": "1.86.0"
   },
   "packageManager": "pnpm@11.5.1"
 }

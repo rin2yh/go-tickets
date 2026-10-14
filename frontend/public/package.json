@@ -12,6 +12,7 @@
     "@astrojs/react": "7.0.0",
     "@clerk/react": "catalog:",
     "@go-tickets/ui": "workspace:*",
+    "@praha/byethrow": "catalog:",
     "astro": "7.2.8",
     "react": "catalog:",
     "react-dom": "catalog:",

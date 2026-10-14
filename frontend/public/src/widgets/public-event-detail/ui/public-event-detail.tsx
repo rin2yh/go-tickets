@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Result } from "@praha/byethrow";
 import ReactMarkdown from "react-markdown";
 import { TicketAvailability } from "../../../features/ticket-registration";
 import { fetchPublicEvent, type PublicEvent } from "../../../entities/event";
@@ -13,18 +14,20 @@ export function PublicEventDetail() {
 
   useEffect(() => {
     const eventId = window.location.pathname.match(/^\/events\/(\d+)\/?$/)?.[1];
-    void Promise.resolve()
-      .then(() => {
-        if (!eventId) throw new Error("イベントが見つかりません。");
-        return fetchPublicEvent(Number(eventId));
-      })
-      .then((item) => {
-        setEvent(item);
-      })
-      .catch((cause: Error) =>
-        setError(cause.message.includes("404") ? "イベントが見つかりません。" : cause.message),
-      )
-      .finally(() => setLoaded(true));
+    async function loadEvent() {
+      const result = eventId
+        ? await fetchPublicEvent(Number(eventId))
+        : Result.fail(new Error("イベントが見つかりません。"));
+      if (Result.isSuccess(result)) setEvent(result.value);
+      else
+        setError(
+          result.error.message.includes("404")
+            ? "イベントが見つかりません。"
+            : result.error.message,
+        );
+      setLoaded(true);
+    }
+    void loadEvent();
   }, []);
 
   if (!loaded)

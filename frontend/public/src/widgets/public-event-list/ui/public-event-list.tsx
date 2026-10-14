@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Result } from "@praha/byethrow";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
@@ -9,9 +10,12 @@ export function PublicEventList() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void fetchPublicEvents()
-      .then(setEvents)
-      .catch((cause: Error) => setError(cause.message));
+    async function loadEvents() {
+      const result = await fetchPublicEvents();
+      if (Result.isSuccess(result)) setEvents(result.value);
+      else setError(result.error.message);
+    }
+    void loadEvents();
   }, []);
 
   if (error) return <Alert variant="destructive">{error}</Alert>;

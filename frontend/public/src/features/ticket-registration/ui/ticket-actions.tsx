@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Result } from "@praha/byethrow";
 import { UserButton, useAuth } from "@clerk/react";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
@@ -47,14 +48,16 @@ export function TicketActions({
 
   useEffect(() => {
     let active = true;
-    void loadRegistrations(getToken)
-      .then((registrations) => {
-        if (!active) return;
-        setItems(registrations);
+    async function load() {
+      const result = await loadRegistrations(getToken);
+      if (!active) return;
+      if (Result.isSuccess(result)) {
+        setItems(result.value);
         setLoadedRegistrationKey(registrationHistoryKey(mode, eventId));
         setLoadedTokenGetter(() => getToken);
-      })
-      .catch((cause: Error) => active && setMessage(cause.message));
+      } else setMessage(result.error.message);
+    }
+    void load();
     return () => {
       active = false;
     };
@@ -62,29 +65,17 @@ export function TicketActions({
 
   async function register(action: "register" | "cancel", ticketTypeId = eventId) {
     setBusy(true);
-    try {
-      const token = await getToken();
-      const response = await fetch(
-        action === "register" ? "/api/registrations" : "/api/registrations/cancel",
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token ?? ""}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ ticket_type_id: ticketTypeId }),
-        },
-      );
-      const result: { error?: string; status?: string } = await response.json();
-      setMessage(
-        response.ok
-          ? (result.status ?? "完了しました")
-          : registrationError(response.status, result.error),
-      );
-      if (response.ok && mode === "event") invalidatePublicEvent(eventId);
-      await refreshTickets(response.ok, token, setItems);
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "通信に失敗しました");
-    } finally {
-      setBusy(false);
+    const outcome = await submitRegistration(getToken, action, ticketTypeId);
+    if (Result.isFailure(outcome)) setMessage(outcome.error.message);
+    else {
+      setMessage(outcome.value.status ?? "完了しました");
+      if (mode === "event") invalidatePublicEvent(eventId);
+      const refresh = await refreshTickets(outcome.value.token, setItems);
+      if (Result.isFailure(refresh)) {
+        setMessage("申込は完了しましたが、申込状態の再取得に失敗しました。");
+      }
     }
+    setBusy(false);
   }
 
   return (
@@ -132,16 +123,83 @@ function isRegistrationHistoryReady(
   return loadedKey === currentKey && loadedGetter === currentGetter;
 }
 
-async function loadRegistrations(
-  getToken: () => Promise<string | null>,
-): Promise<MyRegistration[]> {
-  const token = await getToken();
-  if (!token) throw new Error("申込状態を取得できません。ページを再読み込みしてください。");
-  const response = await fetch("/api/registrations", {
-    headers: { Authorization: `Bearer ${token}` },
+async function loadRegistrations(getToken: TokenGetter) {
+  const token = await Result.try({
+    try: () => getToken(),
+    catch: (error) =>
+      error instanceof Error ? error : new Error("申込状態を取得できません", { cause: error }),
   });
-  if (!response.ok) throw new Error(`申込を取得できません (${response.status})`);
-  return response.json();
+  if (Result.isFailure(token)) return token;
+  if (!token.value) {
+    return Result.fail(new Error("申込状態を取得できません。ページを再読み込みしてください。"));
+  }
+
+  const response = await Result.try({
+    try: () =>
+      fetch("/api/registrations", {
+        headers: { Authorization: `Bearer ${token.value}` },
+      }),
+    catch: (error) =>
+      error instanceof Error ? error : new Error("申込状態を取得できません", { cause: error }),
+  });
+  if (Result.isFailure(response)) return response;
+  if (!response.value.ok) {
+    return Result.fail(new Error(`申込を取得できません (${response.value.status})`));
+  }
+
+  return Result.try({
+    try: async () => {
+      const registrations: MyRegistration[] = await response.value.json();
+      return registrations;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("申込状態を取得できません", { cause: error }),
+  });
+}
+
+async function submitRegistration(
+  getToken: TokenGetter,
+  action: "register" | "cancel",
+  ticketTypeId: number,
+) {
+  const token = await Result.try({
+    try: () => getToken(),
+    catch: (error) =>
+      error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
+  });
+  if (Result.isFailure(token)) return token;
+
+  const response = await Result.try({
+    try: () =>
+      fetch(action === "register" ? "/api/registrations" : "/api/registrations/cancel", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token.value ?? ""}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ticket_type_id: ticketTypeId }),
+      }),
+    catch: (error) =>
+      error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
+  });
+  if (Result.isFailure(response)) return response;
+
+  const payload = await Result.try({
+    try: async () => {
+      const result: { error?: string; status?: string } = await response.value.json();
+      return result;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
+  });
+  if (!response.value.ok) {
+    if (Result.isFailure(payload)) {
+      return Result.fail(new Error(registrationError(response.value.status)));
+    }
+    return Result.fail(new Error(registrationError(response.value.status, payload.value.error)));
+  }
+  if (Result.isFailure(payload)) return payload;
+  return Result.succeed({ token: token.value, status: payload.value.status });
 }
 
 function registrationError(status: number, code?: string) {
@@ -290,15 +348,34 @@ function RegistrationMessage({ message }: { message: string }) {
 }
 
 async function refreshTickets(
-  shouldRefresh: boolean,
   token: string | null,
   setItems: (items: MyRegistration[]) => void,
-) {
-  if (!shouldRefresh || !token) return;
-  const response = await fetch("/api/registrations", {
-    headers: { Authorization: `Bearer ${token}` },
+): Promise<Result.Result<void, Error>> {
+  if (!token) return Result.succeed();
+  const response = await Result.try({
+    try: () =>
+      fetch("/api/registrations", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    catch: (error) =>
+      error instanceof Error ? error : new Error("申込を取得できません", { cause: error }),
   });
-  if (response.ok) setItems(await response.json());
+  if (Result.isFailure(response)) return response;
+  if (!response.value.ok) {
+    return Result.fail(new Error(`申込を取得できません (${response.value.status})`));
+  }
+
+  const registrations = await Result.try({
+    try: async () => {
+      const items: MyRegistration[] = await response.value.json();
+      return items;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("申込を取得できません", { cause: error }),
+  });
+  if (Result.isFailure(registrations)) return registrations;
+  setItems(registrations.value);
+  return Result.succeed();
 }
 
 export function TicketAvailability({

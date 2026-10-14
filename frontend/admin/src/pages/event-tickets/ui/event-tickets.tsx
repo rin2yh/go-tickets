@@ -1,6 +1,7 @@
 import { useAuth } from "@clerk/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Result } from "@praha/byethrow";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Button } from "@go-tickets/ui/components/button";
@@ -41,7 +42,8 @@ export function Tickets({ eventId }: { eventId: string }) {
   const [notice, setNotice] = useState("");
   const [refreshWarning, setRefreshWarning] = useState("");
   const mutation = useMutation({
-    mutationFn: ({ path, method, body }: Change) => saveEventChange(getToken, path, method, body),
+    mutationFn: async ({ path, method, body }: Change) =>
+      Result.unwrap(await saveEventChange(getToken, path, method, body)),
     onSuccess: async (_, change) => {
       setNotice("変更を保存しました。");
       if (change.method === "POST") {
@@ -50,13 +52,18 @@ export function Tickets({ eventId }: { eventId: string }) {
         setNewRegistrationStarts("");
         setNewRegistrationEnds("");
       }
-      try {
-        await queryClient.invalidateQueries(
-          { queryKey: buildEventQueryOptions(eventId, getToken).queryKey, exact: true },
-          { throwOnError: true },
-        );
-        setRefreshWarning("");
-      } catch {
+      const refresh = await Result.try({
+        try: async () => {
+          await queryClient.invalidateQueries(
+            { queryKey: buildEventQueryOptions(eventId, getToken).queryKey, exact: true },
+            { throwOnError: true },
+          );
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error("再取得できません", { cause: error }),
+      });
+      if (Result.isSuccess(refresh)) setRefreshWarning("");
+      else {
         setRefreshWarning(
           "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",
         );

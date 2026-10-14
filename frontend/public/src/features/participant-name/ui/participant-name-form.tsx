@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Result } from "@praha/byethrow";
 import { useAuth } from "@clerk/react";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Button } from "@go-tickets/ui/components/button";
@@ -27,24 +28,10 @@ export function ParticipantNameForm({
             if (!normalized) return;
             setBusy(true);
             setError("");
-            try {
-              const token = await getToken();
-              const response = await fetch("/api/profile", {
-                method: "PUT",
-                headers: {
-                  Authorization: `Bearer ${token ?? ""}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ name: normalized }),
-              });
-              if (!response.ok) throw new Error("参加者名を保存できません");
-              const result = await response.json();
-              onSaved(result.name);
-            } catch (cause) {
-              setError(cause instanceof Error ? cause.message : "保存に失敗しました");
-            } finally {
-              setBusy(false);
-            }
+            const result = await saveParticipantName(getToken, normalized);
+            if (Result.isFailure(result)) setError(result.error.message);
+            else onSaved(result.value);
+            setBusy(false);
           }}
         >
           <h2 className="m-0 text-2xl font-semibold text-foreground">参加者名を設定</h2>
@@ -68,4 +55,33 @@ export function ParticipantNameForm({
       </CardContent>
     </Card>
   );
+}
+
+async function saveParticipantName(getToken: () => Promise<string | null>, name: string) {
+  const response = await Result.try({
+    try: async () => {
+      const token = await getToken();
+      return await fetch("/api/profile", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token ?? ""}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name }),
+      });
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("保存に失敗しました", { cause: error }),
+  });
+  if (Result.isFailure(response)) return response;
+  if (!response.value.ok) return Result.fail(new Error("参加者名を保存できません"));
+
+  return Result.try({
+    try: async () => {
+      const payload: { name: string } = await response.value.json();
+      return payload.name;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("保存に失敗しました", { cause: error }),
+  });
 }

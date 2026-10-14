@@ -12,7 +12,12 @@
   },
   "ignorePatterns": ["**/dist/**", "**/build/**", "**/coverage/**", "**/routeTree.gen.ts"],
   "rules": {
-    "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
+    "typescript/consistent-type-assertions": [
+      "error",
+      {
+        "assertionStyle": "never"
+      }
+    ],
     "typescript/consistent-type-imports": "error",
     "typescript/consistent-type-definitions": ["error", "interface"],
     "unicorn/consistent-function-scoping": "error",
@@ -44,6 +49,84 @@
     "no-restricted-properties": [
       "error",
       {
+        "property": "then",
+        "message": "Use async/await instead of Promise.then()."
+      },
+      {
+        "property": "catch",
+        "message": "Use Result.try instead of Promise.catch()."
+      },
+      {
+        "object": "Result",
+        "property": "pipe",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "andThen",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "orElse",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "andThrough",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "orThrough",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "map",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "mapError",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "bind",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "collect",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "sequence",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "do",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "inspect",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "inspectError",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
+        "object": "Result",
+        "property": "fn",
+        "message": "Use async/await and early returns instead of Result composition."
+      },
+      {
         "object": "React",
         "property": "memo",
         "message": "React Compiler handles memoization automatically. Remove this manual memoization."
@@ -63,24 +146,62 @@
       "error",
       {
         "forbid": [
-          { "propName": "data-testid", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-test", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-test-id", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-e2e", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-e2e-id", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-e2e-test", "message": "Do not add test-only DOM attributes." },
-          { "propName": "data-e2e-testid", "message": "Do not add test-only DOM attributes." }
+          {
+            "propName": "data-testid",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-test",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-test-id",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-e2e",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-e2e-id",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-e2e-test",
+            "message": "Do not add test-only DOM attributes."
+          },
+          {
+            "propName": "data-e2e-testid",
+            "message": "Do not add test-only DOM attributes."
+          }
         ]
       }
     ],
     "complexity": ["error", 10],
-    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "eqeqeq": [
+      "error",
+      "always",
+      {
+        "null": "ignore"
+      }
+    ],
     "no-unused-vars": [
       "error",
-      { "args": "none", "caughtErrors": "none", "varsIgnorePattern": "^_" }
+      {
+        "args": "none",
+        "caughtErrors": "none",
+        "varsIgnorePattern": "^_"
+      }
     ],
     "react/react-in-jsx-scope": "off",
-    "jsx-a11y/prefer-tag-over-role": "off"
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "eslint-js/no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "TryStatement",
+        "message": "Prefer Result values for expected failures. Reserve try/catch for exception boundaries."
+      }
+    ]
   },
   "overrides": [
     {
@@ -88,6 +209,84 @@
       "rules": {
         "no-restricted-properties": [
           "error",
+          {
+            "property": "then",
+            "message": "Use async/await instead of Promise.then()."
+          },
+          {
+            "property": "catch",
+            "message": "Use Result.try instead of Promise.catch()."
+          },
+          {
+            "object": "Result",
+            "property": "pipe",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "andThen",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "orElse",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "andThrough",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "orThrough",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "map",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "mapError",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "bind",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "collect",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "sequence",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "do",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "inspect",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "inspectError",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
+          {
+            "object": "Result",
+            "property": "fn",
+            "message": "Use async/await and early returns instead of Result composition."
+          },
           {
             "property": "getByTestId",
             "message": "Use a user-facing role, label, or text locator."
@@ -254,6 +453,12 @@
           }
         ]
       }
+    }
+  ],
+  "jsPlugins": [
+    {
+      "name": "eslint-js",
+      "specifier": "oxlint-plugin-eslint"
     }
   ]
 }

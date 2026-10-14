@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+import { Result } from "@praha/byethrow";
 // oxlint-disable-next-line import/no-unassigned-import
 import "@go-tickets/ui/styles.css";
 
@@ -25,21 +26,37 @@ async function start() {
   const rootElement = document.getElementById("root");
   if (!rootElement) throw new Error("#root is missing");
   const root = createRoot(rootElement);
-  try {
-    const response = await fetch("/api/auth/config");
-    if (!response.ok) throw new Error(`Clerk設定を取得できません (${response.status})`);
-    const config: { publishableKey: string } = await response.json();
-    root.render(
-      <ClerkProvider publishableKey={config.publishableKey}>
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-        </QueryClientProvider>
-      </ClerkProvider>,
-    );
-  } catch (error) {
-    root.render(
-      <p role="alert">{error instanceof Error ? error.message : "認証を初期化できません"}</p>,
-    );
+  const response = await Result.try({
+    try: () => fetch("/api/auth/config"),
+    catch: (error) =>
+      error instanceof Error ? error : new Error("認証を初期化できません", { cause: error }),
+  });
+  if (Result.isFailure(response)) {
+    root.render(<p role="alert">{response.error.message}</p>);
+    return;
   }
+  if (!response.value.ok) {
+    root.render(<p role="alert">Clerk設定を取得できません ({response.value.status})</p>);
+    return;
+  }
+  const config = await Result.try({
+    try: async () => {
+      const authConfig: { publishableKey: string } = await response.value.json();
+      return authConfig;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("認証を初期化できません", { cause: error }),
+  });
+  if (Result.isFailure(config)) {
+    root.render(<p role="alert">{config.error.message}</p>);
+    return;
+  }
+  root.render(
+    <ClerkProvider publishableKey={config.value.publishableKey}>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </ClerkProvider>,
+  );
 }
 void start();

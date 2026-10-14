@@ -1,35 +1,72 @@
 import { queryOptions } from "@tanstack/react-query";
+import { Result } from "@praha/byethrow";
 import type { Event, EventInput, EventSummary } from "../model/event";
 
 export async function fetchEvents(getToken: () => Promise<string | null>) {
-  const token = await getToken();
-  const response = await fetch("/api/admin/events", {
-    headers: { Authorization: `Bearer ${token ?? ""}` },
+  const response = await Result.try({
+    try: async () => {
+      const token = await getToken();
+      return await fetch("/api/admin/events", {
+        headers: { Authorization: `Bearer ${token ?? ""}` },
+      });
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("イベントを読み込めません", { cause: error }),
   });
-  if (!response.ok) throw new Error("イベントを読み込めません");
-  const events: EventSummary[] = await response.json();
-  return events;
+  if (Result.isFailure(response)) return response;
+  if (!response.value.ok) return Result.fail(new Error("イベントを読み込めません"));
+
+  return Result.try({
+    try: async () => {
+      const events: EventSummary[] = await response.value.json();
+      return events;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("イベントを読み込めません", { cause: error }),
+  });
 }
 
 export function buildEventsQueryOptions(getToken: () => Promise<string | null>) {
   return queryOptions({
     queryKey: ["admin", "events"] as const,
-    queryFn: () => fetchEvents(getToken),
+    queryFn: async () => Result.unwrap(await fetchEvents(getToken)),
     retry: false,
   });
 }
 
 export async function createEvent(getToken: () => Promise<string | null>, input: EventInput) {
-  const token = await getToken();
-  const response = await fetch("/api/events", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
-    body: JSON.stringify(input),
+  const response = await Result.try({
+    try: async () => {
+      const token = await getToken();
+      return await fetch("/api/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token ?? ""}`,
+        },
+        body: JSON.stringify(input),
+      });
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("イベントを作成できません", { cause: error }),
   });
-  const body: { error?: string; id?: number } = await response.json();
-  if (!response.ok) throw new Error(createErrorMessage(body.error));
-  if (!body.id) throw new Error("イベントを作成できません");
-  return body.id;
+  if (Result.isFailure(response)) return response;
+
+  const body = await Result.try({
+    try: async () => {
+      const payload: { error?: string; id?: number } = await response.value.json();
+      return payload;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("イベントを作成できません", { cause: error }),
+  });
+  if (!response.value.ok) {
+    const code = Result.isFailure(body) ? undefined : body.value.error;
+    return Result.fail(new Error(createErrorMessage(code)));
+  }
+  if (Result.isFailure(body)) return body;
+  if (!body.value.id) return Result.fail(new Error("イベントを作成できません"));
+  return Result.succeed(body.value.id);
 }
 
 function createErrorMessage(code?: string) {
@@ -51,19 +88,33 @@ export class EventRequestError extends Error {
 }
 
 export async function fetchEvent(eventId: string, getToken: () => Promise<string | null>) {
-  const token = await getToken();
-  const response = await fetch(`/api/admin/events/${eventId}`, {
-    headers: { Authorization: `Bearer ${token ?? ""}` },
+  const response = await Result.try({
+    try: async () => {
+      const token = await getToken();
+      return await fetch(`/api/admin/events/${eventId}`, {
+        headers: { Authorization: `Bearer ${token ?? ""}` },
+      });
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("イベントを読み込めません", { cause: error }),
   });
-  if (!response.ok) throw new EventRequestError(response.status);
-  const event: Event = await response.json();
-  return event;
+  if (Result.isFailure(response)) return response;
+  if (!response.value.ok) return Result.fail(new EventRequestError(response.value.status));
+
+  return Result.try({
+    try: async () => {
+      const event: Event = await response.value.json();
+      return event;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("イベントを読み込めません", { cause: error }),
+  });
 }
 
 export function buildEventQueryOptions(eventId: string, getToken: () => Promise<string | null>) {
   return queryOptions({
     queryKey: ["admin", "events", eventId] as const,
-    queryFn: () => fetchEvent(eventId, getToken),
+    queryFn: async () => Result.unwrap(await fetchEvent(eventId, getToken)),
     retry: false,
   });
 }
@@ -74,14 +125,37 @@ export async function saveEventChange(
   method: string,
   body: Record<string, string | number | null>,
 ) {
-  const token = await getToken();
-  const response = await fetch(path, {
-    method,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
-    body: JSON.stringify(body),
+  const response = await Result.try({
+    try: async () => {
+      const token = await getToken();
+      return await fetch(path, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token ?? ""}`,
+        },
+        body: JSON.stringify(body),
+      });
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("保存できませんでした", { cause: error }),
   });
-  const result: { error?: string } = await response.json();
-  if (!response.ok) throw new Error(saveErrorMessage(result.error));
+  if (Result.isFailure(response)) return response;
+
+  const payload = await Result.try({
+    try: async () => {
+      const result: { error?: string } = await response.value.json();
+      return result;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("保存できませんでした", { cause: error }),
+  });
+  if (!response.value.ok) {
+    const code = Result.isFailure(payload) ? undefined : payload.value.error;
+    return Result.fail(new Error(saveErrorMessage(code)));
+  }
+  if (Result.isFailure(payload)) return payload;
+  return Result.succeed();
 }
 
 export function saveErrorMessage(code?: string) {
