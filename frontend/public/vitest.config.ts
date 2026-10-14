@@ -5,7 +5,7 @@ export default defineConfig({
     environment: "jsdom",
     coverage: {
       enabled: true,
-      include: ["src/**/*.{js,jsx,ts,tsx}"],
+      include: ["src/**/*.{ts,tsx}"],
       reporter: ["text", "json-summary", "json"],
       reportOnFailure: true,
       reportsDirectory: "../coverage/public",
