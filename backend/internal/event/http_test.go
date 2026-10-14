@@ -21,7 +21,7 @@ func TestHandlerListEndpoints(t *testing.T) {
 		status     int
 		containsID bool
 	}
-	testx.Run[input, want](t, func(t *testing.T, in input, want want) {
+	run := func(t *testing.T, in input, want want) {
 		h := event.NewHandler(in.query, httpCommand{})
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodGet, "/events", nil)
@@ -36,12 +36,13 @@ func TestHandlerListEndpoints(t *testing.T) {
 		if want.containsID && !strings.Contains(w.Body.String(), `"id":`) {
 			t.Fatalf("response = %s", w.Body.String())
 		}
-	},
+	}
+	testx.NewTable[input, want](
 		testx.NewCase("public list", input{query: httpQuery{events: []event.Event{{ID: 1, Name: "Published"}}}}, want{status: http.StatusOK, containsID: true}),
 		testx.NewCase("public list database error", input{query: httpQuery{err: errors.New("db")}}, want{status: http.StatusInternalServerError}),
 		testx.NewCase("admin list includes drafts", input{admin: true, query: httpQuery{events: []event.Event{{ID: 2, PublicationStatus: "draft"}}}}, want{status: http.StatusOK, containsID: true}),
 		testx.NewCase("admin list database error", input{admin: true, query: httpQuery{err: errors.New("db")}}, want{status: http.StatusInternalServerError}),
-	)
+	).Run(t, run)
 }
 
 func TestHandlerAdminEvent(t *testing.T) {
@@ -50,7 +51,7 @@ func TestHandlerAdminEvent(t *testing.T) {
 		id    string
 	}
 	type want struct{ status int }
-	testx.Run[input, want](t, func(t *testing.T, in input, want want) {
+	run := func(t *testing.T, in input, want want) {
 		r := httptest.NewRequest(http.MethodGet, "/events/"+in.id, nil)
 		r.SetPathValue("id", in.id)
 		w := httptest.NewRecorder()
@@ -58,12 +59,13 @@ func TestHandlerAdminEvent(t *testing.T) {
 		if w.Code != want.status {
 			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
 		}
-	},
+	}
+	testx.NewTable[input, want](
 		testx.NewCase("returns draft", input{query: httpQuery{adminEvent: event.Event{ID: 2, Name: "Draft"}}, id: "2"}, want{status: http.StatusOK}),
 		testx.NewCase("not found", input{query: httpQuery{err: sql.ErrNoRows}, id: "2"}, want{status: http.StatusNotFound}),
 		testx.NewCase("database failure", input{query: httpQuery{err: errors.New("db")}, id: "2"}, want{status: http.StatusInternalServerError}),
 		testx.NewCase("invalid id", input{query: httpQuery{}, id: "bad"}, want{status: http.StatusBadRequest}),
-	)
+	).Run(t, run)
 }
 
 func TestHandlerEventEndpoints(t *testing.T) {
@@ -128,14 +130,15 @@ func TestCreateEventValidationAndErrors(t *testing.T) {
 		commandErr error
 	}
 	type want struct{ status int }
-	testx.Run[input, want](t, func(t *testing.T, in input, want want) {
+	run := func(t *testing.T, in input, want want) {
 		r := httptest.NewRequest(http.MethodPost, "/events", strings.NewReader(in.body))
 		w := httptest.NewRecorder()
 		event.NewHandler(httpQuery{}, httpCommand{createErr: in.commandErr}).CreateEvent(w, r)
 		if w.Code != want.status {
 			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
 		}
-	},
+	}
+	testx.NewTable[input, want](
 		testx.NewCase("name too long", input{body: `{"name":"` + strings.Repeat("n", 201) + `"}`}, want{status: http.StatusBadRequest}),
 		testx.NewCase("unknown publication status", input{body: `{"publication_status":"private"}`}, want{status: http.StatusBadRequest}),
 		testx.NewCase("invalid datetime", input{body: `{"starts_at":"tomorrow"}`}, want{status: http.StatusBadRequest}),
@@ -144,7 +147,7 @@ func TestCreateEventValidationAndErrors(t *testing.T) {
 		testx.NewCase("event incomplete", input{body: `{"name":"Event"}`, commandErr: errors.New("event_incomplete")}, want{status: http.StatusBadRequest}),
 		testx.NewCase("registration period missing", input{body: `{"name":"Event"}`, commandErr: errors.New("invalid_registration_period")}, want{status: http.StatusBadRequest}),
 		testx.NewCase("unexpected command error", input{body: `{"name":"Event"}`, commandErr: errors.New("db")}, want{status: http.StatusInternalServerError}),
-	)
+	).Run(t, run)
 }
 
 func TestUpdateEventInputErrors(t *testing.T) {
@@ -153,7 +156,7 @@ func TestUpdateEventInputErrors(t *testing.T) {
 		commandErr error
 	}
 	type want struct{ status int }
-	testx.Run[input, want](t, func(t *testing.T, in input, want want) {
+	run := func(t *testing.T, in input, want want) {
 		r := httptest.NewRequest(http.MethodPut, "/events/"+in.id, strings.NewReader(in.body))
 		r.SetPathValue("id", in.id)
 		w := httptest.NewRecorder()
@@ -161,10 +164,11 @@ func TestUpdateEventInputErrors(t *testing.T) {
 		if w.Code != want.status {
 			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
 		}
-	},
+	}
+	testx.NewTable[input, want](
 		testx.NewCase("valid update", input{id: "4", body: `{"name":"Updated"}`}, want{status: http.StatusOK}),
 		testx.NewCase("invalid id", input{id: "-1", body: `{}`}, want{status: http.StatusBadRequest}),
 		testx.NewCase("invalid body", input{id: "4", body: `{`}, want{status: http.StatusBadRequest}),
 		testx.NewCase("database error", input{id: "4", body: `{"name":"Updated"}`, commandErr: errors.New("db")}, want{status: http.StatusInternalServerError}),
-	)
+	).Run(t, run)
 }
