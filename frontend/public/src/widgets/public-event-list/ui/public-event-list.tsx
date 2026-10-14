@@ -1,31 +1,43 @@
-import { useEffect, useState } from "react";
-import { Result } from "@praha/byethrow";
+import { useQuery } from "@tanstack/react-query";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
-import { fetchPublicEvents, type PublicEvent } from "../../../entities/event";
+import { QueryProvider } from "../../../shared/lib/query";
+import { publicEventsQueryOptions } from "../../../entities/event";
 
 export function PublicEventList() {
-  const [events, setEvents] = useState<PublicEvent[] | null>(null);
-  const [error, setError] = useState("");
+  return (
+    <QueryProvider>
+      <PublicEventListContent />
+    </QueryProvider>
+  );
+}
 
-  useEffect(() => {
-    async function loadEvents() {
-      const result = await fetchPublicEvents();
-      if (Result.isSuccess(result)) setEvents(result.value);
-      else setError(result.error.message);
-    }
-    void loadEvents();
-  }, []);
+function PublicEventListContent() {
+  const {
+    data: events,
+    error,
+    isPending,
+    refetch,
+    isFetching,
+  } = useQuery(publicEventsQueryOptions());
 
-  if (error) return <Alert variant="destructive">{error}</Alert>;
-  if (!events)
+  if (isPending)
     return (
       <Card>
         <CardContent>
           <p aria-live="polite">イベントを読み込み中です。</p>
         </CardContent>
       </Card>
+    );
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <p>{error.message}</p>
+        <button type="button" disabled={isFetching} onClick={() => void refetch()}>
+          再試行
+        </button>
+      </Alert>
     );
   if (events.length === 0)
     return (

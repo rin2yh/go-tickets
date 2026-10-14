@@ -1,20 +1,15 @@
 import { useEffect, useState } from "react";
 import { Result } from "@praha/byethrow";
 import { UserButton, useAuth } from "@clerk/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert } from "@go-tickets/ui/components/alert";
 import { Badge } from "@go-tickets/ui/components/badge";
 import { Button } from "@go-tickets/ui/components/button";
 import { Card, CardContent } from "@go-tickets/ui/components/card";
-import { invalidatePublicEvent, type PublicTicketType } from "../../../entities/event";
-import {
-  loadRegistrations,
-  refreshRegistrations,
-  submitRegistration,
-  type MyRegistration,
-} from "../api/registration";
+import { publicEventKeys, type PublicTicketType } from "../../../entities/event";
+import { loadRegistrations, submitRegistration, type MyRegistration } from "../api/registration";
 
 export type TicketType = PublicTicketType;
-type TokenGetter = () => Promise<string | null>;
 export function TicketActions({
   mode,
   eventId,
@@ -30,54 +25,102 @@ export function TicketActions({
   participantName: string;
   onEditName: () => void;
 }) {
-  const { getToken } = useAuth();
-  const [items, setItems] = useState<MyRegistration[]>([]);
-  const [loadedRegistrationKey, setLoadedRegistrationKey] = useState("");
-  const [loadedTokenGetter, setLoadedTokenGetter] = useState<TokenGetter | null>(null);
+  const { getToken, userId } = useAuth();
+  const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-  const historyKey = registrationHistoryKey(mode, eventId);
-  const registrationsReady = isRegistrationHistoryReady(
-    loadedRegistrationKey,
-    loadedTokenGetter,
-    historyKey,
-    getToken,
-  );
-  const currentItems = registrationsReady ? items : [];
-
-  useEffect(() => {
-    let active = true;
-    async function load() {
+  const [syncFailed, setSyncFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const registrationsQuery = useQuery({
+    queryKey: ["registrations", userId],
+    enabled: Boolean(userId),
+    queryFn: async () => {
       const result = await loadRegistrations(getToken);
-      if (!active) return;
-      if (Result.isSuccess(result)) {
-        setItems(result.value);
-        setLoadedRegistrationKey(registrationHistoryKey(mode, eventId));
-        setLoadedTokenGetter(() => getToken);
-      } else setMessage(result.error.message);
-    }
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [eventId, getToken, mode]);
-
-  async function register(action: "register" | "cancel", ticketTypeId = eventId) {
-    setBusy(true);
-    const outcome = await submitRegistration(getToken, action, ticketTypeId);
-    if (Result.isFailure(outcome)) setMessage(outcome.error.message);
-    else {
-      setMessage(outcome.value.status ?? "完了しました");
-      if (mode === "event") invalidatePublicEvent(eventId);
-      const refresh = await refreshRegistrations(outcome.value.token);
-      if (Result.isFailure(refresh)) {
-        setMessage("申込は完了しましたが、申込状態の再取得に失敗しました。");
-      } else if (refresh.value) {
-        setItems(refresh.value);
+      if (Result.isFailure(result)) throw result.error;
+      return result.value;
+    },
+  });
+  const registrationMutation = useMutation({
+    mutationFn: async ({
+      action,
+      ticketTypeId,
+    }: {
+      action: "register" | "cancel";
+      ticketTypeId: number;
+    }) => {
+      const outcome = await submitRegistration(getToken, action, ticketTypeId);
+      if (Result.isFailure(outcome)) throw outcome.error;
+      return outcome.value;
+    },
+    onSuccess: async (outcome) => {
+      setSyncFailed(false);
+      setMessage(outcome.status ?? "完了しました");
+      const invalidation = await Result.try({
+        try: () =>
+          Promise.all([
+            queryClient.invalidateQueries(
+              { queryKey: ["registrations", userId] },
+              { throwOnError: true },
+            ),
+            ...(mode === "event"
+              ? [
+                  queryClient.invalidateQueries(
+                    { queryKey: publicEventKeys.detail(eventId) },
+                    { throwOnError: true },
+                  ),
+                ]
+              : []),
+          ]),
+        catch: (error) =>
+          error instanceof Error
+            ? error
+            : new Error("申込状態を更新できませんでした", { cause: error }),
+      });
+      if (Result.isFailure(invalidation)) {
+        setSyncFailed(true);
+        setMessage(
+          `${outcome.status ?? "操作は完了しました"}。状態を更新できませんでした。再試行してください。`,
+        );
       }
+    },
+    onError: (error) => {
+      setSyncFailed(false);
+      setMessage(error.message);
+    },
+  });
+  const currentItems = registrationsQuery.isSuccess ? registrationsQuery.data : [];
+  const registrationsReady = registrationsQuery.isSuccess;
+  const busy = registrationMutation.isPending;
+  const register = (action: "register" | "cancel", ticketTypeId = eventId) =>
+    registrationMutation.mutate({ action, ticketTypeId });
+  const retryQueries = async () => {
+    setRetrying(true);
+    const result = await Result.try({
+      try: () =>
+        Promise.all([
+          queryClient.invalidateQueries(
+            { queryKey: ["registrations", userId] },
+            { throwOnError: true },
+          ),
+          ...(mode === "event"
+            ? [
+                queryClient.invalidateQueries(
+                  { queryKey: publicEventKeys.detail(eventId) },
+                  { throwOnError: true },
+                ),
+              ]
+            : []),
+        ]),
+      catch: (error) =>
+        error instanceof Error
+          ? error
+          : new Error("申込状態を更新できませんでした", { cause: error }),
+    });
+    setRetrying(false);
+    if (Result.isSuccess(result)) {
+      setMessage("");
+      setSyncFailed(false);
     }
-    setBusy(false);
-  }
+  };
 
   return (
     <section className="mt-7">
@@ -101,27 +144,52 @@ export function TicketActions({
               register={register}
             />
           )}
-          {mode === "tickets" && (
+          {mode === "tickets" && registrationsQuery.isSuccess && (
             <RegistrationList items={currentItems} busy={busy} register={register} />
           )}
-          <RegistrationMessage message={message} />
+          {registrationsQuery.isPending && (
+            <p role="status" className="mt-4">
+              申込履歴を読み込み中…
+            </p>
+          )}
+          {(registrationsQuery.error || syncFailed) && (
+            <RegistrationQueryAlert
+              error={registrationsQuery.error}
+              syncFailed={syncFailed}
+              message={message}
+              retrying={retrying || registrationsQuery.isFetching}
+              onRetry={() => void retryQueries()}
+            />
+          )}
+          <RegistrationMessage message={syncFailed ? "" : message} />
         </CardContent>
       </Card>
     </section>
   );
 }
 
-function registrationHistoryKey(mode: "tickets" | "event", eventId: number) {
-  return `${mode}:${eventId}`;
-}
-
-function isRegistrationHistoryReady(
-  loadedKey: string,
-  loadedGetter: TokenGetter | null,
-  currentKey: string,
-  currentGetter: TokenGetter,
-) {
-  return loadedKey === currentKey && loadedGetter === currentGetter;
+function RegistrationQueryAlert({
+  error,
+  syncFailed,
+  message,
+  retrying,
+  onRetry,
+}: {
+  error: Error | null;
+  syncFailed: boolean;
+  message: string;
+  retrying: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <Alert variant="destructive" className="mt-4">
+      {error && <p>{error.message}</p>}
+      {syncFailed && <p>{message}</p>}
+      <Button variant="outline" disabled={retrying} onClick={onRetry}>
+        再試行
+      </Button>
+    </Alert>
+  );
 }
 
 export function RegisterButtons({
@@ -137,7 +205,7 @@ export function RegisterButtons({
   registrations: MyRegistration[];
   registrationsReady: boolean;
   busy: boolean;
-  register: (action: "register" | "cancel", ticketTypeId: number) => Promise<void>;
+  register: (action: "register" | "cancel", ticketTypeId: number) => void;
 }) {
   const now = useCurrentTime();
   return tickets.map((ticket) => {
@@ -147,7 +215,7 @@ export function RegisterButtons({
         className="mr-2 mb-2"
         key={ticket.id}
         disabled={busy || !registrationsReady || state.disabled}
-        onClick={() => void register("register", ticket.id)}
+        onClick={() => register("register", ticket.id)}
       >
         {state.label}
       </Button>
@@ -212,10 +280,11 @@ function RegistrationList({
 }: {
   items: MyRegistration[];
   busy: boolean;
-  register: (action: "register" | "cancel", ticketTypeId: number) => Promise<void>;
+  register: (action: "register" | "cancel", ticketTypeId: number) => void;
 }) {
   return (
     <ul className="grid list-none gap-3 p-0">
+      {items.length === 0 && <li>申込済みのチケットはありません。</li>}
       {items.map((item) => (
         <li
           className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5"
@@ -232,7 +301,7 @@ function RegistrationList({
               variant="outline"
               size="sm"
               disabled={busy}
-              onClick={() => void register("cancel", item.ticket_type_id)}
+              onClick={() => register("cancel", item.ticket_type_id)}
             >
               キャンセル
             </Button>
