@@ -17,33 +17,23 @@ export function buildRegistrationsQueryOptions(
   getToken: () => Promise<string | null>,
 ) {
   async function load() {
-    const token = await Result.try({
-      try: () => getToken(),
-      catch: (error) =>
-        error instanceof Error ? error : new Error("参加者を読み込めません", { cause: error }),
-    });
-    if (Result.isFailure(token)) return token;
-
-    const response = await Result.try({
-      try: () =>
-        fetch(
-          `/api/admin/events/${eventId}/registrations?status=${status}&ticket=${ticket}&page=${page}`,
-          { headers: { Authorization: `Bearer ${token.value ?? ""}` } },
-        ),
-      catch: (error) =>
-        error instanceof Error ? error : new Error("参加者を読み込めません", { cause: error }),
-    });
-    if (Result.isFailure(response)) return response;
-    if (!response.value.ok) return Result.fail(new Error("参加者を読み込めません"));
-
-    return Result.try({
+    const result = await Result.try({
       try: async () => {
-        const payload: RegistrationPage = await response.value.json();
-        return payload;
+        const token = await getToken();
+        const response = await fetch(
+          `/api/admin/events/${eventId}/registrations?status=${status}&ticket=${ticket}&page=${page}`,
+          { headers: { Authorization: `Bearer ${token ?? ""}` } },
+        );
+        if (!response.ok) return { ok: false as const };
+        const registrationPage: RegistrationPage = await response.json();
+        return { ok: true as const, page: registrationPage };
       },
       catch: (error) =>
         error instanceof Error ? error : new Error("参加者を読み込めません", { cause: error }),
     });
+    if (Result.isFailure(result)) return result;
+    if (!result.value.ok) return Result.fail(new Error("参加者を読み込めません"));
+    return Result.succeed(result.value.page);
   }
 
   return queryOptions({

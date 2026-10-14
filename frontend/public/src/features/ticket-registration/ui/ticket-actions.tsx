@@ -124,37 +124,28 @@ function isRegistrationHistoryReady(
 }
 
 async function loadRegistrations(getToken: TokenGetter) {
-  const token = await Result.try({
-    try: () => getToken(),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("申込状態を取得できません", { cause: error }),
-  });
-  if (Result.isFailure(token)) return token;
-  if (!token.value) {
-    return Result.fail(new Error("申込状態を取得できません。ページを再読み込みしてください。"));
-  }
-
-  const response = await Result.try({
-    try: () =>
-      fetch("/api/registrations", {
-        headers: { Authorization: `Bearer ${token.value}` },
-      }),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("申込状態を取得できません", { cause: error }),
-  });
-  if (Result.isFailure(response)) return response;
-  if (!response.value.ok) {
-    return Result.fail(new Error(`申込を取得できません (${response.value.status})`));
-  }
-
-  return Result.try({
+  const result = await Result.try({
     try: async () => {
-      const registrations: MyRegistration[] = await response.value.json();
-      return registrations;
+      const token = await getToken();
+      if (!token) return { kind: "missing-token" as const };
+      const response = await fetch("/api/registrations", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return { kind: "http-error" as const, status: response.status };
+      const registrations: MyRegistration[] = await response.json();
+      return { kind: "success" as const, registrations };
     },
     catch: (error) =>
       error instanceof Error ? error : new Error("申込状態を取得できません", { cause: error }),
   });
+  if (Result.isFailure(result)) return result;
+  if (result.value.kind === "missing-token") {
+    return Result.fail(new Error("申込状態を取得できません。ページを再読み込みしてください。"));
+  }
+  if (result.value.kind === "http-error") {
+    return Result.fail(new Error(`申込を取得できません (${result.value.status})`));
+  }
+  return Result.succeed(result.value.registrations);
 }
 
 async function submitRegistration(
@@ -162,23 +153,22 @@ async function submitRegistration(
   action: "register" | "cancel",
   ticketTypeId: number,
 ) {
-  const token = await Result.try({
-    try: () => getToken(),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
-  });
-  if (Result.isFailure(token)) return token;
-
   const response = await Result.try({
-    try: () =>
-      fetch(action === "register" ? "/api/registrations" : "/api/registrations/cancel", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token.value ?? ""}`,
-          "Content-Type": "application/json",
+    try: async () => {
+      const token = await getToken();
+      const request = await fetch(
+        action === "register" ? "/api/registrations" : "/api/registrations/cancel",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token ?? ""}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ticket_type_id: ticketTypeId }),
         },
-        body: JSON.stringify({ ticket_type_id: ticketTypeId }),
-      }),
+      );
+      return { token, response: request };
+    },
     catch: (error) =>
       error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
   });
@@ -186,22 +176,24 @@ async function submitRegistration(
 
   const payload = await Result.try({
     try: async () => {
-      const result: { error?: string; status?: string } = await response.value.json();
+      const result: { error?: string; status?: string } = await response.value.response.json();
       return result;
     },
     catch: (error) =>
       error instanceof Error ? error : new Error("通信に失敗しました", { cause: error }),
   });
-  if (Result.isFailure(payload)) {
-    if (!response.value.ok) {
-      return Result.fail(new Error(registrationError(response.value.status)));
-    }
-    return payload;
+  if (!response.value.response.ok) {
+    return Result.fail(
+      new Error(
+        registrationError(
+          response.value.response.status,
+          Result.isSuccess(payload) ? payload.value.error : undefined,
+        ),
+      ),
+    );
   }
-  if (!response.value.ok) {
-    return Result.fail(new Error(registrationError(response.value.status, payload.value.error)));
-  }
-  return Result.succeed({ token: token.value, status: payload.value.status });
+  if (Result.isFailure(payload)) return payload;
+  return Result.succeed({ token: response.value.token, status: payload.value.status });
 }
 
 function registrationError(status: number, code?: string) {
@@ -354,28 +346,23 @@ async function refreshTickets(
   setItems: (items: MyRegistration[]) => void,
 ): Promise<Result.Result<void, Error>> {
   if (!token) return Result.succeed();
-  const response = await Result.try({
-    try: () =>
-      fetch("/api/registrations", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("申込を取得できません", { cause: error }),
-  });
-  if (Result.isFailure(response)) return response;
-  if (!response.value.ok) {
-    return Result.fail(new Error(`申込を取得できません (${response.value.status})`));
-  }
   const result = await Result.try({
     try: async () => {
-      const registrations: MyRegistration[] = await response.value.json();
-      return registrations;
+      const response = await fetch("/api/registrations", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return { ok: false as const, status: response.status };
+      const registrations: MyRegistration[] = await response.json();
+      return { ok: true as const, registrations };
     },
     catch: (error) =>
       error instanceof Error ? error : new Error("申込を取得できません", { cause: error }),
   });
   if (Result.isFailure(result)) return result;
-  setItems(result.value);
+  if (!result.value.ok) {
+    return Result.fail(new Error(`申込を取得できません (${result.value.status})`));
+  }
+  setItems(result.value.registrations);
   return Result.succeed();
 }
 

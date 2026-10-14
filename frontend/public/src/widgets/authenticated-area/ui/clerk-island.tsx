@@ -8,51 +8,42 @@ import { ParticipantNameForm } from "../../../features/participant-name";
 import { TicketActions, type TicketType } from "../../../features/ticket-registration";
 
 async function clerkKey() {
-  const response = await Result.try({
-    try: () => fetch("/api/auth/config"),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("認証設定を取得できません", { cause: error }),
-  });
-  if (Result.isFailure(response)) return response;
-  if (!response.value.ok) {
-    return Result.fail(new Error(`認証設定を取得できません (${response.value.status})`));
-  }
-  return Result.try({
+  const result = await Result.try({
     try: async () => {
-      const config: { publishableKey: string } = await response.value.json();
-      return config.publishableKey;
+      const response = await fetch("/api/auth/config");
+      if (!response.ok) return { ok: false as const, status: response.status };
+      const config: { publishableKey: string } = await response.json();
+      return { ok: true as const, key: config.publishableKey };
     },
     catch: (error) =>
       error instanceof Error ? error : new Error("認証設定を取得できません", { cause: error }),
   });
+  if (Result.isFailure(result)) return result;
+  if (!result.value.ok) {
+    return Result.fail(new Error(`認証設定を取得できません (${result.value.status})`));
+  }
+  return Result.succeed(result.value.key);
 }
 
 async function fetchParticipantName(getToken: () => Promise<string | null>) {
-  const token = await Result.try({
-    try: () => getToken(),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("参加者情報を取得できません", { cause: error }),
-  });
-  if (Result.isFailure(token)) return token;
-
-  const response = await Result.try({
-    try: () => fetch("/api/profile", { headers: { Authorization: `Bearer ${token.value ?? ""}` } }),
-    catch: (error) =>
-      error instanceof Error ? error : new Error("参加者情報を取得できません", { cause: error }),
-  });
-  if (Result.isFailure(response)) return response;
-  if (!response.value.ok) {
-    return Result.fail(new Error(`参加者情報を取得できません (${response.value.status})`));
-  }
-
-  return Result.try({
+  const result = await Result.try({
     try: async () => {
-      const payload: { name?: string } = await response.value.json();
-      return payload.name || "";
+      const token = await getToken();
+      const response = await fetch("/api/profile", {
+        headers: { Authorization: `Bearer ${token ?? ""}` },
+      });
+      if (!response.ok) return { ok: false as const, status: response.status };
+      const payload: { name?: string } = await response.json();
+      return { ok: true as const, name: payload.name || "" };
     },
     catch: (error) =>
       error instanceof Error ? error : new Error("参加者情報を取得できません", { cause: error }),
   });
+  if (Result.isFailure(result)) return result;
+  if (!result.value.ok) {
+    return Result.fail(new Error(`参加者情報を取得できません (${result.value.status})`));
+  }
+  return Result.succeed(result.value.name);
 }
 
 export function ClerkIsland() {
