@@ -57,33 +57,31 @@ export function ParticipantNameForm({
   );
 }
 
-function saveParticipantName(getToken: () => Promise<string | null>, name: string) {
-  return Result.pipe(
-    Result.try({
-      try: async () => {
-        const token = await getToken();
-        return await fetch("/api/profile", {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token ?? ""}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ name }),
-        });
-      },
-      catch: (error) =>
-        error instanceof Error ? error : new Error("保存に失敗しました", { cause: error }),
-    }),
-    Result.andThen((response) => {
-      if (!response.ok) return Result.fail(new Error("参加者名を保存できません"));
-      return Result.try({
-        try: async () => {
-          const payload: { name: string } = await response.json();
-          return payload.name;
+async function saveParticipantName(getToken: () => Promise<string | null>, name: string) {
+  const response = await Result.try({
+    try: async () => {
+      const token = await getToken();
+      return await fetch("/api/profile", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token ?? ""}`,
+          "Content-Type": "application/json",
         },
-        catch: (error) =>
-          error instanceof Error ? error : new Error("保存に失敗しました", { cause: error }),
+        body: JSON.stringify({ name }),
       });
-    }),
-  );
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("保存に失敗しました", { cause: error }),
+  });
+  if (Result.isFailure(response)) return response;
+  if (!response.value.ok) return Result.fail(new Error("参加者名を保存できません"));
+
+  return Result.try({
+    try: async () => {
+      const payload: { name: string } = await response.value.json();
+      return payload.name;
+    },
+    catch: (error) =>
+      error instanceof Error ? error : new Error("保存に失敗しました", { cause: error }),
+  });
 }
