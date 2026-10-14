@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v3"
+	"github.com/rin2yh/go-tickets/internal/test/store"
 )
 
 func TestAuthenticator(t *testing.T) {
@@ -125,6 +127,27 @@ func TestNewRequiresConfiguration(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := New(tc.secret, tc.parties, tc.client, ""); err == nil {
 				t.Fatal("New returned nil error for invalid config")
+			}
+		})
+	}
+}
+
+func TestIsAdmin(t *testing.T) {
+	db := store.NewDB(t)
+	store.Seed(t, db)
+	for _, tc := range []struct {
+		name   string
+		userID string
+		want   bool
+	}{
+		{name: "administrator", userID: "admin", want: true},
+		{name: "regular user", userID: "user", want: false},
+		{name: "unknown user", userID: "missing", want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := IsAdmin(context.Background(), db, tc.userID)
+			if err != nil || got != tc.want {
+				t.Fatalf("IsAdmin(%q) = %t, %v; want %t", tc.userID, got, err, tc.want)
 			}
 		})
 	}

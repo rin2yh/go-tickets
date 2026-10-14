@@ -1,0 +1,33 @@
+coverage:
+  paths:
+    - backend/coverage.out
+  acceptable: 60%
+
+codeToTestRatio:
+  acceptable: 1:1.1
+  code:
+    - backend/**/*.go
+    - '!backend/**/*_test.go'
+  test:
+    - backend/**/*_test.go
+
+testExecutionTime:
+  if: true
+
+comment:
+  if: is_pull_request
+  updatePrevious: true
+  expandDetails: true
+
+summary:
+  if: true
+  expandDetails: true
+
+report:
+  if: is_default_branch
+  datastores:
+    - artifact://${GITHUB_REPOSITORY}
+
+diff:
+  datastores:
+    - artifact://${GITHUB_REPOSITORY}

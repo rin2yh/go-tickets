@@ -67,6 +67,8 @@ jobs:
     runs-on: *ubuntu
     permissions:
       contents: read
+      pull-requests: write
+      actions: read
     steps:
       - *checkout
       - &setup-go
@@ -80,8 +82,11 @@ jobs:
       - name: Check Go architecture
         run: go tool go-arch-lint check --project-path .
         working-directory: backend
-      - run: go test ./...
+      - name: Run tests with coverage
+        run: go test ./... -coverpkg=./... -coverprofile=coverage.out
         working-directory: backend
+      - name: Report coverage
+        uses: k1LoW/octocov-action@a167dc0dee441b7ffc45e1b862ab55ec0d87f278 # v1.5.2
 
   audit:
     name: Audit frontend dependencies
