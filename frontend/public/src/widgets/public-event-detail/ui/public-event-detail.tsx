@@ -13,12 +13,13 @@ export function PublicEventDetail() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const eventId = window.location.pathname.match(/^\/events\/(\d+)\/?$/)?.[1];
     async function loadEvent() {
-      const eventId = window.location.pathname.match(/^\/events\/(\d+)\/?$/)?.[1];
-      const result = eventId ? await fetchPublicEvent(Number(eventId)) : undefined;
-      if (!eventId) setError("イベントが見つかりません。");
-      if (result && Result.isSuccess(result)) setEvent(result.value);
-      else if (result)
+      const result = eventId
+        ? await fetchPublicEvent(Number(eventId))
+        : Result.fail(new Error("イベントが見つかりません。"));
+      if (Result.isSuccess(result)) setEvent(result.value);
+      else
         setError(
           result.error.message.includes("404")
             ? "イベントが見つかりません。"

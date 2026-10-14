@@ -48,13 +48,17 @@ export function BasicInformation({ eventId }: { eventId: string }) {
       Result.unwrap(await saveEventChange(getToken, `/api/events/${event.id}`, "PUT", body)),
     onSuccess: async () => {
       setNotice("変更を保存しました。");
-      const [refresh] = await Promise.allSettled([
-        queryClient.invalidateQueries(
-          { queryKey: buildEventQueryOptions(eventId, getToken).queryKey, exact: true },
-          { throwOnError: true },
-        ),
-      ]);
-      if (refresh.status === "fulfilled") setRefreshWarning("");
+      const refresh = await Result.try({
+        try: async () => {
+          await queryClient.invalidateQueries(
+            { queryKey: buildEventQueryOptions(eventId, getToken).queryKey, exact: true },
+            { throwOnError: true },
+          );
+        },
+        catch: (error) =>
+          error instanceof Error ? error : new Error("再取得できません", { cause: error }),
+      });
+      if (Result.isSuccess(refresh)) setRefreshWarning("");
       else {
         setRefreshWarning(
           "変更は保存されましたが、最新情報を再取得できませんでした。画面を更新して確認してください。",

@@ -47,16 +47,16 @@ export function Events() {
       setBusy(false);
       return;
     }
-    const [navigation] = await Promise.allSettled([
-      navigate({
-        to: "/events/$eventId",
-        params: { eventId: String(created.value) },
-        search: { tab: "basic", status: "active", ticket: "all", page: 1 },
-      }),
-    ]);
-    if (navigation.status === "rejected") {
-      setError(navigation.reason instanceof Error ? navigation.reason.message : "画面を開けません");
-    }
+    const navigation = await Result.try({
+      try: () =>
+        navigate({
+          to: "/events/$eventId",
+          params: { eventId: String(created.value) },
+          search: { tab: "basic", status: "active", ticket: "all", page: 1 },
+        }),
+      catch: (cause) => (cause instanceof Error ? cause : new Error("画面を開けません", { cause })),
+    });
+    if (Result.isFailure(navigation)) setError(navigation.error.message);
     setBusy(false);
   }
   return (
