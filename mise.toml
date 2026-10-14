@@ -11,22 +11,6 @@ includes = [
   "frontend/tasks.toml",
 ]
 
-[tasks.test]
-description = "Run Go tests"
-run = [{ task = "test-backend" }, { task = "test-linter" }]
-
-[tasks.test-backend]
-description = "Run backend Go tests"
-hide = true
-dir = "backend"
-run = "go test ./..."
-
-[tasks.test-linter]
-description = "Run Go test linter analyzer tests"
-hide = true
-dir = "tool/lint"
-run = "go test ./..."
-
 [tasks.audit-frontend]
 description = "Audit frontend dependencies"
 dir = "frontend"
@@ -50,11 +34,6 @@ run = "pnpm --filter @go-tickets/e2e test"
 [tasks.check]
 description = "Run lint, architecture checks, format checks, and typechecks"
 run = [{ task = "lint-go" }, { task = "lint-architecture" }, { task = "lint-tabledriven" }, { task = "lint-frontend" }, { task = "format-frontend" }, { task = "typecheck-frontend" }]
-
-[tasks.lint-tabledriven]
-description = "Find duplicated Go tests that should be table-driven"
-dir = "tool/lint"
-run = "go run . --dir ../../backend ./..."
 
 [tasks.build]
 description = "Build the Public and Admin Workers"

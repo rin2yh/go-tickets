@@ -83,12 +83,12 @@ func TestStoreNameErrors(t *testing.T) {
 		response  string
 		dropTable bool
 	}
-	type want struct{ hasError bool }
+	type want struct{}
 	testx.NewTable[input, want](t,
-		testx.NewCase("Clerk request failure", input{status: http.StatusServiceUnavailable}, want{hasError: true}),
-		testx.NewCase("legacy profile lookup error", input{status: http.StatusOK, response: `{"id":"user_1"}`, dropTable: true}, want{hasError: true}),
-		testx.NewCase("projection update error", input{status: http.StatusOK, response: `{"id":"user_1","public_metadata":{"participant_name":"Ada"}}`, dropTable: true}, want{hasError: true}),
-	).Run(func(t *testing.T, in input, want want) {
+		testx.NewCase("Clerk request failure", input{status: http.StatusServiceUnavailable}, want{}),
+		testx.NewCase("legacy profile lookup error", input{status: http.StatusOK, response: `{"id":"user_1"}`, dropTable: true}, want{}),
+		testx.NewCase("projection update error", input{status: http.StatusOK, response: `{"id":"user_1","public_metadata":{"participant_name":"Ada"}}`, dropTable: true}, want{}),
+	).Run(func(t *testing.T, in input, _ want) {
 		s, db := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			if in.status != http.StatusOK {
 				http.Error(w, "unavailable", in.status)
@@ -101,8 +101,8 @@ func TestStoreNameErrors(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if _, err := s.Name(context.Background(), "user_1"); (err != nil) != want.hasError {
-			t.Fatalf("Name() error = %v, wantError=%t", err, want.hasError)
+		if _, err := s.Name(context.Background(), "user_1"); err == nil {
+			t.Fatal("Name returned nil error")
 		}
 	})
 }

@@ -100,12 +100,14 @@ func run(pass *analysis.Pass) (any, error) {
 
 func isTestFunc(pass *analysis.Pass, fn *ast.FuncDecl) bool {
 	name := fn.Name.Name
-	if len(name) <= len("Test") || !strings.HasPrefix(name, "Test") {
+	if !strings.HasPrefix(name, "Test") {
 		return false
 	}
-	first, _ := utf8.DecodeRuneInString(name[len("Test"):])
-	if !unicode.IsUpper(first) {
-		return false
+	if len(name) > len("Test") {
+		first, _ := utf8.DecodeRuneInString(name[len("Test"):])
+		if unicode.IsLower(first) {
+			return false
+		}
 	}
 	if fn.Recv != nil || fn.Type.TypeParams != nil {
 		return false
