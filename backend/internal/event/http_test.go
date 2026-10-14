@@ -123,50 +123,48 @@ func TestHandlerUpdateEventErrors(t *testing.T) {
 }
 
 func TestCreateEventValidationAndErrors(t *testing.T) {
-	for _, tc := range []struct {
-		name, body string
+	type input struct {
+		body       string
 		commandErr error
-		want       int
-	}{
-		{name: "name too long", body: `{"name":"` + strings.Repeat("n", 201) + `"}`, want: http.StatusBadRequest},
-		{name: "unknown publication status", body: `{"publication_status":"private"}`, want: http.StatusBadRequest},
-		{name: "invalid datetime", body: `{"starts_at":"tomorrow"}`, want: http.StatusBadRequest},
-		{name: "non UTC datetime", body: `{"starts_at":"2027-01-01T00:00:00+09:00"}`, want: http.StatusBadRequest},
-		{name: "published event without start", body: `{"name":"Event","description":"Details","publication_status":"published","ends_at":"2027-01-02T00:00:00Z"}`, want: http.StatusBadRequest},
-		{name: "event incomplete", body: `{"name":"Event"}`, commandErr: errors.New("event_incomplete"), want: http.StatusBadRequest},
-		{name: "registration period missing", body: `{"name":"Event"}`, commandErr: errors.New("invalid_registration_period"), want: http.StatusBadRequest},
-		{name: "unexpected command error", body: `{"name":"Event"}`, commandErr: errors.New("db"), want: http.StatusInternalServerError},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			r := httptest.NewRequest(http.MethodPost, "/events", strings.NewReader(tc.body))
-			w := httptest.NewRecorder()
-			event.NewHandler(httpQuery{}, httpCommand{createErr: tc.commandErr}).CreateEvent(w, r)
-			if w.Code != tc.want {
-				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
-			}
-		})
 	}
+	type want struct{ status int }
+	testx.Run[input, want](t, func(t *testing.T, in input, want want) {
+		r := httptest.NewRequest(http.MethodPost, "/events", strings.NewReader(in.body))
+		w := httptest.NewRecorder()
+		event.NewHandler(httpQuery{}, httpCommand{createErr: in.commandErr}).CreateEvent(w, r)
+		if w.Code != want.status {
+			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
+		}
+	},
+		testx.NewCase("name too long", input{body: `{"name":"` + strings.Repeat("n", 201) + `"}`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("unknown publication status", input{body: `{"publication_status":"private"}`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("invalid datetime", input{body: `{"starts_at":"tomorrow"}`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("non UTC datetime", input{body: `{"starts_at":"2027-01-01T00:00:00+09:00"}`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("published event without start", input{body: `{"name":"Event","description":"Details","publication_status":"published","ends_at":"2027-01-02T00:00:00Z"}`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("event incomplete", input{body: `{"name":"Event"}`, commandErr: errors.New("event_incomplete")}, want{status: http.StatusBadRequest}),
+		testx.NewCase("registration period missing", input{body: `{"name":"Event"}`, commandErr: errors.New("invalid_registration_period")}, want{status: http.StatusBadRequest}),
+		testx.NewCase("unexpected command error", input{body: `{"name":"Event"}`, commandErr: errors.New("db")}, want{status: http.StatusInternalServerError}),
+	)
 }
 
 func TestUpdateEventInputErrors(t *testing.T) {
-	for _, tc := range []struct {
-		name, id, body string
-		commandErr     error
-		want           int
-	}{
-		{name: "valid update", id: "4", body: `{"name":"Updated"}`, want: http.StatusOK},
-		{name: "invalid id", id: "-1", body: `{}`, want: http.StatusBadRequest},
-		{name: "invalid body", id: "4", body: `{`, want: http.StatusBadRequest},
-		{name: "database error", id: "4", body: `{"name":"Updated"}`, commandErr: errors.New("db"), want: http.StatusInternalServerError},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			r := httptest.NewRequest(http.MethodPut, "/events/"+tc.id, strings.NewReader(tc.body))
-			r.SetPathValue("id", tc.id)
-			w := httptest.NewRecorder()
-			event.NewHandler(httpQuery{}, httpCommand{updateErr: tc.commandErr}).UpdateEvent(w, r)
-			if w.Code != tc.want {
-				t.Fatalf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
-			}
-		})
+	type input struct {
+		id, body   string
+		commandErr error
 	}
+	type want struct{ status int }
+	testx.Run[input, want](t, func(t *testing.T, in input, want want) {
+		r := httptest.NewRequest(http.MethodPut, "/events/"+in.id, strings.NewReader(in.body))
+		r.SetPathValue("id", in.id)
+		w := httptest.NewRecorder()
+		event.NewHandler(httpQuery{}, httpCommand{updateErr: in.commandErr}).UpdateEvent(w, r)
+		if w.Code != want.status {
+			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
+		}
+	},
+		testx.NewCase("valid update", input{id: "4", body: `{"name":"Updated"}`}, want{status: http.StatusOK}),
+		testx.NewCase("invalid id", input{id: "-1", body: `{}`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("invalid body", input{id: "4", body: `{`}, want{status: http.StatusBadRequest}),
+		testx.NewCase("database error", input{id: "4", body: `{"name":"Updated"}`, commandErr: errors.New("db")}, want{status: http.StatusInternalServerError}),
+	)
 }
