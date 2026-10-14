@@ -1,9 +1,14 @@
 ---
 name: worktree-development
-description: Git worktree 上で開発し、プロジェクト固有の mise 設定、git hooks、別checkoutにあるローカル設定を扱うときに使う。
+description: Use this skill only when developing in a linked Git worktree. Apply it for worktree changes involving project-specific mise configuration, Git hooks, sibling-checkout local settings, commits, or pushes. Do not use it in an ordinary or primary checkout, even if the task involves mise or Git hooks; follow the repository's normal development instructions there.
 ---
 
 # Worktree 開発
+
+## 適用条件
+
+- 最初に `git rev-parse --path-format=absolute --git-dir` と `git rev-parse --path-format=absolute --git-common-dir` を確認する。出力が異なるlinked worktreeでのみ、このスキルを適用する。
+- 出力が同じ通常checkoutでは、このスキルの手順を使わず、リポジトリの通常の開発手順に従う。miseやGit hooksの作業だけを理由に適用範囲を広げない。
 
 作業対象の git worktree で変更・検証・commit・pushを完了する。worktree間で秘密情報や未追跡ファイルを不用意に複製しない。
 
