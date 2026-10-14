@@ -25,17 +25,7 @@ export function TicketActions({
   participantName: string;
   onEditName: () => void;
 }) {
-  const {
-    registrationsQuery,
-    currentItems,
-    registrationsReady,
-    busy,
-    register,
-    retryQueries,
-    retrying,
-    syncFailed,
-    message,
-  } = useTicketActions({ mode, eventId });
+  const { history, actions, feedback } = useTicketActions({ mode, eventId });
 
   return (
     <section className="mt-7">
@@ -53,30 +43,34 @@ export function TicketActions({
             <RegisterButtons
               tickets={ticketTypes}
               eventEndsAt={eventEndsAt}
-              registrations={currentItems}
-              registrationsReady={registrationsReady}
-              busy={busy}
-              register={register}
+              registrations={history.items}
+              registrationsReady={history.ready}
+              busy={actions.busy}
+              register={actions.register}
             />
           )}
-          {mode === "tickets" && registrationsQuery.isSuccess && (
-            <RegistrationList items={currentItems} busy={busy} register={register} />
+          {mode === "tickets" && history.query.isSuccess && (
+            <RegistrationList
+              items={history.items}
+              busy={actions.busy}
+              register={actions.register}
+            />
           )}
-          {registrationsQuery.isPending && (
+          {history.query.isPending && (
             <p role="status" className="mt-4">
               申込履歴を読み込み中…
             </p>
           )}
-          {(registrationsQuery.error || syncFailed) && (
+          {(history.query.error || feedback.syncFailed) && (
             <RegistrationQueryAlert
-              error={registrationsQuery.error}
-              syncFailed={syncFailed}
-              message={message}
-              retrying={retrying || registrationsQuery.isFetching}
-              onRetry={() => void retryQueries()}
+              error={history.query.error}
+              syncFailed={feedback.syncFailed}
+              message={feedback.message}
+              retrying={actions.retrying || history.query.isFetching}
+              onRetry={() => void actions.retry()}
             />
           )}
-          <RegistrationMessage message={syncFailed ? "" : message} />
+          <RegistrationMessage message={feedback.syncFailed ? "" : feedback.message} />
         </CardContent>
       </Card>
     </section>
@@ -380,14 +374,20 @@ function useTicketActions({ mode, eventId }: { mode: "tickets" | "event"; eventI
   };
 
   return {
-    registrationsQuery,
-    currentItems,
-    registrationsReady,
-    busy,
-    register,
-    retryQueries,
-    retrying,
-    syncFailed,
-    message,
+    history: {
+      query: registrationsQuery,
+      items: currentItems,
+      ready: registrationsReady,
+    },
+    actions: {
+      busy,
+      register,
+      retry: retryQueries,
+      retrying,
+    },
+    feedback: {
+      syncFailed,
+      message,
+    },
   };
 }
