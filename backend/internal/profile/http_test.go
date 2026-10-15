@@ -2,7 +2,6 @@ package profile_test
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -14,48 +13,44 @@ import (
 	"github.com/rin2yh/go-tickets/x/testx"
 )
 
-func TestStoreName(t *testing.T) {
-	type input struct {
-		metadata, legacyName string
-	}
+func TestStoreNameFromClerkMetadata(t *testing.T) {
+	type input struct{ response string }
 	type want struct {
-		name            string
-		patch, hasError bool
+		name     string
+		hasError bool
 	}
 	testx.NewTable[input, want](t,
-		testx.NewCase("reads and trims Clerk metadata", input{metadata: `{"participant_name":"  Ada Lovelace  "}`}, want{name: "Ada Lovelace"}),
-		testx.NewCase("migrates legacy projection", input{legacyName: "Grace Hopper"}, want{name: "Grace Hopper", patch: true}),
-		testx.NewCase("missing name is empty", input{}, want{}),
-		testx.NewCase("non-object metadata is rejected", input{metadata: `["unexpected"]`}, want{hasError: true}),
+		testx.NewCase("reads and trims Clerk metadata", input{response: `{"id":"user_1","public_metadata":{"participant_name":"  Ada Lovelace  "}}`}, want{name: "Ada Lovelace"}),
+		testx.NewCase("missing name is empty", input{response: `{"id":"user_1"}`}, want{}),
+		testx.NewCase("non-object metadata is rejected", input{response: `{"id":"user_1","public_metadata":["unexpected"]}`}, want{hasError: true}),
 	).Run(func(t *testing.T, in input, want want) {
-		serverHandler, patched := storeNameHandler(t, in.metadata, in.legacyName)
-		s, db := newStore(t, serverHandler)
-		if in.legacyName != "" {
-			if _, err := db.Exec(`INSERT INTO participant_profiles(user_id,name) VALUES('user_1',?)`, in.legacyName); err != nil {
-				t.Fatal(err)
+		s, db := newStore(t, newClerkMux(t, clerkHandlers{
+			get: func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = io.WriteString(w, in.response)
+			},
+		}))
+		got, err := s.Name(context.Background(), "user_1")
+		if (err != nil) != want.hasError || got != want.name {
+			t.Fatalf("Name() = %q, %v; want %q, hasError=%t", got, err, want.name, want.hasError)
+		}
+		if want.name != "" {
+			var projected string
+			if err := db.QueryRow(`SELECT name FROM participant_profiles WHERE user_id='user_1'`).Scan(&projected); err != nil || projected != want.name {
+				t.Fatalf("projection = %q, %v; want %q", projected, err, want.name)
 			}
 		}
-		got, err := s.Name(context.Background(), "user_1")
-		assertStoreName(t, db, got, err, *patched, want.name, want.hasError, want.patch)
 	})
 }
 
-func storeNameHandler(t *testing.T, metadata, legacyName string) (http.Handler, *bool) {
-	t.Helper()
-	var patched bool
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer sk_test_profile" {
-			t.Errorf("authorization header = %q", r.Header.Get("Authorization"))
-		}
-		switch r.Method {
-		case http.MethodGet:
-			w.Header().Set("Content-Type", "application/json")
-			if metadata == "" {
-				_, _ = io.WriteString(w, `{"id":"user_1"}`)
-			} else {
-				_, _ = io.WriteString(w, `{"id":"user_1","public_metadata":`+metadata+`}`)
-			}
-		case http.MethodPatch:
+func TestStoreNameMigratesLegacyProfile(t *testing.T) {
+	const legacyName = "Grace Hopper"
+	patched := false
+	s, db := newStore(t, newClerkMux(t, clerkHandlers{
+		get: func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, `{"id":"user_1"}`)
+		},
+		patch: func(w http.ResponseWriter, r *http.Request) {
 			patched = true
 			var body struct {
 				PublicMetadata map[string]string `json:"public_metadata"`
@@ -68,25 +63,22 @@ func storeNameHandler(t *testing.T, metadata, legacyName string) (http.Handler, 
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = io.WriteString(w, `{"id":"user_1"}`)
-		default:
-			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
-			http.NotFound(w, r)
-		}
-	})
-	return handler, &patched
-}
-
-func assertStoreName(t *testing.T, db *sql.DB, got string, err error, patched bool, wantName string, wantError, wantPatch bool) {
-	t.Helper()
-	if (err != nil) != wantError || got != wantName || patched != wantPatch {
-		t.Fatalf("Name() = %q, %v, patched=%t", got, err, patched)
+		},
+	}))
+	if _, err := db.Exec(`INSERT INTO participant_profiles(user_id,name) VALUES('user_1',?)`, legacyName); err != nil {
+		t.Fatal(err)
 	}
-	if wantName == "" || wantError {
-		return
+
+	got, err := s.Name(context.Background(), "user_1")
+	if err != nil || got != legacyName {
+		t.Fatalf("Name() = %q, %v; want %q", got, err, legacyName)
+	}
+	if !patched {
+		t.Fatal("legacy profile was not migrated to Clerk metadata")
 	}
 	var projected string
-	if err := db.QueryRow(`SELECT name FROM participant_profiles WHERE user_id='user_1'`).Scan(&projected); err != nil || projected != wantName {
-		t.Fatalf("projection = %q, %v; want %q", projected, err, wantName)
+	if err := db.QueryRow(`SELECT name FROM participant_profiles WHERE user_id='user_1'`).Scan(&projected); err != nil || projected != legacyName {
+		t.Fatalf("projection = %q, %v; want %q", projected, err, legacyName)
 	}
 }
 
@@ -102,12 +94,14 @@ func TestStoreNameErrors(t *testing.T) {
 		testx.NewCase("legacy profile lookup error", input{status: http.StatusOK, response: `{"id":"user_1"}`, dropTable: true}, want{}),
 		testx.NewCase("projection update error", input{status: http.StatusOK, response: `{"id":"user_1","public_metadata":{"participant_name":"Ada"}}`, dropTable: true}, want{}),
 	).Run(func(t *testing.T, in input, _ want) {
-		s, db := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			if in.status != http.StatusOK {
-				http.Error(w, "unavailable", in.status)
-				return
-			}
-			_, _ = io.WriteString(w, in.response)
+		s, db := newStore(t, newClerkMux(t, clerkHandlers{
+			get: func(w http.ResponseWriter, _ *http.Request) {
+				if in.status != http.StatusOK {
+					http.Error(w, "unavailable", in.status)
+					return
+				}
+				_, _ = io.WriteString(w, in.response)
+			},
 		}))
 		if in.dropTable {
 			if _, err := db.Exec(`DROP TABLE participant_profiles`); err != nil {
@@ -127,19 +121,18 @@ func TestStoreSave(t *testing.T) {
 		testx.NewCase("updates metadata and projection", input{status: http.StatusOK}, want{}),
 		testx.NewCase("returns Clerk failure", input{status: http.StatusBadGateway}, want{hasError: true}),
 	).Run(func(t *testing.T, in input, want want) {
-		s, db := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPatch || r.URL.Path != "/v1/users/user_1/metadata" {
-				t.Errorf("request = %s %s", r.Method, r.URL.Path)
-			}
-			if in.status != http.StatusOK {
-				http.Error(w, "failed", in.status)
-				return
-			}
-			body, err := io.ReadAll(r.Body)
-			if err != nil || !strings.Contains(string(body), `"participant_name":"Ada"`) {
-				t.Errorf("metadata update body = %s, %v", body, err)
-			}
-			_, _ = io.WriteString(w, `{"id":"user_1"}`)
+		s, db := newStore(t, newClerkMux(t, clerkHandlers{
+			patch: func(w http.ResponseWriter, r *http.Request) {
+				if in.status != http.StatusOK {
+					http.Error(w, "failed", in.status)
+					return
+				}
+				body, err := io.ReadAll(r.Body)
+				if err != nil || !strings.Contains(string(body), `"participant_name":"Ada"`) {
+					t.Errorf("metadata update body = %s, %v", body, err)
+				}
+				_, _ = io.WriteString(w, `{"id":"user_1"}`)
+			},
 		}))
 		err := s.Save(context.Background(), "user_1", "Ada")
 		if (err != nil) != want.hasError {
@@ -156,8 +149,10 @@ func TestStoreSave(t *testing.T) {
 
 func TestProfileHandler(t *testing.T) {
 	t.Run("Get returns the profile name", func(t *testing.T) {
-		s, _ := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_, _ = io.WriteString(w, `{"id":"user_1","public_metadata":{"participant_name":"Ada"}}`)
+		s, _ := newStore(t, newClerkMux(t, clerkHandlers{
+			get: func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, `{"id":"user_1","public_metadata":{"participant_name":"Ada"}}`)
+			},
 		}))
 		w := httptest.NewRecorder()
 		profile.Handler{Store: s, UserID: func(*http.Request) string { return "user_1" }}.Get(w, httptest.NewRequest(http.MethodGet, "/profile", nil))
@@ -166,11 +161,10 @@ func TestProfileHandler(t *testing.T) {
 		}
 	})
 	t.Run("Save persists and returns a trimmed name", func(t *testing.T) {
-		s, db := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPatch {
-				t.Errorf("method = %s", r.Method)
-			}
-			_, _ = io.WriteString(w, `{"id":"user_1"}`)
+		s, db := newStore(t, newClerkMux(t, clerkHandlers{
+			patch: func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, `{"id":"user_1"}`)
+			},
 		}))
 		w := httptest.NewRecorder()
 		profile.Handler{Store: s, UserID: func(*http.Request) string { return "user_1" }}.Save(w, httptest.NewRequest(http.MethodPost, "/profile", strings.NewReader(`{"name":"  Ada  "}`)))
@@ -183,8 +177,10 @@ func TestProfileHandler(t *testing.T) {
 		}
 	})
 	t.Run("Get maps Clerk errors to bad gateway", func(t *testing.T) {
-		s, _ := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		s, _ := newStore(t, newClerkMux(t, clerkHandlers{
+			get: func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			},
 		}))
 		w := httptest.NewRecorder()
 		profile.Handler{Store: s, UserID: func(*http.Request) string { return "user_1" }}.Get(w, httptest.NewRequest(http.MethodGet, "/profile", nil))
@@ -201,10 +197,7 @@ func TestProfileHandler(t *testing.T) {
 		testx.NewCase("Save name over 100 characters", input{body: `{"name":"` + strings.Repeat("a", 101) + `"}`}, want{status: http.StatusBadRequest}),
 		testx.NewCase("Save body over size limit", input{body: `{"name":"` + strings.Repeat("a", 4096) + `"}`}, want{status: http.StatusBadRequest}),
 	).Run(func(t *testing.T, in input, want want) {
-		s, _ := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			t.Error("Clerk should not be called for invalid input")
-			http.Error(w, "unexpected", http.StatusInternalServerError)
-		}))
+		s, _ := newStore(t, newClerkMux(t, clerkHandlers{}))
 		w := httptest.NewRecorder()
 		profile.Handler{Store: s, UserID: func(*http.Request) string { return "user_1" }}.Save(w, httptest.NewRequest(http.MethodPost, "/profile", strings.NewReader(in.body)))
 		if w.Code != want.status {
@@ -212,8 +205,10 @@ func TestProfileHandler(t *testing.T) {
 		}
 	})
 	t.Run("Save maps Clerk errors to bad gateway", func(t *testing.T) {
-		s, _ := newStore(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		s, _ := newStore(t, newClerkMux(t, clerkHandlers{
+			patch: func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			},
 		}))
 		w := httptest.NewRecorder()
 		profile.Handler{Store: s, UserID: func(*http.Request) string { return "user_1" }}.Save(w, httptest.NewRequest(http.MethodPost, "/profile", strings.NewReader(`{"name":"Ada"}`)))
