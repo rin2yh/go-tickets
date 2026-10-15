@@ -57,72 +57,76 @@ type generatedCase struct {
 	source   []byte
 }
 
+func newAnalyzerCase(name string, input testCase) testx.Case[testCase, string] {
+	return testx.NewCase(name, input, name)
+}
+
 func TestAnalyzer(t *testing.T) {
 	standardCases := []testx.Case[testCase, string]{
-		testx.NewCase("standard_nested", testCase{
+		newAnalyzerCase("standard_nested", testCase{
 			Rows:             []inputRow{{Name: "one", Input: 1, Want: 1, WantDouble: true}},
 			NestedConditions: []string{"tc.input > 0", "tc.wantDouble"},
 			NestedBody:       "t.Log(tc.want)",
-		}, "standard_nested"),
-		testx.NewCase("standard_independent", testCase{
+		}),
+		newAnalyzerCase("standard_independent", testCase{
 			Rows: []inputRow{{Name: "one", Input: 1}},
 			Branches: []branch{
 				{Condition: "tc.input == 1", Count: 1},
 				{Condition: "tc.input == 2", Count: 1},
 			},
-		}, "standard_independent"),
-		testx.NewCase("three_branch_boundary", testCase{
+		}),
+		newAnalyzerCase("three_branch_boundary", testCase{
 			Rows:     []inputRow{{Name: "one", Input: 1}},
 			Branches: []branch{{Condition: "tc.input == 1", Count: 3}},
-		}, "three_branch_boundary"),
-		testx.NewCase("four_branches", testCase{
+		}),
+		newAnalyzerCase("four_branches", testCase{
 			Rows:     []inputRow{{Name: "one", Input: 1}},
 			Branches: []branch{{Condition: "tc.input == 1", Count: 4}},
-		}, "four_branches"),
-		testx.NewCase("switch_cases", testCase{
+		}),
+		newAnalyzerCase("switch_cases", testCase{
 			Rows:       []inputRow{{Name: "one", Input: 1}},
 			SourceFile: "switch_cases.go.txt",
-		}, "switch_cases"),
-		testx.NewCase("natural_error_branch", testCase{
+		}),
+		newAnalyzerCase("natural_error_branch", testCase{
 			Rows:       []inputRow{{Name: "success"}, {Name: "failure", WantErr: true}},
 			SourceFile: "natural_error_branch.go.txt",
-		}, "natural_error_branch"),
-		testx.NewCase("case_name_only", testCase{
+		}),
+		newAnalyzerCase("case_name_only", testCase{
 			Rows: []inputRow{{Name: "first", Enabled: true}},
 			Branches: []branch{
 				{Condition: `tc.name == "first"`, Count: 1},
 				{Condition: "tc.enabled", Count: 3},
 			},
-		}, "case_name_only"),
-		testx.NewCase("case_dependency_before_name", testCase{
+		}),
+		newAnalyzerCase("case_dependency_before_name", testCase{
 			Rows: []inputRow{{Name: "special", Enabled: true}},
 			Branches: []branch{
 				{Condition: `tc.enabled && tc.name == "special"`, Count: 1},
 				{Condition: "tc.enabled", Count: 3},
 			},
-		}, "case_dependency_before_name"),
-		testx.NewCase("case_name_before_dependency", testCase{
+		}),
+		newAnalyzerCase("case_name_before_dependency", testCase{
 			Rows: []inputRow{{Name: "special", Enabled: true}},
 			Branches: []branch{
 				{Condition: `tc.name == "special" && tc.enabled`, Count: 1},
 				{Condition: "tc.enabled", Count: 3},
 			},
-		}, "case_name_before_dependency"),
-		testx.NewCase("nested_case_name_and_value", testCase{
+		}),
+		newAnalyzerCase("nested_case_name_and_value", testCase{
 			Rows: []inputRow{{Name: "special", Enabled: true, WantBool: true}},
 			Branches: []branch{
 				{Condition: `(tc.enabled || tc.name == "special") && tc.wantBool`, Count: 1},
 				{Condition: "tc.enabled", Count: 3},
 			},
-		}, "nested_case_name_and_value"),
-		testx.NewCase("compound_case_name_only", testCase{
+		}),
+		newAnalyzerCase("compound_case_name_only", testCase{
 			Rows: []inputRow{{Name: "special", Enabled: true}},
 			Branches: []branch{
 				{Condition: `(tc.name == "special" || tc.name == "other") && tc.name != "none"`, Count: 1},
 				{Condition: "tc.enabled", Count: 3},
 			},
-		}, "compound_case_name_only"),
-		testx.NewCase("standard_alias", testCase{
+		}),
+		newAnalyzerCase("standard_alias", testCase{
 			Rows:    []inputRow{{Name: "one", Input: 1}},
 			Prelude: "isOne := tc.input == 1",
 			Branches: []branch{
@@ -131,65 +135,65 @@ func TestAnalyzer(t *testing.T) {
 				{Condition: "tc.input == 3", Count: 1},
 				{Condition: "tc.input == 4", Count: 1},
 			},
-		}, "standard_alias"),
-		testx.NewCase("dependency_cleared_by_constant", testCase{
+		}),
+		newAnalyzerCase("dependency_cleared_by_constant", testCase{
 			Rows:       []inputRow{{Name: "one", Enabled: true}},
 			SourceFile: "dependency_cleared_by_constant.go.txt",
-		}, "dependency_cleared_by_constant"),
-		testx.NewCase("dependency_added_by_reassignment", testCase{
+		}),
+		newAnalyzerCase("dependency_added_by_reassignment", testCase{
 			Rows:       []inputRow{{Name: "one", Enabled: true}},
 			SourceFile: "dependency_added_by_reassignment.go.txt",
-		}, "dependency_added_by_reassignment"),
-		testx.NewCase("shadowed_case_variable", testCase{
+		}),
+		newAnalyzerCase("shadowed_case_variable", testCase{
 			Rows:       []inputRow{{Name: "one", Enabled: true}},
 			SourceFile: "shadowed_case_variable.go.txt",
-		}, "shadowed_case_variable"),
-		testx.NewCase("conditional_reassignment", testCase{
+		}),
+		newAnalyzerCase("conditional_reassignment", testCase{
 			Rows:       []inputRow{{Name: "one", Enabled: true}},
 			SourceFile: "conditional_reassignment.go.txt",
-		}, "conditional_reassignment"),
-		testx.NewCase("conditional_reset", testCase{
+		}),
+		newAnalyzerCase("conditional_reset", testCase{
 			Rows:       []inputRow{{Name: "one", Enabled: true}},
 			SourceFile: "conditional_reset.go.txt",
-		}, "conditional_reset"),
-		testx.NewCase("multiple_assignment", testCase{
+		}),
+		newAnalyzerCase("multiple_assignment", testCase{
 			Rows:       []inputRow{{Name: "one", Enabled: true}},
 			SourceFile: "multiple_assignment.go.txt",
-		}, "multiple_assignment"),
-		testx.NewCase("dependency_survives_assignment", testCase{
+		}),
+		newAnalyzerCase("dependency_survives_assignment", testCase{
 			Rows:       []inputRow{{Name: "one", Enabled: true}},
 			SourceFile: "dependency_survives_assignment.go.txt",
-		}, "dependency_survives_assignment"),
-		testx.NewCase("unrelated_local_conditions", testCase{
+		}),
+		newAnalyzerCase("unrelated_local_conditions", testCase{
 			Rows:       []inputRow{{Name: "one"}},
 			SourceFile: "unrelated_local_conditions.go.txt",
-		}, "unrelated_local_conditions"),
-		testx.NewCase("unrelated_loop_conditions", testCase{
+		}),
+		newAnalyzerCase("unrelated_loop_conditions", testCase{
 			Rows:       []inputRow{{Name: "one"}},
 			SourceFile: "unrelated_loop_conditions.go.txt",
-		}, "unrelated_loop_conditions"),
+		}),
 	}
 	testXCases := []testx.Case[testCase, string]{
-		testx.NewCase("testx_nested", testCase{
+		newAnalyzerCase("testx_nested", testCase{
 			Params:           "t *testing.T, input int, want bool",
 			TestXRows:        []testXRow{{Name: "one", Args: []string{"1", "true"}}},
 			NestedConditions: []string{"input > 0", "want"},
 			NestedBody:       `t.Log("positive and wanted")`,
-		}, "testx_nested"),
-		testx.NewCase("testx_independent_boundary", testCase{
+		}),
+		newAnalyzerCase("testx_independent_boundary", testCase{
 			Params:    "t *testing.T, input int, want int",
 			TestXRows: []testXRow{{Name: "one", Args: []string{"1", "2"}}},
 			Branches: []branch{
 				{Condition: "input == 1", Count: 1},
 				{Condition: "want == 2", Count: 1},
 			},
-		}, "testx_independent_boundary"),
-		testx.NewCase("testx_unnamed_testing_t", testCase{
+		}),
+		newAnalyzerCase("testx_unnamed_testing_t", testCase{
 			Params:           "_ *testing.T, input int, want bool",
 			TestXRows:        []testXRow{{Name: "one", Args: []string{"1", "true"}}},
 			NestedConditions: []string{"input > 0", "want"},
 			NestedBody:       "return",
-		}, "testx_unnamed_testing_t"),
+		}),
 	}
 
 	templates := loadCaseTemplates(t)
@@ -211,13 +215,13 @@ func generateCases(t *testing.T, templates *template.Template, templateName stri
 	t.Helper()
 	generated := make([]generatedCase, 0, len(cases))
 	for _, tc := range cases {
-		if tc.Name != tc.Want || tc.Name == "" || tc.Name == "." || tc.Name == ".." ||
+		if tc.Name == "" || tc.Name == "." || tc.Name == ".." ||
 			strings.ContainsAny(tc.Name, `/\\`) || filepath.Base(tc.Name) != tc.Name {
-			t.Fatalf("case name %q must match its golden name %q", tc.Name, tc.Want)
+			t.Fatalf("invalid analyzer case name %q", tc.Name)
 		}
 		filename := tc.Name + "_test.go"
 		generated = append(generated, generatedCase{
-			name: tc.Want, filename: filename,
+			name: tc.Name, filename: filename,
 			source: generateGoSource(t, templates, templateName, filename, tc.Input),
 		})
 	}
