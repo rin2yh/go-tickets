@@ -1,0 +1,10 @@
+first, second, third := true, false, true
+if first {
+	t.Log("first")
+}
+if second {
+	t.Log("second")
+}
+if third {
+	t.Log("third")
+}

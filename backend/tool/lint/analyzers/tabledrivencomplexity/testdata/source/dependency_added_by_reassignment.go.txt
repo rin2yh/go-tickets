@@ -1,0 +1,14 @@
+flag := false
+flag = tc.enabled
+if flag {
+	t.Log("dependent")
+}
+if tc.enabled {
+	t.Log("first")
+}
+if tc.enabled {
+	t.Log("second")
+}
+if tc.enabled {
+	t.Log("third")
+}

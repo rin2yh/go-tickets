@@ -1,0 +1,205 @@
+{
+  "cases": [
+    {
+      "id": "standard_nested",
+      "function": "TestStandardNestedCases",
+      "kind": "standard",
+      "rows": [{"name": "one", "input": 1, "want": 1, "wantDouble": true}],
+      "nestedConditions": ["tc.input > 0", "tc.wantDouble"],
+      "nestedBody": "t.Log(tc.want)"
+    },
+    {
+      "id": "standard_independent",
+      "function": "TestStandardIndependentCases",
+      "kind": "standard",
+      "rows": [{"name": "one", "input": 1}],
+      "branches": [
+        {"condition": "tc.input == 1", "count": 1},
+        {"condition": "tc.input == 2", "count": 1}
+      ]
+    },
+    {
+      "id": "three_branch_boundary",
+      "function": "TestStandardThreeBranchBoundary",
+      "kind": "standard",
+      "rows": [{"name": "one", "input": 1}],
+      "branches": [{"condition": "tc.input == 1", "count": 3}]
+    },
+    {
+      "id": "four_branches",
+      "function": "TestStandardFourBranches",
+      "kind": "standard",
+      "rows": [{"name": "one", "input": 1}],
+      "branches": [{"condition": "tc.input == 1", "count": 4}]
+    },
+    {
+      "id": "switch_cases",
+      "function": "TestSwitchCases",
+      "kind": "standard",
+      "rows": [{"name": "one", "input": 1}],
+      "source": "switch_cases.go.txt"
+    },
+    {
+      "id": "natural_error_branch",
+      "function": "TestStandardNaturalErrorBranch",
+      "kind": "standard",
+      "rows": [
+        {"name": "success"},
+        {"name": "failure", "wantErr": true}
+      ],
+      "source": "natural_error_branch.go.txt"
+    },
+    {
+      "id": "case_name_only",
+      "function": "TestStandardCaseNameOnly",
+      "kind": "standard",
+      "rows": [{"name": "first", "enabled": true}],
+      "branches": [
+        {"condition": "tc.name == \"first\"", "count": 1},
+        {"condition": "tc.enabled", "count": 3}
+      ]
+    },
+    {
+      "id": "case_dependency_before_name",
+      "function": "TestCaseDependencyBeforeCaseName",
+      "kind": "standard",
+      "rows": [{"name": "special", "enabled": true}],
+      "branches": [
+        {"condition": "tc.enabled && tc.name == \"special\"", "count": 1},
+        {"condition": "tc.enabled", "count": 3}
+      ]
+    },
+    {
+      "id": "case_name_before_dependency",
+      "function": "TestCaseNameBeforeCaseDependency",
+      "kind": "standard",
+      "rows": [{"name": "special", "enabled": true}],
+      "branches": [
+        {"condition": "tc.name == \"special\" && tc.enabled", "count": 1},
+        {"condition": "tc.enabled", "count": 3}
+      ]
+    },
+    {
+      "id": "nested_case_name_and_value",
+      "function": "TestNestedCaseNameAndValueDependency",
+      "kind": "standard",
+      "rows": [{"name": "special", "enabled": true, "wantBool": true}],
+      "branches": [{"condition": "(tc.enabled || tc.name == \"special\") && tc.wantBool", "count": 1}, {"condition": "tc.enabled", "count": 3}]
+    },
+    {
+      "id": "compound_case_name_only",
+      "function": "TestCompoundCaseNameOnlyIsNotDependent",
+      "kind": "standard",
+      "rows": [{"name": "special", "enabled": true}],
+      "branches": [
+        {"condition": "(tc.name == \"special\" || tc.name == \"other\") && tc.name != \"none\"", "count": 1},
+        {"condition": "tc.enabled", "count": 3}
+      ]
+    },
+    {
+      "id": "standard_alias",
+      "function": "TestStandardAlias",
+      "kind": "standard",
+      "rows": [{"name": "one", "input": 1}],
+      "prelude": "isOne := tc.input == 1",
+      "branches": [
+        {"condition": "isOne", "count": 1},
+        {"condition": "tc.input == 2", "count": 1},
+        {"condition": "tc.input == 3", "count": 1},
+        {"condition": "tc.input == 4", "count": 1}
+      ]
+    },
+    {
+      "id": "dependency_cleared_by_constant",
+      "function": "TestCaseDependencyClearedByConstant",
+      "kind": "standard",
+      "rows": [{"name": "one", "enabled": true}],
+      "source": "dependency_cleared_by_constant.go.txt"
+    },
+    {
+      "id": "dependency_added_by_reassignment",
+      "function": "TestCaseDependencyAddedByReassignment",
+      "kind": "standard",
+      "rows": [{"name": "one", "enabled": true}],
+      "source": "dependency_added_by_reassignment.go.txt"
+    },
+    {
+      "id": "shadowed_case_variable",
+      "function": "TestShadowedCaseVariableDoesNotTaintOuterVariable",
+      "kind": "standard",
+      "rows": [{"name": "one", "enabled": true}],
+      "source": "shadowed_case_variable.go.txt"
+    },
+    {
+      "id": "conditional_reassignment",
+      "function": "TestConditionalReassignmentTracksBranchLocalValue",
+      "kind": "standard",
+      "rows": [{"name": "one", "enabled": true}],
+      "source": "conditional_reassignment.go.txt"
+    },
+    {
+      "id": "conditional_reset",
+      "function": "TestConditionalResetDoesNotCarryStaleDependency",
+      "kind": "standard",
+      "rows": [{"name": "one", "enabled": true}],
+      "source": "conditional_reset.go.txt"
+    },
+    {
+      "id": "multiple_assignment",
+      "function": "TestMultipleAssignmentUpdatesCaseDependencies",
+      "kind": "standard",
+      "rows": [{"name": "one", "enabled": true}],
+      "source": "multiple_assignment.go.txt"
+    },
+    {
+      "id": "dependency_survives_assignment",
+      "function": "TestCaseDependencySurvivesUnchangedAssignments",
+      "kind": "standard",
+      "rows": [{"name": "one", "enabled": true}],
+      "source": "dependency_survives_assignment.go.txt"
+    },
+    {
+      "id": "unrelated_local_conditions",
+      "function": "TestUnrelatedLocalConditions",
+      "kind": "standard",
+      "rows": [{"name": "one"}],
+      "source": "unrelated_local_conditions.go.txt"
+    },
+    {
+      "id": "testx_nested",
+      "function": "TestTestxNestedCases",
+      "kind": "testx",
+      "params": "t *testing.T, input int, want bool",
+      "testxRows": [{"name": "one", "args": ["1", "true"]}],
+      "nestedConditions": ["input > 0", "want"],
+      "nestedBody": "t.Log(\"positive and wanted\")"
+    },
+    {
+      "id": "testx_independent_boundary",
+      "function": "TestTestxIndependentBoundary",
+      "kind": "testx",
+      "params": "t *testing.T, input int, want int",
+      "testxRows": [{"name": "one", "args": ["1", "2"]}],
+      "branches": [
+        {"condition": "input == 1", "count": 1},
+        {"condition": "want == 2", "count": 1}
+      ]
+    },
+    {
+      "id": "testx_unnamed_testing_t",
+      "function": "TestTestxUnnamedTestingT",
+      "kind": "testx",
+      "params": "_ *testing.T, input int, want bool",
+      "testxRows": [{"name": "one", "args": ["1", "true"]}],
+      "nestedConditions": ["input > 0", "want"],
+      "nestedBody": "return"
+    },
+    {
+      "id": "unrelated_loop_conditions",
+      "function": "TestUnrelatedLoopConditions",
+      "kind": "standard",
+      "rows": [{"name": "one"}],
+      "source": "unrelated_loop_conditions.go.txt"
+    }
+  ]
+}

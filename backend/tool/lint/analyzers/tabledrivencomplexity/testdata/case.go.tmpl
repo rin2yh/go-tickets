@@ -1,0 +1,66 @@
+{{define "contents" -}}
+{{- if .Source -}}
+{{.Source}}
+{{- else -}}
+{{.Prelude}}
+{{- range .NestedConditions }}
+if {{.}} {
+{{- end }}
+{{- if .NestedConditions }}
+{{if .NestedBody}}{{.NestedBody}}{{else}}t.Log("nested"){{end}}
+{{- range repeat (len .NestedConditions) }}
+}
+{{- end }}
+{{- end }}
+{{- range $branch := .Branches }}
+{{- range repeat $branch.Count }}
+if {{$branch.Condition}} {
+	t.Log("branch")
+}
+{{- end }}
+{{- end }}
+{{- end -}}
+{{- end -}}
+{{if eq .Kind "testx" -}}
+package complexity
+
+import (
+	"testing"
+
+	"github.com/rin2yh/go-tickets/x/testx"
+)
+
+func {{.Function}}(t *testing.T) {
+	testx.NewTable(t,
+{{- range .TestXRows }}
+		testx.NewCase({{printf "%q" .Name}}{{range .Args}}, {{.}}{{end}}),
+{{- end }}
+	).Run(func({{.Params}}) {
+{{template "contents" .}}
+	})
+}
+{{else -}}
+package complexity
+
+import "testing"
+
+func {{.Function}}(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		input      int
+		want       int
+		wantBool   bool
+		wantDouble bool
+		enabled    bool
+		wantErr    bool
+	}{
+{{- range .Rows }}
+		{name: {{printf "%q" .Name}}, input: {{.Input}}, want: {{.Want}}, wantBool: {{.WantBool}}, wantDouble: {{.WantDouble}}, enabled: {{.Enabled}}, wantErr: {{.WantErr}}},
+{{- end }}
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+{{template "contents" .}}
+		})
+	}
+}
+{{end -}}

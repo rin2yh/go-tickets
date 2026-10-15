@@ -1,0 +1,17 @@
+flag := tc.enabled
+overwrite := false
+if overwrite {
+	flag = false
+}
+if flag {
+	t.Log("unknown after branch")
+}
+if tc.enabled {
+	t.Log("first")
+}
+if tc.enabled {
+	t.Log("second")
+}
+if tc.enabled {
+	t.Log("third")
+}

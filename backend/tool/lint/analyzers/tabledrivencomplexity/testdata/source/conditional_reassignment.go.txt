@@ -1,0 +1,7 @@
+flag := false
+if tc.enabled {
+	flag = tc.enabled
+	if flag {
+		t.Log("dependent inside branch")
+	}
+}
