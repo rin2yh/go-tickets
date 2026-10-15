@@ -19,28 +19,218 @@ import (
 
 var updateGolden = flag.Bool("update", false, "update table-driven-complexity golden files")
 
-func TestAnalyzer(t *testing.T) {
-	templates := loadCaseTemplates(t)
+type testCase struct {
+	Rows             []inputRow
+	Branches         []branch
+	NestedConditions []string
+	NestedBody       string
+	Prelude          string
+	SourceFile       string
+	Source           string
+	Params           string
+	TestXRows        []testXRow
+}
 
-	testx.NewTable(t, standardCases()...).Run(func(t *testing.T, tc testCase, _ struct{}) {
-		runAnalyzerCase(t, templates, "standard", tc)
+type inputRow struct {
+	Name       string
+	Input      int
+	Want       int
+	WantBool   bool
+	WantDouble bool
+	Enabled    bool
+	WantErr    bool
+}
+
+type branch struct {
+	Condition string
+	Count     int
+}
+
+type testXRow struct {
+	Name string
+	Args []string
+}
+
+type generatedCase struct {
+	name     string
+	filename string
+	source   []byte
+}
+
+func TestAnalyzer(t *testing.T) {
+	standardCases := []testx.Case[testCase, string]{
+		testx.NewCase("standard_nested", testCase{
+			Rows:             []inputRow{{Name: "one", Input: 1, Want: 1, WantDouble: true}},
+			NestedConditions: []string{"tc.input > 0", "tc.wantDouble"},
+			NestedBody:       "t.Log(tc.want)",
+		}, "standard_nested"),
+		testx.NewCase("standard_independent", testCase{
+			Rows: []inputRow{{Name: "one", Input: 1}},
+			Branches: []branch{
+				{Condition: "tc.input == 1", Count: 1},
+				{Condition: "tc.input == 2", Count: 1},
+			},
+		}, "standard_independent"),
+		testx.NewCase("three_branch_boundary", testCase{
+			Rows:     []inputRow{{Name: "one", Input: 1}},
+			Branches: []branch{{Condition: "tc.input == 1", Count: 3}},
+		}, "three_branch_boundary"),
+		testx.NewCase("four_branches", testCase{
+			Rows:     []inputRow{{Name: "one", Input: 1}},
+			Branches: []branch{{Condition: "tc.input == 1", Count: 4}},
+		}, "four_branches"),
+		testx.NewCase("switch_cases", testCase{
+			Rows:       []inputRow{{Name: "one", Input: 1}},
+			SourceFile: "switch_cases.go.txt",
+		}, "switch_cases"),
+		testx.NewCase("natural_error_branch", testCase{
+			Rows:       []inputRow{{Name: "success"}, {Name: "failure", WantErr: true}},
+			SourceFile: "natural_error_branch.go.txt",
+		}, "natural_error_branch"),
+		testx.NewCase("case_name_only", testCase{
+			Rows: []inputRow{{Name: "first", Enabled: true}},
+			Branches: []branch{
+				{Condition: `tc.name == "first"`, Count: 1},
+				{Condition: "tc.enabled", Count: 3},
+			},
+		}, "case_name_only"),
+		testx.NewCase("case_dependency_before_name", testCase{
+			Rows: []inputRow{{Name: "special", Enabled: true}},
+			Branches: []branch{
+				{Condition: `tc.enabled && tc.name == "special"`, Count: 1},
+				{Condition: "tc.enabled", Count: 3},
+			},
+		}, "case_dependency_before_name"),
+		testx.NewCase("case_name_before_dependency", testCase{
+			Rows: []inputRow{{Name: "special", Enabled: true}},
+			Branches: []branch{
+				{Condition: `tc.name == "special" && tc.enabled`, Count: 1},
+				{Condition: "tc.enabled", Count: 3},
+			},
+		}, "case_name_before_dependency"),
+		testx.NewCase("nested_case_name_and_value", testCase{
+			Rows: []inputRow{{Name: "special", Enabled: true, WantBool: true}},
+			Branches: []branch{
+				{Condition: `(tc.enabled || tc.name == "special") && tc.wantBool`, Count: 1},
+				{Condition: "tc.enabled", Count: 3},
+			},
+		}, "nested_case_name_and_value"),
+		testx.NewCase("compound_case_name_only", testCase{
+			Rows: []inputRow{{Name: "special", Enabled: true}},
+			Branches: []branch{
+				{Condition: `(tc.name == "special" || tc.name == "other") && tc.name != "none"`, Count: 1},
+				{Condition: "tc.enabled", Count: 3},
+			},
+		}, "compound_case_name_only"),
+		testx.NewCase("standard_alias", testCase{
+			Rows:    []inputRow{{Name: "one", Input: 1}},
+			Prelude: "isOne := tc.input == 1",
+			Branches: []branch{
+				{Condition: "isOne", Count: 1},
+				{Condition: "tc.input == 2", Count: 1},
+				{Condition: "tc.input == 3", Count: 1},
+				{Condition: "tc.input == 4", Count: 1},
+			},
+		}, "standard_alias"),
+		testx.NewCase("dependency_cleared_by_constant", testCase{
+			Rows:       []inputRow{{Name: "one", Enabled: true}},
+			SourceFile: "dependency_cleared_by_constant.go.txt",
+		}, "dependency_cleared_by_constant"),
+		testx.NewCase("dependency_added_by_reassignment", testCase{
+			Rows:       []inputRow{{Name: "one", Enabled: true}},
+			SourceFile: "dependency_added_by_reassignment.go.txt",
+		}, "dependency_added_by_reassignment"),
+		testx.NewCase("shadowed_case_variable", testCase{
+			Rows:       []inputRow{{Name: "one", Enabled: true}},
+			SourceFile: "shadowed_case_variable.go.txt",
+		}, "shadowed_case_variable"),
+		testx.NewCase("conditional_reassignment", testCase{
+			Rows:       []inputRow{{Name: "one", Enabled: true}},
+			SourceFile: "conditional_reassignment.go.txt",
+		}, "conditional_reassignment"),
+		testx.NewCase("conditional_reset", testCase{
+			Rows:       []inputRow{{Name: "one", Enabled: true}},
+			SourceFile: "conditional_reset.go.txt",
+		}, "conditional_reset"),
+		testx.NewCase("multiple_assignment", testCase{
+			Rows:       []inputRow{{Name: "one", Enabled: true}},
+			SourceFile: "multiple_assignment.go.txt",
+		}, "multiple_assignment"),
+		testx.NewCase("dependency_survives_assignment", testCase{
+			Rows:       []inputRow{{Name: "one", Enabled: true}},
+			SourceFile: "dependency_survives_assignment.go.txt",
+		}, "dependency_survives_assignment"),
+		testx.NewCase("unrelated_local_conditions", testCase{
+			Rows:       []inputRow{{Name: "one"}},
+			SourceFile: "unrelated_local_conditions.go.txt",
+		}, "unrelated_local_conditions"),
+		testx.NewCase("unrelated_loop_conditions", testCase{
+			Rows:       []inputRow{{Name: "one"}},
+			SourceFile: "unrelated_loop_conditions.go.txt",
+		}, "unrelated_loop_conditions"),
+	}
+	testXCases := []testx.Case[testCase, string]{
+		testx.NewCase("testx_nested", testCase{
+			Params:           "t *testing.T, input int, want bool",
+			TestXRows:        []testXRow{{Name: "one", Args: []string{"1", "true"}}},
+			NestedConditions: []string{"input > 0", "want"},
+			NestedBody:       `t.Log("positive and wanted")`,
+		}, "testx_nested"),
+		testx.NewCase("testx_independent_boundary", testCase{
+			Params:    "t *testing.T, input int, want int",
+			TestXRows: []testXRow{{Name: "one", Args: []string{"1", "2"}}},
+			Branches: []branch{
+				{Condition: "input == 1", Count: 1},
+				{Condition: "want == 2", Count: 1},
+			},
+		}, "testx_independent_boundary"),
+		testx.NewCase("testx_unnamed_testing_t", testCase{
+			Params:           "_ *testing.T, input int, want bool",
+			TestXRows:        []testXRow{{Name: "one", Args: []string{"1", "true"}}},
+			NestedConditions: []string{"input > 0", "want"},
+			NestedBody:       "return",
+		}, "testx_unnamed_testing_t"),
+	}
+
+	templates := loadCaseTemplates(t)
+	cases := append(
+		generateCases(t, templates, "standard", standardCases),
+		generateCases(t, templates, "testx", testXCases)...,
+	)
+	packagesByCase := loadGeneratedPackages(t, cases)
+
+	testx.NewTable(t, standardCases...).Run(func(t *testing.T, _ testCase, goldenName string) {
+		runAnalyzerCase(t, goldenName, packagesByCase[goldenName])
 	})
-	testx.NewTable(t, testXCases()...).Run(func(t *testing.T, tc testCase, _ struct{}) {
-		runAnalyzerCase(t, templates, "testx", tc)
+	testx.NewTable(t, testXCases...).Run(func(t *testing.T, _ testCase, goldenName string) {
+		runAnalyzerCase(t, goldenName, packagesByCase[goldenName])
 	})
 }
 
-func runAnalyzerCase(t *testing.T, templates *template.Template, templateName string, tc testCase) {
+func generateCases(t *testing.T, templates *template.Template, templateName string, cases []testx.Case[testCase, string]) []generatedCase {
 	t.Helper()
-	caseName := strings.TrimPrefix(t.Name(), "TestAnalyzer/")
-	if caseName == t.Name() || strings.ContainsAny(caseName, `/\\`) {
-		t.Fatalf("invalid analyzer case name %q", caseName)
+	generated := make([]generatedCase, 0, len(cases))
+	for _, tc := range cases {
+		if tc.Name != tc.Want || tc.Name == "" || tc.Name == "." || tc.Name == ".." ||
+			strings.ContainsAny(tc.Name, `/\\`) || filepath.Base(tc.Name) != tc.Name {
+			t.Fatalf("case name %q must match its golden name %q", tc.Name, tc.Want)
+		}
+		filename := tc.Name + "_test.go"
+		generated = append(generated, generatedCase{
+			name: tc.Want, filename: filename,
+			source: generateGoSource(t, templates, templateName, filename, tc.Input),
+		})
 	}
-	filename := caseName + "_test.go"
-	source := generateGoSource(t, templates, templateName, filename, tc)
-	pkg := loadGeneratedPackage(t, filename, source)
+	return generated
+}
+
+func runAnalyzerCase(t *testing.T, caseName string, pkg *packages.Package) {
+	t.Helper()
+	if pkg == nil {
+		t.Fatalf("no generated package for case %q", caseName)
+	}
 	diagnostics := runAnalyzer(t, pkg)
-	compareGolden(t, caseName, normalizeDiagnostics(t, pkg, filename, diagnostics))
+	compareGolden(t, caseName, normalizeDiagnostics(t, pkg, caseName+"_test.go", diagnostics))
 }
 
 func loadCaseTemplates(t *testing.T) *template.Template {
@@ -78,7 +268,7 @@ func generateGoSource(t *testing.T, templates *template.Template, templateName, 
 	return formatted
 }
 
-func loadGeneratedPackage(t *testing.T, filename string, source []byte) *packages.Package {
+func loadGeneratedPackages(t *testing.T, cases []generatedCase) map[string]*packages.Package {
 	t.Helper()
 	inputDir, err := os.MkdirTemp(".", "analyzer-input-")
 	if err != nil {
@@ -94,44 +284,60 @@ func loadGeneratedPackage(t *testing.T, filename string, source []byte) *package
 		}
 	})
 
-	placeholderPath := filepath.Join(inputDir, filename)
-	if err := os.WriteFile(placeholderPath, []byte("package complexity\n"), 0o644); err != nil {
-		t.Fatalf("create overlay placeholder: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(inputDir, "support.go"), []byte("package complexity\n\nfunc run() error { return nil }\n"), 0o644); err != nil {
-		t.Fatal(err)
+	overlay := make(map[string][]byte, len(cases))
+	caseFiles := make(map[string]string, len(cases))
+	for _, generated := range cases {
+		if _, duplicate := caseFiles[generated.filename]; duplicate {
+			t.Fatalf("duplicate generated test filename %q", generated.filename)
+		}
+		caseDir := filepath.Join(inputDir, generated.name)
+		if err := os.MkdirAll(caseDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		placeholderPath := filepath.Join(caseDir, generated.filename)
+		if err := os.WriteFile(placeholderPath, []byte("package complexity\n"), 0o644); err != nil {
+			t.Fatalf("create overlay placeholder: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(caseDir, "support.go"), []byte("package complexity\n\nfunc run() error { return nil }\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		overlay[placeholderPath] = generated.source
+		caseFiles[generated.filename] = generated.name
 	}
 
 	mode := packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedSyntax |
 		packages.NeedTypes | packages.NeedTypesInfo | packages.NeedTypesSizes
 	loaded, err := packages.Load(&packages.Config{
-		Mode: mode, Dir: inputDir, Tests: true,
-		Overlay: map[string][]byte{placeholderPath: source},
-	}, ".")
+		Mode: mode, Dir: inputDir, Tests: true, Overlay: overlay,
+	}, "./...")
 	if err != nil {
-		t.Fatalf("load generated test package: %v", err)
+		t.Fatalf("load generated test packages: %v", err)
 	}
 
-	var pkg *packages.Package
-	loadedCaseFiles := 0
+	packagesByCase := make(map[string]*packages.Package, len(cases))
 	for _, candidate := range loaded {
-		count := 0
 		for _, file := range candidate.Syntax {
-			if filepath.Base(candidate.Fset.Position(file.Pos()).Filename) == filename {
-				count++
+			caseName, ok := caseFiles[filepath.Base(candidate.Fset.Position(file.Pos()).Filename)]
+			if !ok {
+				continue
+			}
+			current := packagesByCase[caseName]
+			if current == nil || len(candidate.Syntax) > len(current.Syntax) {
+				packagesByCase[caseName] = candidate
 			}
 		}
-		if count > loadedCaseFiles {
-			pkg, loadedCaseFiles = candidate, count
+	}
+	for _, generated := range cases {
+		pkg := packagesByCase[generated.name]
+		if pkg == nil {
+			t.Errorf("generated test package %q was not loaded", generated.name)
+			continue
+		}
+		if len(pkg.Errors) != 0 {
+			t.Errorf("type-check generated test package %q: %v", generated.name, pkg.Errors)
 		}
 	}
-	if pkg == nil || loadedCaseFiles != 1 {
-		t.Fatalf("generated test was not loaded: %d matching files", loadedCaseFiles)
-	}
-	if len(pkg.Errors) != 0 {
-		t.Fatalf("type-check generated test: %v", pkg.Errors)
-	}
-	return pkg
+	return packagesByCase
 }
 
 func runAnalyzer(t *testing.T, pkg *packages.Package) []analysis.Diagnostic {
