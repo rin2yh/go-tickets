@@ -137,13 +137,120 @@ func TestStandardNaturalErrorBranch(t *testing.T) {
 
 func TestStandardCaseNameOnly(t *testing.T) {
 	for _, tc := range []struct {
-		name string
+		name    string
+		enabled bool
 	}{
-		{name: "first"},
+		{name: "first", enabled: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.name == "first" {
 				t.Log("named case")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+			if tc.enabled {
+				t.Log("third")
+			}
+		})
+	}
+}
+
+func TestCaseDependencyBeforeCaseName(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "special", enabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) { // want "分岐数: 4、ネスト深度: 1"
+			if tc.enabled && tc.name == "special" {
+				t.Log("dependent")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+			if tc.enabled {
+				t.Log("third")
+			}
+		})
+	}
+}
+
+func TestCaseNameBeforeCaseDependency(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "special", enabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) { // want "分岐数: 4、ネスト深度: 1"
+			if tc.name == "special" && tc.enabled {
+				t.Log("dependent")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+			if tc.enabled {
+				t.Log("third")
+			}
+		})
+	}
+}
+
+func TestNestedCaseNameAndValueDependency(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+		want    bool
+	}{
+		{name: "special", enabled: true, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) { // want "分岐数: 4、ネスト深度: 1"
+			if (tc.enabled || tc.name == "special") && tc.want {
+				t.Log("dependent")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+			if tc.enabled {
+				t.Log("third")
+			}
+		})
+	}
+}
+
+func TestCompoundCaseNameOnlyIsNotDependent(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "special", enabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if (tc.name == "special" || tc.name == "other") && tc.name != "none" {
+				t.Log("named case")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+			if tc.enabled {
+				t.Log("third")
 			}
 		})
 	}

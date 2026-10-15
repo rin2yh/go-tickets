@@ -449,7 +449,9 @@ func dependsOnCases(pass *analysis.Pass, expr ast.Node, cases caseVariables) boo
 			obj, firstField, found := selectorRoot(pass, selector)
 			if found {
 				if _, tracked := cases[obj]; tracked {
-					dependent = firstField != caseNameField && firstField != caseNameFieldExported
+					if firstField != caseNameField && firstField != caseNameFieldExported {
+						dependent = true
+					}
 					return false
 				}
 			}
