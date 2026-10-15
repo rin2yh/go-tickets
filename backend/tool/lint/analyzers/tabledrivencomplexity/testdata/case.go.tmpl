@@ -11,40 +11,23 @@ if {{.}} {
 {{- range repeat (len .NestedConditions) }}
 }
 {{- end }}
-{{- end }}
+{{- end -}}
 {{- range $branch := .Branches }}
 {{- range repeat $branch.Count }}
 if {{$branch.Condition}} {
 	t.Log("branch")
 }
 {{- end }}
-{{- end }}
 {{- end -}}
 {{- end -}}
-{{if eq .Kind "testx" -}}
-package complexity
+{{end}}
 
-import (
-	"testing"
-
-	"github.com/rin2yh/go-tickets/x/testx"
-)
-
-func {{.Function}}(t *testing.T) {
-	testx.NewTable(t,
-{{- range .TestXRows }}
-		testx.NewCase({{printf "%q" .Name}}{{range .Args}}, {{.}}{{end}}),
-{{- end }}
-	).Run(func({{.Params}}) {
-{{template "contents" .}}
-	})
-}
-{{else -}}
+{{define "standard" -}}
 package complexity
 
 import "testing"
 
-func {{.Function}}(t *testing.T) {
+func TestGeneratedCase(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		input      int
@@ -63,4 +46,24 @@ func {{.Function}}(t *testing.T) {
 		})
 	}
 }
-{{end -}}
+{{end}}
+
+{{define "testx" -}}
+package complexity
+
+import (
+	"testing"
+
+	"github.com/rin2yh/go-tickets/x/testx"
+)
+
+func TestGeneratedCase(t *testing.T) {
+	testx.NewTable(t,
+{{- range .TestXRows }}
+		testx.NewCase({{printf "%q" .Name}}{{range .Args}}, {{.}}{{end}}),
+{{- end }}
+	).Run(func({{.Params}}) {
+{{template "contents" .}}
+	})
+}
+{{end}}
