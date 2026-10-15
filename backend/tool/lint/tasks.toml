@@ -1,0 +1,11 @@
+[test-linter]
+description = "Run table-driven Go test analyzer tests"
+hide = true
+dir = "backend"
+run = "go test ./tool/lint/..."
+
+[lint-table-driven]
+description = "Check table-driven Go test analyzers"
+hide = true
+dir = "backend"
+run = "go run ./tool/lint ./..."

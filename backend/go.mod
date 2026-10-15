@@ -7,6 +7,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.4
 	github.com/stephenafamo/bob v0.50.0
 	github.com/syumai/workers-go v0.36.0
+	golang.org/x/tools v0.50.0
 	modernc.org/sqlite v1.60.1
 )
 
@@ -53,7 +54,6 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
-	golang.org/x/tools v0.50.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gonum.org/v1/plot v0.12.0 // indirect
 	modernc.org/libc v1.77.1 // indirect

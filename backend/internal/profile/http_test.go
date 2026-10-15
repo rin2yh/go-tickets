@@ -2,6 +2,7 @@ package profile_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -27,37 +28,7 @@ func TestStoreName(t *testing.T) {
 		testx.NewCase("missing name is empty", input{}, want{}),
 		testx.NewCase("non-object metadata is rejected", input{metadata: `["unexpected"]`}, want{hasError: true}),
 	).Run(func(t *testing.T, in input, want want) {
-		var patched bool
-		serverHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get("Authorization") != "Bearer sk_test_profile" {
-				t.Errorf("authorization header = %q", r.Header.Get("Authorization"))
-			}
-			switch r.Method {
-			case http.MethodGet:
-				w.Header().Set("Content-Type", "application/json")
-				if in.metadata == "" {
-					_, _ = io.WriteString(w, `{"id":"user_1"}`)
-				} else {
-					_, _ = io.WriteString(w, `{"id":"user_1","public_metadata":`+in.metadata+`}`)
-				}
-			case http.MethodPatch:
-				patched = true
-				var body struct {
-					PublicMetadata map[string]string `json:"public_metadata"`
-				}
-				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-					t.Errorf("decode metadata update: %v", err)
-				}
-				if body.PublicMetadata["participant_name"] != in.legacyName {
-					t.Errorf("updated metadata = %#v", body.PublicMetadata)
-				}
-				w.Header().Set("Content-Type", "application/json")
-				_, _ = io.WriteString(w, `{"id":"user_1"}`)
-			default:
-				t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
-				http.NotFound(w, r)
-			}
-		})
+		serverHandler, patched := storeNameHandler(t, in.metadata, in.legacyName)
 		s, db := newStore(t, serverHandler)
 		if in.legacyName != "" {
 			if _, err := db.Exec(`INSERT INTO participant_profiles(user_id,name) VALUES('user_1',?)`, in.legacyName); err != nil {
@@ -65,16 +36,58 @@ func TestStoreName(t *testing.T) {
 			}
 		}
 		got, err := s.Name(context.Background(), "user_1")
-		if (err != nil) != want.hasError || got != want.name || patched != want.patch {
-			t.Fatalf("Name() = %q, %v, patched=%t", got, err, patched)
+		assertStoreName(t, db, got, err, *patched, want.name, want.hasError, want.patch)
+	})
+}
+
+func storeNameHandler(t *testing.T, metadata, legacyName string) (http.Handler, *bool) {
+	t.Helper()
+	var patched bool
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer sk_test_profile" {
+			t.Errorf("authorization header = %q", r.Header.Get("Authorization"))
 		}
-		if want.name != "" && !want.hasError {
-			var projected string
-			if err := db.QueryRow(`SELECT name FROM participant_profiles WHERE user_id='user_1'`).Scan(&projected); err != nil || projected != want.name {
-				t.Fatalf("projection = %q, %v; want %q", projected, err, want.name)
+		switch r.Method {
+		case http.MethodGet:
+			w.Header().Set("Content-Type", "application/json")
+			if metadata == "" {
+				_, _ = io.WriteString(w, `{"id":"user_1"}`)
+			} else {
+				_, _ = io.WriteString(w, `{"id":"user_1","public_metadata":`+metadata+`}`)
 			}
+		case http.MethodPatch:
+			patched = true
+			var body struct {
+				PublicMetadata map[string]string `json:"public_metadata"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Errorf("decode metadata update: %v", err)
+			}
+			if body.PublicMetadata["participant_name"] != legacyName {
+				t.Errorf("updated metadata = %#v", body.PublicMetadata)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"id":"user_1"}`)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
 		}
 	})
+	return handler, &patched
+}
+
+func assertStoreName(t *testing.T, db *sql.DB, got string, err error, patched bool, wantName string, wantError, wantPatch bool) {
+	t.Helper()
+	if (err != nil) != wantError || got != wantName || patched != wantPatch {
+		t.Fatalf("Name() = %q, %v, patched=%t", got, err, patched)
+	}
+	if wantName == "" || wantError {
+		return
+	}
+	var projected string
+	if err := db.QueryRow(`SELECT name FROM participant_profiles WHERE user_id='user_1'`).Scan(&projected); err != nil || projected != wantName {
+		t.Fatalf("projection = %q, %v; want %q", projected, err, wantName)
+	}
 }
 
 func TestStoreNameErrors(t *testing.T) {
