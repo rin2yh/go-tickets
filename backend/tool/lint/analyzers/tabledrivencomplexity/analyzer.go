@@ -162,8 +162,7 @@ func reportIfComplex(pass *analysis.Pass, location ast.Node, body *ast.FuncLit, 
 	if reported[location.Pos()] {
 		return
 	}
-	cases := derivedCaseVariables(pass, body, initial)
-	result := controlFlowComplexity(pass, body.Body, cases)
+	result := controlFlowComplexity(pass, body.Body, initial)
 	tooManyDecisions := result.decisions >= decisionLimit
 	nestedDecisions := result.decisions >= nestedDecisionLimit && result.depth >= nestedDecisionLimit
 	if !tooManyDecisions && !nestedDecisions {
@@ -181,50 +180,6 @@ func reportIfComplex(pass *analysis.Pass, location ast.Node, body *ast.FuncLit, 
 	})
 }
 
-func derivedCaseVariables(pass *analysis.Pass, body *ast.FuncLit, initial caseVariables) caseVariables {
-	cases := make(caseVariables, len(initial))
-	for obj := range initial {
-		cases[obj] = struct{}{}
-	}
-	ast.Inspect(body.Body, func(node ast.Node) bool {
-		var left []ast.Expr
-		var right []ast.Expr
-		switch node := node.(type) {
-		case *ast.AssignStmt:
-			left, right = node.Lhs, node.Rhs
-		case *ast.ValueSpec:
-			for _, name := range node.Names {
-				left = append(left, name)
-			}
-			right = node.Values
-		default:
-			return true
-		}
-
-		if len(left) != len(right) {
-			return true
-		}
-		for i, expr := range right {
-			if !isSimpleCaseExpression(expr) || !dependsOnCases(pass, expr, cases) {
-				continue
-			}
-			id, ok := left[i].(*ast.Ident)
-			if !ok || id.Name == "_" {
-				continue
-			}
-			obj := pass.TypesInfo.Defs[id]
-			if obj == nil {
-				obj = pass.TypesInfo.Uses[id]
-			}
-			if obj != nil {
-				cases[obj] = struct{}{}
-			}
-		}
-		return true
-	})
-	return cases
-}
-
 func isSimpleCaseExpression(expr ast.Expr) bool {
 	simple := true
 	ast.Inspect(expr, func(node ast.Node) bool {
@@ -238,7 +193,10 @@ func isSimpleCaseExpression(expr ast.Expr) bool {
 	return simple
 }
 
-func controlFlowComplexity(pass *analysis.Pass, body *ast.BlockStmt, cases caseVariables) complexity {
+func controlFlowComplexity(pass *analysis.Pass, body *ast.BlockStmt, initial caseVariables) complexity {
+	dependencies := make(map[ast.Node]bool)
+	analyzeStatements(pass, body.List, cloneCaseVariables(initial), dependencies)
+
 	var result complexity
 	var depthStack []int
 	ast.Inspect(body, func(node ast.Node) bool {
@@ -251,7 +209,7 @@ func controlFlowComplexity(pass *analysis.Pass, body *ast.BlockStmt, cases caseV
 		if len(depthStack) != 0 {
 			depth = depthStack[len(depthStack)-1]
 		}
-		if weight, dependent, ok := decisionComplexity(pass, node, cases); ok && dependent {
+		if weight, ok := decisionWeight(node); ok && dependencies[node] {
 			result.decisions += weight
 			depth++
 			if depth > result.depth {
@@ -264,32 +222,203 @@ func controlFlowComplexity(pass *analysis.Pass, body *ast.BlockStmt, cases caseV
 	return result
 }
 
-func decisionComplexity(pass *analysis.Pass, node ast.Node, cases caseVariables) (int, bool, bool) {
+func decisionWeight(node ast.Node) (int, bool) {
 	switch node := node.(type) {
 	case *ast.IfStmt:
-		return 1, dependsOnCases(pass, node.Cond, cases), true
+		return 1, true
 	case *ast.SwitchStmt:
-		dependent := dependsOnCases(pass, node.Tag, cases)
-		for _, stmt := range node.Body.List {
-			clause, ok := stmt.(*ast.CaseClause)
+		return switchDecisionCount(node.Body), true
+	case *ast.TypeSwitchStmt:
+		return switchDecisionCount(node.Body), true
+	case *ast.ForStmt:
+		return 1, node.Cond != nil
+	case *ast.RangeStmt:
+		return 1, true
+	}
+	return 0, false
+}
+
+// analyzeStatements follows source order and forks the dependency set at
+// conditional statements. At a join, it retains only dependencies present on
+// every path; if paths disagree, later checks are treated as unknown.
+func analyzeStatements(pass *analysis.Pass, statements []ast.Stmt, cases caseVariables, dependencies map[ast.Node]bool) caseVariables {
+	for _, statement := range statements {
+		cases = analyzeStatement(pass, statement, cases, dependencies)
+	}
+	return cases
+}
+
+func analyzeStatement(pass *analysis.Pass, statement ast.Stmt, cases caseVariables, dependencies map[ast.Node]bool) caseVariables {
+	switch statement := statement.(type) {
+	case *ast.BlockStmt:
+		return analyzeStatements(pass, statement.List, cloneCaseVariables(cases), dependencies)
+	case *ast.AssignStmt:
+		assignCaseVariables(pass, statement.Lhs, statement.Rhs, cases)
+	case *ast.DeclStmt:
+		declaration, ok := statement.Decl.(*ast.GenDecl)
+		if !ok || declaration.Tok != token.VAR {
+			return cases
+		}
+		for _, spec := range declaration.Specs {
+			if values, ok := spec.(*ast.ValueSpec); ok {
+				left := make([]ast.Expr, len(values.Names))
+				for i, name := range values.Names {
+					left[i] = name
+				}
+				assignCaseVariables(pass, left, values.Values, cases)
+			}
+		}
+	case *ast.IfStmt:
+		if statement.Init != nil {
+			cases = analyzeStatement(pass, statement.Init, cases, dependencies)
+		}
+		dependencies[statement] = dependsOnCases(pass, statement.Cond, cases)
+		thenCases := analyzeStatement(pass, statement.Body, cloneCaseVariables(cases), dependencies)
+		elseCases := cloneCaseVariables(cases)
+		if statement.Else != nil {
+			elseCases = analyzeStatement(pass, statement.Else, elseCases, dependencies)
+		}
+		return intersectCaseVariables(thenCases, elseCases)
+	case *ast.SwitchStmt:
+		if statement.Init != nil {
+			cases = analyzeStatement(pass, statement.Init, cases, dependencies)
+		}
+		dependent := dependsOnCases(pass, statement.Tag, cases)
+		for _, item := range statement.Body.List {
+			if clause, ok := item.(*ast.CaseClause); ok {
+				for _, expression := range clause.List {
+					dependent = dependent || dependsOnCases(pass, expression, cases)
+				}
+			}
+		}
+		dependencies[statement] = dependent
+		return analyzeCaseClauses(pass, statement.Body.List, cases, dependencies, len(statement.Body.List) > 0 && hasDefaultClause(statement.Body.List))
+	case *ast.TypeSwitchStmt:
+		if statement.Init != nil {
+			cases = analyzeStatement(pass, statement.Init, cases, dependencies)
+		}
+		dependencies[statement] = dependsOnCases(pass, statement.Assign, cases)
+		if assignment, ok := statement.Assign.(*ast.AssignStmt); ok {
+			assignCaseVariables(pass, assignment.Lhs, assignment.Rhs, cases)
+		}
+		return analyzeCaseClauses(pass, statement.Body.List, cases, dependencies, hasDefaultClause(statement.Body.List))
+	case *ast.ForStmt:
+		if statement.Init != nil {
+			cases = analyzeStatement(pass, statement.Init, cases, dependencies)
+		}
+		dependencies[statement] = dependsOnCases(pass, statement.Cond, cases)
+		bodyCases := analyzeStatement(pass, statement.Body, cloneCaseVariables(cases), dependencies)
+		if statement.Post != nil {
+			bodyCases = analyzeStatement(pass, statement.Post, bodyCases, dependencies)
+		}
+		return intersectCaseVariables(cases, bodyCases)
+	case *ast.RangeStmt:
+		dependent := dependsOnCases(pass, statement.X, cases)
+		dependencies[statement] = dependent
+		for _, expression := range []ast.Expr{statement.Key, statement.Value} {
+			id, ok := expression.(*ast.Ident)
+			if !ok || id.Name == "_" {
+				continue
+			}
+			setCaseVariable(pass, id, dependent, cases)
+		}
+		bodyCases := analyzeStatement(pass, statement.Body, cloneCaseVariables(cases), dependencies)
+		return intersectCaseVariables(cases, bodyCases)
+	case *ast.SelectStmt:
+		var branches []caseVariables
+		for _, item := range statement.Body.List {
+			clause, ok := item.(*ast.CommClause)
 			if !ok {
 				continue
 			}
-			for _, expr := range clause.List {
-				dependent = dependent || dependsOnCases(pass, expr, cases)
+			branch := cloneCaseVariables(cases)
+			if clause.Comm != nil {
+				branch = analyzeStatement(pass, clause.Comm, branch, dependencies)
+			}
+			branches = append(branches, analyzeStatements(pass, clause.Body, branch, dependencies))
+		}
+		return intersectCaseVariables(branches...)
+	case *ast.LabeledStmt:
+		return analyzeStatement(pass, statement.Stmt, cases, dependencies)
+	}
+	return cases
+}
+
+func analyzeCaseClauses(pass *analysis.Pass, statements []ast.Stmt, cases caseVariables, dependencies map[ast.Node]bool, hasDefault bool) caseVariables {
+	branches := make([]caseVariables, 0, len(statements)+1)
+	for _, statement := range statements {
+		clause, ok := statement.(*ast.CaseClause)
+		if ok {
+			branches = append(branches, analyzeStatements(pass, clause.Body, cloneCaseVariables(cases), dependencies))
+		}
+	}
+	if !hasDefault {
+		branches = append(branches, cases)
+	}
+	return intersectCaseVariables(branches...)
+}
+
+func hasDefaultClause(statements []ast.Stmt) bool {
+	for _, statement := range statements {
+		if clause, ok := statement.(*ast.CaseClause); ok && len(clause.List) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func assignCaseVariables(pass *analysis.Pass, left, right []ast.Expr, cases caseVariables) {
+	values := make([]bool, len(left))
+	if len(left) == len(right) {
+		for i, expression := range right {
+			values[i] = isSimpleCaseExpression(expression) && dependsOnCases(pass, expression, cases)
+		}
+	}
+	for i, expression := range left {
+		id, ok := expression.(*ast.Ident)
+		if ok && id.Name != "_" {
+			setCaseVariable(pass, id, values[i], cases)
+		}
+	}
+}
+
+func setCaseVariable(pass *analysis.Pass, id *ast.Ident, dependent bool, cases caseVariables) {
+	obj := pass.TypesInfo.Defs[id]
+	if obj == nil {
+		obj = pass.TypesInfo.Uses[id]
+	}
+	if obj == nil {
+		return
+	}
+	if dependent {
+		cases[obj] = struct{}{}
+	} else {
+		delete(cases, obj)
+	}
+}
+
+func cloneCaseVariables(cases caseVariables) caseVariables {
+	clone := make(caseVariables, len(cases))
+	for obj := range cases {
+		clone[obj] = struct{}{}
+	}
+	return clone
+}
+
+func intersectCaseVariables(states ...caseVariables) caseVariables {
+	if len(states) == 0 {
+		return make(caseVariables)
+	}
+	intersection := cloneCaseVariables(states[0])
+	for obj := range intersection {
+		for _, state := range states[1:] {
+			if _, exists := state[obj]; !exists {
+				delete(intersection, obj)
+				break
 			}
 		}
-		return switchDecisionCount(node.Body), dependent, true
-	case *ast.TypeSwitchStmt:
-		return switchDecisionCount(node.Body), dependsOnCases(pass, node.Assign, cases), true
-	case *ast.ForStmt:
-		if node.Cond != nil {
-			return 1, dependsOnCases(pass, node.Cond, cases), true
-		}
-	case *ast.RangeStmt:
-		return 1, dependsOnCases(pass, node.X, cases), true
 	}
-	return 0, false, false
+	return intersection
 }
 
 func switchDecisionCount(body *ast.BlockStmt) int {

@@ -174,6 +174,188 @@ func TestStandardAlias(t *testing.T) {
 	}
 }
 
+func TestCaseDependencyClearedByConstant(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "one", enabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			flag := tc.enabled
+			t.Log(flag)
+			flag = false
+			if flag {
+				t.Log("independent")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+			if tc.enabled {
+				t.Log("third")
+			}
+		})
+	}
+}
+
+func TestCaseDependencyAddedByReassignment(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "one", enabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) { // want "分岐数: 4、ネスト深度: 1"
+			flag := false
+			flag = tc.enabled
+			if flag {
+				t.Log("dependent")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+			if tc.enabled {
+				t.Log("third")
+			}
+		})
+	}
+}
+
+func TestShadowedCaseVariableDoesNotTaintOuterVariable(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "one", enabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			flag := false
+			{
+				flag := tc.enabled
+				t.Log(flag)
+			}
+			if flag {
+				t.Log("independent")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+			if tc.enabled {
+				t.Log("third")
+			}
+		})
+	}
+}
+
+func TestConditionalReassignmentTracksBranchLocalValue(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "one", enabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) { // want "分岐数: 2、ネスト深度: 2"
+			flag := false
+			if tc.enabled {
+				flag = tc.enabled
+				if flag {
+					t.Log("dependent inside branch")
+				}
+			}
+		})
+	}
+}
+
+func TestConditionalResetDoesNotCarryStaleDependency(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "one", enabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			flag := tc.enabled
+			overwrite := false
+			if overwrite {
+				flag = false
+			}
+			if flag {
+				t.Log("unknown after branch")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+			if tc.enabled {
+				t.Log("third")
+			}
+		})
+	}
+}
+
+func TestMultipleAssignmentUpdatesCaseDependencies(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "one", enabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			left, right := tc.enabled, false
+			left, right = right, left
+			if left {
+				t.Log("independent after swap")
+			}
+			if right {
+				t.Log("dependent after swap")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+		})
+	}
+}
+
+func TestCaseDependencySurvivesUnchangedAssignments(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "one", enabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) { // want "分岐数: 4、ネスト深度: 1"
+			flag := tc.enabled
+			other := flag
+			if other {
+				t.Log("dependent")
+			}
+			if tc.enabled {
+				t.Log("first")
+			}
+			if tc.enabled {
+				t.Log("second")
+			}
+			if tc.enabled {
+				t.Log("third")
+			}
+		})
+	}
+}
+
 func TestUnrelatedLocalConditions(t *testing.T) {
 	for _, tc := range []struct {
 		name string
