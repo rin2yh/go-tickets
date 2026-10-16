@@ -10,7 +10,7 @@ import (
 
 	"github.com/rin2yh/go-tickets/internal/test/store"
 	"github.com/rin2yh/go-tickets/internal/ticket"
-	"github.com/rin2yh/go-tickets/x/testx"
+	"github.com/rin2yh/go-tickets/x/test"
 )
 
 func TestSQLQuery(t *testing.T) {

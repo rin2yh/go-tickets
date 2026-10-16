@@ -12,7 +12,7 @@ import (
 	"github.com/rin2yh/go-tickets/internal/auth"
 	"github.com/rin2yh/go-tickets/internal/event"
 	"github.com/rin2yh/go-tickets/internal/ticket"
-	"github.com/rin2yh/go-tickets/x/testx"
+	"github.com/rin2yh/go-tickets/x/test"
 )
 
 func TestPublicHandler(t *testing.T) {

@@ -16,7 +16,7 @@ import (
 const (
 	decisionLimit         = 4
 	nestedDecisionLimit   = 2
-	testxPackagePath      = "github.com/rin2yh/go-tickets/x/testx"
+	testxPackagePath      = "github.com/rin2yh/go-tickets/x/test"
 	caseNameField         = "name"
 	caseNameFieldExported = "Name"
 )

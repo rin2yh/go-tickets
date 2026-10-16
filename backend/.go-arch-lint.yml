@@ -21,8 +21,8 @@ components:
     in: internal/profile
   http:
     in: x/http
-  testx:
-    in: x/testx
+  test:
+    in: x/test
   public:
     in: cmd/public
   admin:
