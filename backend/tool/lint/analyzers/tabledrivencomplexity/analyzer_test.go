@@ -19,8 +19,6 @@ import (
 
 var updateGolden = flag.Bool("update", false, "update table-driven-complexity golden files")
 
-var analyzerTemplates *template.Template
-
 type testCase struct {
 	Rows             []inputRow
 	Branches         []branch
@@ -63,17 +61,8 @@ func newAnalyzerCase(name string, input testCase) testx.Case[testCase, string] {
 	return testx.NewCase(name, input, name)
 }
 
-func TestMain(m *testing.M) {
-	var err error
-	analyzerTemplates, err = parseCaseTemplates()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	os.Exit(m.Run())
-}
-
 func TestAnalyzer(t *testing.T) {
+	templates := loadCaseTemplates(t)
 	t.Run("standard", func(t *testing.T) {
 		standardCases := []testx.Case[testCase, string]{
 			newAnalyzerCase("standard_nested", testCase{
@@ -186,7 +175,7 @@ func TestAnalyzer(t *testing.T) {
 				SourceFile: "unrelated_loop_conditions.go.txt",
 			}),
 		}
-		runAnalyzerCases(t, analyzerTemplates, "standard", standardCases)
+		runAnalyzerCases(t, templates, "standard", standardCases)
 	})
 
 	t.Run("testx", func(t *testing.T) {
@@ -212,7 +201,7 @@ func TestAnalyzer(t *testing.T) {
 				NestedBody:       "return",
 			}),
 		}
-		runAnalyzerCases(t, analyzerTemplates, "testx", testXCases)
+		runAnalyzerCases(t, templates, "testx", testXCases)
 	})
 }
 
@@ -251,14 +240,15 @@ func runAnalyzerCase(t *testing.T, caseName string, pkg *packages.Package) {
 	compareGolden(t, caseName, normalizeDiagnostics(t, pkg, caseName+"_test.go", diagnostics))
 }
 
-func parseCaseTemplates() (*template.Template, error) {
+func loadCaseTemplates(t *testing.T) *template.Template {
+	t.Helper()
 	parsed, err := template.New("case.go.tmpl").Funcs(template.FuncMap{
 		"repeat": func(count int) []int { return make([]int, count) },
 	}).ParseFiles("testdata/case.go.tmpl")
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
-	return parsed, nil
+	return parsed
 }
 
 func generateGoSource(t *testing.T, templates *template.Template, templateName, filename string, tc testCase) []byte {
