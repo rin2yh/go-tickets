@@ -12,14 +12,14 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/rin2yh/go-tickets/x/testx"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/packages"
 )
 
 var updateGolden = flag.Bool("update", false, "update table-driven golden files")
 
-type analyzerTestCase struct {
-	name  string
+type analyzerInput struct {
 	files []testFile
 }
 
@@ -66,9 +66,8 @@ type generatedCase struct {
 
 func TestAnalyzer(t *testing.T) {
 	templates := loadCaseTemplates(t)
-	cases := []analyzerTestCase{
-		{
-			name: "duplicate",
+	cases := []testx.Case[analyzerInput, string]{
+		newAnalyzerCase("duplicate", analyzerInput{
 			files: []testFile{
 				{
 					Name: "duplicate_test.go",
@@ -124,9 +123,8 @@ func TestAnalyzer(t *testing.T) {
 					}},
 				},
 			},
-		},
-		{
-			name: "no_duplicates",
+		}),
+		newAnalyzerCase("no_duplicates", analyzerInput{
 			files: []testFile{
 				{
 					Name: "duplicate_test.go",
@@ -180,22 +178,24 @@ func TestAnalyzer(t *testing.T) {
 				},
 				{Name: "exceptions_test.go", SourceFile: "exceptions_test.go.txt"},
 			},
-		},
+		}),
 	}
 
 	generated := generateCases(t, templates, cases)
 	packagesByCase := loadGeneratedPackages(t, generated)
-	for _, generated := range generated {
-		t.Run(generated.name, func(t *testing.T) {
-			pkg := packagesByCase[generated.name]
-			if pkg == nil {
-				t.Fatalf("no generated package for case %q", generated.name)
-			}
-			diagnostics := runAnalyzer(t, pkg)
-			actual := normalizeDiagnostics(t, pkg, diagnostics)
-			compareGolden(t, generated.name, actual)
-		})
-	}
+	testx.NewTable(t, cases...).Run(func(t *testing.T, _ analyzerInput, goldenName string) {
+		pkg := packagesByCase[goldenName]
+		if pkg == nil {
+			t.Fatalf("no generated package for case %q", goldenName)
+		}
+		diagnostics := runAnalyzer(t, pkg)
+		actual := normalizeDiagnostics(t, pkg, diagnostics)
+		compareGolden(t, goldenName, actual)
+	})
+}
+
+func newAnalyzerCase(name string, input analyzerInput) testx.Case[analyzerInput, string] {
+	return testx.NewCase(name, input, name)
 }
 
 func loadCaseTemplates(t *testing.T) *template.Template {
@@ -207,7 +207,7 @@ func loadCaseTemplates(t *testing.T) *template.Template {
 	return templates
 }
 
-func generateCases(t *testing.T, templates *template.Template, cases []analyzerTestCase) []generatedCase {
+func generateCases(t *testing.T, templates *template.Template, cases []testx.Case[analyzerInput, string]) []generatedCase {
 	t.Helper()
 	generated := make([]generatedCase, 0, len(cases))
 	inputDir, err := os.MkdirTemp(".", "analyzer-input-")
@@ -225,30 +225,30 @@ func generateCases(t *testing.T, templates *template.Template, cases []analyzerT
 	})
 
 	for _, tc := range cases {
-		if !validFileName(tc.name) {
-			t.Fatalf("invalid analyzer case name %q", tc.name)
+		if !validFileName(tc.Name) {
+			t.Fatalf("invalid analyzer case name %q", tc.Name)
 		}
-		caseDir := filepath.Join(inputDir, tc.name)
+		caseDir := filepath.Join(inputDir, tc.Name)
 		if err := os.MkdirAll(caseDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		generatedTC := generatedCase{name: tc.name, dir: caseDir}
-		seenFiles := make(map[string]struct{}, len(tc.files)+1)
-		for _, input := range tc.files {
+		generatedTC := generatedCase{name: tc.Name, dir: caseDir}
+		seenFiles := make(map[string]struct{}, len(tc.Input.files)+1)
+		for _, input := range tc.Input.files {
 			if !validFileName(input.Name) || filepath.Ext(input.Name) != ".go" {
 				t.Fatalf("invalid generated Go file name %q", input.Name)
 			}
 			if _, duplicate := seenFiles[input.Name]; duplicate {
-				t.Fatalf("duplicate generated Go file %q in case %q", input.Name, tc.name)
+				t.Fatalf("duplicate generated Go file %q in case %q", input.Name, tc.Name)
 			}
 			seenFiles[input.Name] = struct{}{}
 
 			source, err := generateGoSource(templates, input)
 			if err != nil {
-				t.Fatalf("generate %s/%s: %v", tc.name, input.Name, err)
+				t.Fatalf("generate %s/%s: %v", tc.Name, input.Name, err)
 			}
 			if err := os.WriteFile(filepath.Join(caseDir, input.Name), source, 0o644); err != nil {
-				t.Fatalf("write generated source %s/%s: %v", tc.name, input.Name, err)
+				t.Fatalf("write generated source %s/%s: %v", tc.Name, input.Name, err)
 			}
 		}
 
@@ -269,7 +269,7 @@ func assertValue(*testing.T, int) {}
 func assertOther(*testing.T, int) {}
 `)
 		if err := os.WriteFile(filepath.Join(caseDir, "support.go"), supportSource, 0o644); err != nil {
-			t.Fatalf("write support source for %s: %v", tc.name, err)
+			t.Fatalf("write support source for %s: %v", tc.Name, err)
 		}
 		generated = append(generated, generatedTC)
 	}
