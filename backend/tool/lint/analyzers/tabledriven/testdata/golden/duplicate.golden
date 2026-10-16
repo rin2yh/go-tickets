@@ -1,0 +1,9 @@
+duplicate_test.go:16:6 [table-driven] TestAddTwo は TestAddOne と同じテスト構造です。テーブル駆動テストに統合してください
+duplicate_test.go:29:6 [table-driven] TestShortTwo は TestShortOne と同じテスト構造です。テーブル駆動テストに統合してください
+duplicate_test.go:42:6 [table-driven] TestLocalValueNamesTwo は TestLocalValueNamesOne と同じテスト構造です。テーブル駆動テストに統合してください
+duplicate_test.go:55:6 [table-driven] Test_ExampleTwo は Test_ExampleOne と同じテスト構造です。テーブル駆動テストに統合してください
+duplicate_test.go:67:2 [table-driven] two は one と同じテスト構造です。テーブル駆動テストに統合してください
+nested_test.go:12:3 [table-driven] two は one と同じテスト構造です。テーブル駆動テストに統合してください
+nested_test.go:26:3 [table-driven] four は three と同じテスト構造です。テーブル駆動テストに統合してください
+scopes_test.go:18:6 [table-driven] TestShadowedValuesTwo は TestShadowedValuesOne と同じテスト構造です。テーブル駆動テストに統合してください
+z_other_test.go:5:6 [table-driven] TestCrossFile は TestAddOne と同じテスト構造です。テーブル駆動テストに統合してください

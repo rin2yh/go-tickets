@@ -1,0 +1,15 @@
+package duplicate
+
+import "testing"
+
+var packageInputOne, packageInputTwo int
+
+const packageWantOne = 2
+const packageWantTwo = 3
+
+func add(n int) int               { return n + 1 }
+func multiply(n int) int          { return n * n }
+func identity[T any](value T) T   { return value }
+func sameValue(any, any) bool     { return true }
+func assertValue(*testing.T, int) {}
+func assertOther(*testing.T, int) {}
