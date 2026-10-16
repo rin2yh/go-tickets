@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/rin2yh/go-tickets/internal/event"
-	"github.com/rin2yh/go-tickets/x/testx"
+	"github.com/rin2yh/go-tickets/x/test"
 )
 
 func TestHandlerListEndpoints(t *testing.T) {

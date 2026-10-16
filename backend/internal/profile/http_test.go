@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/rin2yh/go-tickets/internal/profile"
-	"github.com/rin2yh/go-tickets/x/testx"
+	"github.com/rin2yh/go-tickets/x/test"
 )
 
 func TestStoreNameFromClerkMetadata(t *testing.T) {

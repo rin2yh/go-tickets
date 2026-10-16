@@ -12,7 +12,7 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/rin2yh/go-tickets/x/testx"
+	"github.com/rin2yh/go-tickets/x/test"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/packages"
 )
