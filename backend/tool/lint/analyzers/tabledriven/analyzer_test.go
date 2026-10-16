@@ -2,7 +2,6 @@ package tabledriven
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"go/format"
 	"os"
@@ -15,8 +14,6 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/packages"
 )
-
-var updateGolden = flag.Bool("update", false, "update table-driven golden files")
 
 type generatedCase struct {
 	inputDir   string
@@ -203,18 +200,9 @@ func normalizeDiagnostics(t *testing.T, pkg *packages.Package, diagnostics []ana
 func compareGolden(t *testing.T, caseName string, actual []byte) {
 	t.Helper()
 	goldenPath := filepath.Join("testdata", "golden", caseName+".golden")
-	if *updateGolden {
-		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(goldenPath, actual, 0o644); err != nil {
-			t.Fatal(err)
-		}
-		return
-	}
 	want, err := os.ReadFile(goldenPath)
 	if err != nil {
-		t.Fatalf("read golden: %v (run go test -update)", err)
+		t.Fatalf("read golden: %v", err)
 	}
 	if !bytes.Equal(actual, want) {
 		t.Errorf("diagnostics differ from %s\n--- want ---\n%s\n--- got ---\n%s", goldenPath, want, actual)
