@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"text/template"
 
 	"github.com/rin2yh/go-tickets/x/testx"
 	"golang.org/x/tools/go/analysis"
@@ -30,8 +29,7 @@ func TestAnalyzer(t *testing.T) {
 		newAnalyzerCase("no_duplicates"),
 	}
 
-	templates := loadCaseTemplates(t)
-	generated := generateCases(t, templates, cases)
+	generated := generateCases(t, cases)
 	packagesByInput := loadGeneratedPackages(t, generated)
 	testx.NewTable(t, cases...).Run(func(t *testing.T, inputDir, goldenName string) {
 		pkg := packagesByInput[inputDir]
@@ -48,18 +46,13 @@ func newAnalyzerCase(name string) testx.Case[string, string] {
 	return testx.NewCase(name, inputDir, name)
 }
 
-func loadCaseTemplates(t *testing.T) *template.Template {
-	t.Helper()
-	templates, err := template.ParseFiles("testdata/input/common/support.go.tmpl")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return templates
-}
-
-func generateCases(t *testing.T, templates *template.Template, cases []testx.Case[string, string]) []generatedCase {
+func generateCases(t *testing.T, cases []testx.Case[string, string]) []generatedCase {
 	t.Helper()
 	generated := make([]generatedCase, 0, len(cases))
+	support, err := os.ReadFile(filepath.Join("testdata", "input", "common", "support.go"))
+	if err != nil {
+		t.Fatalf("read shared support source: %v", err)
+	}
 	inputDir, err := os.MkdirTemp(".", "analyzer-input-")
 	if err != nil {
 		t.Fatal(err)
@@ -107,14 +100,6 @@ func generateCases(t *testing.T, templates *template.Template, cases []testx.Cas
 			}
 		}
 
-		var rendered bytes.Buffer
-		if err := templates.ExecuteTemplate(&rendered, "support.go.tmpl", nil); err != nil {
-			t.Fatalf("render support for %s: %v", tc.Name, err)
-		}
-		support, err := format.Source(rendered.Bytes())
-		if err != nil {
-			t.Fatalf("format support for %s: %v\n%s", tc.Name, err, rendered.String())
-		}
 		if err := os.WriteFile(filepath.Join(caseDir, "support.go"), support, 0o644); err != nil {
 			t.Fatalf("write support for %s: %v", tc.Name, err)
 		}
