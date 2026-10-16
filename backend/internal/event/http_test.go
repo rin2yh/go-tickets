@@ -66,45 +66,40 @@ func TestHandlerAdminEvent(t *testing.T) {
 	})
 }
 
-func TestHandlerEventEndpoints(t *testing.T) {
-	h := event.NewHandler(httpQuery{}, httpCommand{})
-	t.Run("invalid id", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodGet, "/events/0", nil)
-		r.SetPathValue("id", "0")
+func TestHandlerEvent(t *testing.T) {
+	type input struct {
+		id  string
+		err error
+	}
+	type want struct{ status int }
+	testx.NewTable[input, want](t,
+		testx.NewCase("invalid id", input{id: "0"}, want{status: http.StatusBadRequest}),
+		testx.NewCase("not found", input{id: "1", err: sql.ErrNoRows}, want{status: http.StatusNotFound}),
+		testx.NewCase("database error", input{id: "1", err: errors.New("db")}, want{status: http.StatusInternalServerError}),
+	).Run(func(t *testing.T, in input, want want) {
+		r := httptest.NewRequest(http.MethodGet, "/events/"+in.id, nil)
+		r.SetPathValue("id", in.id)
 		w := httptest.NewRecorder()
-		h.Event(w, r)
-		if w.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d", w.Code)
+		event.NewHandler(httpQuery{err: in.err}, httpCommand{}).Event(w, r)
+		if w.Code != want.status {
+			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
 		}
 	})
-	t.Run("not found", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodGet, "/events/1", nil)
-		r.SetPathValue("id", "1")
-		w := httptest.NewRecorder()
-		event.NewHandler(httpQuery{err: errors.New("missing")}, httpCommand{}).Event(w, r)
-		if w.Code != http.StatusInternalServerError {
-			t.Fatalf("status = %d", w.Code)
-		}
-	})
-	t.Run("admin draft creation", func(t *testing.T) {
-		r := httptest.NewRequest(http.MethodPost, "/events", strings.NewReader(`{"name":"Draft"}`))
-		w := httptest.NewRecorder()
-		h.CreateEvent(w, r)
-		if w.Code != http.StatusCreated {
-			t.Fatalf("status = %d, body = %s", w.Code, w.Body)
-		}
-	})
+}
+
+func TestHandlerCreateEvent(t *testing.T) {
 	type input struct{ body string }
 	type want struct{ status int }
 	testx.NewTable[input, want](t,
+		testx.NewCase("creates a draft", input{body: `{"name":"Draft"}`}, want{status: http.StatusCreated}),
 		testx.NewCase("published event requires description", input{body: `{"name":"Event","publication_status":"published"}`}, want{status: http.StatusBadRequest}),
 		testx.NewCase("malformed body", input{body: `{`}, want{status: http.StatusBadRequest}),
 	).Run(func(t *testing.T, in input, want want) {
 		r := httptest.NewRequest(http.MethodPost, "/events", strings.NewReader(in.body))
 		w := httptest.NewRecorder()
-		h.CreateEvent(w, r)
+		event.NewHandler(httpQuery{}, httpCommand{}).CreateEvent(w, r)
 		if w.Code != want.status {
-			t.Fatalf("status = %d", w.Code)
+			t.Fatalf("status = %d, want %d: %s", w.Code, want.status, w.Body.String())
 		}
 	})
 }
