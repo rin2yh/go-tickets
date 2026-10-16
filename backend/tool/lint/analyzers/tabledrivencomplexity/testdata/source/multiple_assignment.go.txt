@@ -1,0 +1,14 @@
+left, right := tc.enabled, false
+left, right = right, left
+if left {
+	t.Log("independent after swap")
+}
+if right {
+	t.Log("dependent after swap")
+}
+if tc.enabled {
+	t.Log("first")
+}
+if tc.enabled {
+	t.Log("second")
+}

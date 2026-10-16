@@ -8,8 +8,10 @@ codeToTestRatio:
   code:
     - backend/**/*.go
     - '!backend/**/*_test.go'
+    - '!backend/tool/lint/**/*.go'
   test:
     - backend/**/*_test.go
+    - '!backend/tool/lint/**/*.go'
 
 testExecutionTime:
   if: true

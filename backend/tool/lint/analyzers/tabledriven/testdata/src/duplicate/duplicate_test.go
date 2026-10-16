@@ -249,6 +249,7 @@ func Test_ExampleTwo(t *testing.T) { // want "テーブル駆動テストに統�
 	assertOther(t, 2)
 }
 
+//nolint:govet // The malformed name verifies that the analyzer ignores invalid test names.
 func Testexample(t *testing.T) {
 	assertOther(t, 3)
 }

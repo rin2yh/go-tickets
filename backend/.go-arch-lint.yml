@@ -8,6 +8,7 @@ allow:
 excludeFiles:
   - "^.*_test\\.go$"
   - "^.*internal/test/.*$"
+  - "^.*tool/lint/.*/testdata/.*$"
 
 components:
   auth:
@@ -26,6 +27,12 @@ components:
     in: cmd/public
   admin:
     in: cmd/admin
+  lint-cli:
+    in: tool/lint
+  lint-tabledriven:
+    in: tool/lint/analyzers/tabledriven
+  lint-tabledrivencomplexity:
+    in: tool/lint/analyzers/tabledrivencomplexity
 
 deps:
   http:
@@ -62,3 +69,8 @@ deps:
       - event
       - ticket
       - http
+
+  lint-cli:
+    mayDependOn:
+      - lint-tabledriven
+      - lint-tabledrivencomplexity

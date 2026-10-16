@@ -1,0 +1,12 @@
+switch {
+case tc.input == 1:
+	t.Log("first")
+case tc.input == 2:
+	t.Log("second")
+case tc.input == 3:
+	t.Log("third")
+case tc.input == 4:
+	t.Log("fourth")
+default:
+	t.Log("other")
+}

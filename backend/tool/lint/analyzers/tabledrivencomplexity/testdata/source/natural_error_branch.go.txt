@@ -1,0 +1,9 @@
+if tc.wantErr {
+	if err := run(); err == nil {
+		t.Fatal("expected an error")
+	}
+	return
+}
+if err := run(); err != nil {
+	t.Fatal(err)
+}

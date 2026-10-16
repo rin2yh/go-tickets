@@ -16,7 +16,7 @@ import (
 )
 
 var Analyzer = &analysis.Analyzer{
-	Name: "tabledriven",
+	Name: "table_driven",
 	Doc:  "finds structurally duplicate Go tests that should be table-driven",
 	Run:  run,
 }
