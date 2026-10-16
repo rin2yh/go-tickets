@@ -1,0 +1,54 @@
+{{define "file" -}}
+package duplicate
+
+import "testing"
+
+{{range .Functions}}
+{{template "function" .}}
+{{end}}
+{{range .Subtests}}
+{{template "subtests" .}}
+{{end}}
+{{end}}
+
+{{define "function" -}}
+{{if .Comment}}{{.Comment}}
+{{end}}func {{.Name}}(t *testing.T) {
+{{- if .Invocation}}
+	{{.Invocation}}
+{{- else}}
+	{{.InputName}} := {{.Input}}
+{{- if .WantName}}
+	{{.WantName}} := {{.Want}}
+{{- end}}
+	{{.GotName}} := {{.Call}}({{.InputName}})
+	if {{.Condition}} {
+{{- if .WantName}}
+		t.{{.Failure}}("got an unexpected value: %v, want %v", {{.GotName}}, {{.WantName}})
+{{- else}}
+		t.{{.Failure}}("got an unexpected value: %v", {{.GotName}})
+{{- end}}
+	}
+{{- end}}
+}
+{{end}}
+
+{{define "subtests" -}}
+func {{.Name}}(t *testing.T) {
+{{- range .Rows}}
+	t.Run({{printf "%q" .Name}}, func(t *testing.T) {
+		{{.GotName}} := {{.Call}}({{.Input}})
+{{- if .WantName}}
+		{{.WantName}} := {{.Want}}
+{{- end}}
+		if {{.Condition}} {
+			{{- if .WantName}}
+			t.Fatalf("got an unexpected value: %v, want %v", {{.GotName}}, {{.WantName}})
+			{{- else}}
+			t.Fatalf("got an unexpected value: %v", {{.GotName}})
+			{{- end}}
+		}
+	})
+{{- end}}
+}
+{{end}}
