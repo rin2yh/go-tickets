@@ -20,7 +20,7 @@ catalog:
   react: 19.3.0
   react-dom: 19.3.0
   # Keep TypeScript separate: Astro check does not support TypeScript 7 yet.
-  vite: 8.3.1
+  vite: 8.3.3
   vitest: 5.0.3
   "@vitest/coverage-v8": 5.0.3
 
@@ -31,12 +31,9 @@ allowBuilds:
   sharp: false
   unrs-resolver: true
 
-minimumReleaseAgeExclude:
-  - http-cache-semantics@4.3.0
-
 overrides:
+  # Remove after eslint-plugin-boundaries 7.2.1 meets minimumReleaseAge and is adopted.
   handlebars: 4.7.10
-  http-cache-semantics@<=4.2.0: 4.3.0
 
 # `eslint-plugin-boundaries` consumes only repository-defined patterns; braces has no patched release.
 auditConfig:

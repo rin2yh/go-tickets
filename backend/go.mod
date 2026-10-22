@@ -1,6 +1,6 @@
 module github.com/rin2yh/go-tickets
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/clerk/clerk-sdk-go/v2 v2.7.0
