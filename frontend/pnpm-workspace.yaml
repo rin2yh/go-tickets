@@ -31,12 +31,9 @@ allowBuilds:
   sharp: false
   unrs-resolver: true
 
-minimumReleaseAgeExclude:
-  - http-cache-semantics@4.3.0
-
 overrides:
+  # Remove after eslint-plugin-boundaries 7.2.1 meets minimumReleaseAge and is adopted.
   handlebars: 4.7.10
-  http-cache-semantics@<=4.2.0: 4.3.0
 
 # `eslint-plugin-boundaries` consumes only repository-defined patterns; braces has no patched release.
 auditConfig:

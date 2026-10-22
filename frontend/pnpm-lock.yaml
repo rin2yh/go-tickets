@@ -48,7 +48,6 @@ catalogs:
 
 overrides:
   handlebars: 4.7.10
-  http-cache-semantics@<=4.2.0: 4.3.0
 
 importers:
 
