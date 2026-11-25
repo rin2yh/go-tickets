@@ -55,7 +55,7 @@ jobs:
         working-directory: frontend
       - name: Report coverage
         if: always() && steps.frontend_dependencies.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: step-security/vitest-coverage-report-action@e89c203f0a03fd8fabdb34d5d0fcdd3592ac4321 # v2
+        uses: step-security/vitest-coverage-report-action@1a605c762623251200d8609bf0fade0372ee41ef # v2
         with:
           name: ${{ matrix.app }}
           working-directory: frontend/${{ matrix.app }}
