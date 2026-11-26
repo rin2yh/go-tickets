@@ -3,6 +3,10 @@
   "extends": [
     "config:recommended"
   ],
+  "minimumReleaseAgePackageManagerSync": true,
+  "npm": {
+    "minimumReleaseAge": "7 days"
+  },
   "packageRules": [
     {
       "matchUpdateTypes": [
