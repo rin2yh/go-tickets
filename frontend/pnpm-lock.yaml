@@ -143,7 +143,7 @@ importers:
         version: 26.6.3
       dotenv:
         specifier: ^18.0.5
-        version: 18.0.5
+        version: 18.0.10
 
   public:
     dependencies:
@@ -3315,8 +3315,8 @@ packages:
     resolution: {integrity: sha512-Sf2LSQP+bOlhKWWyhFsn0UsfdK/kCWRv1iuA2gXAwt3dyNabr6QSj00I2V10pidqz69soatm9ZwZvpQMTIOd5Q==}
     engines: {node: '>=12'}
 
-  dotenv@18.0.5:
-    resolution: {integrity: sha512-aBrGvt6KhjxbEnatqMWOMidftwsrCiCvqh1yNIGB9QyF0J+VcWkKDMsvYOEm7ZS82oiV+BT1sTOtIlAmUlTpwQ==}
+  dotenv@18.0.10:
+    resolution: {integrity: sha512-89FAA1xchzK2mxVWdr5F/0rldwiueXs6zJM86rO66EzekR1iBdiXRthyG+m5GvkJaFH3C2LESzamTkgndmLT2A==}
     engines: {node: '>=12'}
     hasBin: true
 
@@ -7881,7 +7881,7 @@ snapshots:
 
   dotenv@17.2.2: {}
 
-  dotenv@18.0.5: {}
+  dotenv@18.0.10: {}
 
   dset@3.1.4: {}
 
