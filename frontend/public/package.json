@@ -9,12 +9,12 @@
     "typecheck": "astro-check"
   },
   "dependencies": {
-    "@astrojs/react": "7.0.0",
+    "@astrojs/react": "7.1.9",
     "@clerk/react": "catalog:",
     "@go-tickets/ui": "workspace:*",
     "@praha/byethrow": "catalog:",
     "@tanstack/react-query": "^5.104.0",
-    "astro": "7.2.8",
+    "astro": "7.4.13",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-markdown": "^10.1.0"
