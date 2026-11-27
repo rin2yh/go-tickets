@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/clerk/clerk-sdk-go/v2 v2.7.0
-	github.com/go-jose/go-jose/v3 v3.0.4
+	github.com/go-jose/go-jose/v3 v3.0.5
 	github.com/stephenafamo/bob v0.50.0
 	github.com/syumai/workers-go v0.36.0
 	golang.org/x/tools v0.50.0
