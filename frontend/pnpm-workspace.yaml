@@ -10,7 +10,7 @@ packages:
 
 catalog:
   "@praha/byethrow": 0.12.0
-  "@clerk/react": 6.17.4
+  "@clerk/react": 6.19.2
   "@rolldown/plugin-babel": 0.2.4
   "@testing-library/react": ^16.3.3
   "@types/react": 19.3.0
