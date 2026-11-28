@@ -9,7 +9,7 @@ packages:
   - e2e
 
 catalog:
-  "@praha/byethrow": 0.12.0
+  "@praha/byethrow": 0.13.0
   "@clerk/react": 6.19.4
   "@rolldown/plugin-babel": 0.2.4
   "@testing-library/react": ^16.3.3
