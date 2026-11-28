@@ -3,7 +3,7 @@ go = "1.27.4"
 golangci-lint = "2.14.0"
 node = "26.7.0"
 pnpm = "11.5.1"
-"npm:wrangler" = "4.145.0"
+"npm:wrangler" = "4.169.0"
 
 [task_config]
 includes = [
